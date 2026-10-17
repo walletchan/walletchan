@@ -55,3 +55,15 @@ test("EIP-712 schema and field identifiers are bounded to safe identifiers", () 
     assert.match(result.error || "", /invalid name/i);
   }
 });
+
+test("EIP-712 rejects a domain that omits a declared field (would hash undefined)", () => {
+  const empty = validateEIP712TypedData("eth_signTypedData_v4", { ...base, domain: {} });
+  assert.equal(empty.valid, false);
+  assert.match(empty.error!, /missing declared field 'chainId'/);
+  const inherited = validateEIP712TypedData("eth_signTypedData_v4", {
+    ...base,
+    types: { ...base.types, EIP712Domain: [{ name: "constructor", type: "string" }] },
+    domain: {},
+  });
+  assert.equal(inherited.valid, false);
+});

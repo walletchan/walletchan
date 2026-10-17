@@ -1199,7 +1199,10 @@ export function isForceInclusionSupportedForAccount(
   l2ChainId: number,
   accountType: AccountType | undefined,
   mode: "single" | "batch" = "single",
+  vendor?: string,
 ): boolean {
+  // shortcut: Keycard Shell shares the Ledger row but force inclusion is unvalidated on it; enable after device QA.
+  if (vendor === "keycardShell") return false;
   if (!accountType || !Object.prototype.hasOwnProperty.call(ACCOUNT_TYPE_CAPABILITIES, accountType)) return false;
   const capability = ACCOUNT_TYPE_CAPABILITIES[accountType];
   if (!capability.directSigner || !capability.forceInclusion) return false;

@@ -33,6 +33,7 @@ function TransactionConfirmation({
   totalCount,
   isInSidePanel,
   accountType,
+  hardwareVendor,
   onBack,
   onConfirmed,
   onRejected,
@@ -76,7 +77,7 @@ function TransactionConfirmation({
     txRequest,
     resolvedChain?.nativeCurrency.symbol,
   );
-  const review = useTransactionReviewState(txRequest, accountType);
+  const review = useTransactionReviewState(txRequest, accountType, hardwareVendor);
   const transactionNonce = useTransactionNonce(txRequest.id, accountType);
   useEffect(() => {
     if (review.forceInclusion || replacement) {
@@ -363,7 +364,7 @@ function TransactionConfirmation({
       }
       actionNotice={(actions.error || review.simulationUnavailable || accountType === "impersonator" || isLedgerWaiting) ?
         <TransactionActionNotice actions={actions} accountType={accountType} simulationUnavailable={review.simulationUnavailable}
-          canSendImpersonatedTransaction={canSendImpersonatedTransaction} hardwareWaiting={isLedgerWaiting} /> : undefined}
+          canSendImpersonatedTransaction={canSendImpersonatedTransaction} hardwareWaiting={isLedgerWaiting} hardwareVendor={hardwareVendor} /> : undefined}
       confirmAction={<TransactionPrimaryAction actions={actions} accountType={accountType}
         canSendImpersonatedTransaction={canSendImpersonatedTransaction} rejectButton={rejectButton}
         disabledReason={confirmDisabledReason} simulationReverted={review.simulationReverted}

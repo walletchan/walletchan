@@ -15,6 +15,7 @@ import { useSplitPriorTxState } from "./useSplitPriorTxState";
 export function useTransactionReviewState(
   txRequest: PendingTxRequest,
   accountType: TransactionAccountType | undefined,
+  hardwareVendor?: "keycardShell",
 ) {
   const { tx } = txRequest;
   const delegation7702 = txRequest.delegation7702Meta;
@@ -104,7 +105,7 @@ export function useTransactionReviewState(
 
   const forceInclusionInfo = useMemo<ForceInclusionInfo | null>(() => {
     if (delegation7702 || txRequest.replacement) return null;
-    if (!isForceInclusionSupportedForAccount(tx.chainId, accountType)) {
+    if (!isForceInclusionSupportedForAccount(tx.chainId, accountType, "single", hardwareVendor)) {
       return null;
     }
     const entry = FORCE_INCLUSION_CHAINS.get(tx.chainId)!;
@@ -112,7 +113,7 @@ export function useTransactionReviewState(
       l1ChainId: entry.l1ChainId,
       l1ChainName: entry.l1ChainName,
     };
-  }, [accountType, delegation7702, tx.chainId, txRequest.replacement]);
+  }, [accountType, delegation7702, hardwareVendor, tx.chainId, txRequest.replacement]);
 
   const calldataValidation = useMemo(
     () => detectAbiEncodingError(tx.data),

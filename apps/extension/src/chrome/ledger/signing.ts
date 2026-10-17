@@ -61,22 +61,15 @@ export async function signLedgerTypedDataForAccount(input: {
       `Provided chainId "${domainChainId}" must match the active chainId "${input.chainId}"`,
     );
   }
-  const signature = ledgerSignatureHex(await signLedgerTypedData({
+  const signature = await signLedgerTypedData({
     opId: input.opId,
     deviceId: input.account.deviceId,
     hdPath: input.account.hdPath,
+    vendor: input.account.vendor,
     typedData,
-  }));
-  const recovered = await recoverTypedDataAddress({
-    ...typedData,
-    signature,
-  } as never);
-  if (recovered.toLowerCase() !== input.account.address.toLowerCase()) {
-    throw new Error(
-      "Ledger signed with a different account. Check the connected device and derivation path.",
-    );
-  }
-  return signature;
+  });
+  return pinnedSignatureHex(input.account, signature, (candidate) =>
+    recoverTypedDataAddress({ ...typedData, signature: candidate } as never));
 }
 
 export async function signAndBroadcastLedgerTransaction(input: {
@@ -145,18 +138,19 @@ export async function signPreparedLedgerTransaction(input: {
     opId: input.opId,
     deviceId: input.account.deviceId,
     hdPath: input.account.hdPath,
+    vendor: input.account.vendor,
     unsignedTx,
   });
-  const signedRaw = serializeTransaction(serializable, {
-    r: signature.r,
-    s: signature.s,
-    yParity: normalizeYParity(signature.v, Number(serializable.chainId)),
-  });
-  const recovered = await recoverTransactionAddress({ serializedTransaction: signedRaw });
-  if (recovered.toLowerCase() !== input.account.address.toLowerCase()) {
-    throw new Error("Ledger signed with a different account. Check the connected device and derivation path.");
+  const hinted = normalizeYParity(signature.v, Number(serializable.chainId));
+  // Keycard Shell's v is only a hint (truncated chain ID); try both parities, fail closed.
+  const parities = input.account.vendor === "keycardShell" ? [hinted, (1 - hinted) as 0 | 1] : [hinted];
+  for (const yParity of parities) {
+    // Legacy serialization reads v (and applies EIP-155 from chainId); typed serialization reads yParity.
+    const signedRaw = serializeTransaction(serializable, { r: signature.r, s: signature.s, v: BigInt(27 + yParity), yParity });
+    const recovered = await recoverTransactionAddress({ serializedTransaction: signedRaw });
+    if (recovered.toLowerCase() === input.account.address.toLowerCase()) return signedRaw;
   }
-  return signedRaw;
+  throw signerMismatch(input.account);
 }
 
 export async function signLedgerSignatureRequest(input: {
@@ -177,7 +171,7 @@ export async function signLedgerSignatureRequest(input: {
     messageHex = hex;
     signature = await signLedgerMessage({
       opId: input.opId, deviceId: input.account.deviceId,
-      hdPath: input.account.hdPath, hex,
+      hdPath: input.account.hdPath, vendor: input.account.vendor, hex,
     });
   } else {
     const raw = input.params[1];
@@ -190,15 +184,29 @@ export async function signLedgerSignatureRequest(input: {
       chainId: input.chainId,
     });
   }
-  const signatureHex = ledgerSignatureHex(signature);
-  const recovered = await recoverMessageAddress({
-    message: { raw: messageHex! },
-    signature: signatureHex,
-  });
-  if (recovered.toLowerCase() !== input.account.address.toLowerCase()) {
-    throw new Error("Ledger signed with a different account. Check the connected device and derivation path.");
+  return pinnedSignatureHex(input.account, signature, (candidate) =>
+    recoverMessageAddress({ message: { raw: messageHex! }, signature: candidate }));
+}
+
+/** Returns the signature that recovers to the pinned account; a Keycard Shell's v is only a hint. */
+async function pinnedSignatureHex(
+  account: LedgerAccount,
+  signature: { r: `0x${string}`; s: `0x${string}`; v: number },
+  recover: (candidate: `0x${string}`) => Promise<string>,
+): Promise<`0x${string}`> {
+  const hinted = ledgerSignatureHex(signature);
+  const candidates = account.vendor === "keycardShell"
+    ? [27, 28].map((v) => concatHex([signature.r, signature.s, toHex(v, { size: 1 })]))
+    : [hinted];
+  for (const candidate of candidates) {
+    if ((await recover(candidate)).toLowerCase() === account.address.toLowerCase()) return candidate;
   }
-  return signatureHex;
+  throw signerMismatch(account);
+}
+
+function signerMismatch(account: LedgerAccount): Error {
+  const device = account.vendor === "keycardShell" ? "Keycard Shell" : "Ledger";
+  return new Error(`${device} signed with a different account. Check the connected device and derivation path.`);
 }
 
 async function resolveChain(chainId: number): Promise<{ chain: Chain; rpcUrl: string }> {

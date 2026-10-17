@@ -15,6 +15,7 @@ export interface TransactionConfirmationProps {
   totalCount: number;
   isInSidePanel: boolean;
   accountType?: TransactionAccountType;
+  hardwareVendor?: "keycardShell";
   onBack: () => void;
   onConfirmed: () => void;
   onRejected: () => void;

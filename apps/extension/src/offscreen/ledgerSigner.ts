@@ -114,7 +114,7 @@ export function cancelActiveOperation(): void {
   activeCancel?.();
 }
 
-function pathForScheme(scheme: HdPathScheme, index: number, custom?: string): string {
+export function pathForScheme(scheme: HdPathScheme, index: number, custom?: string): string {
   if (scheme === "ledgerLive") return `m/44'/60'/${index}'/0/0`;
   if (scheme === "bip44") return `m/44'/60'/0'/0/${index}`;
   if (scheme === "legacyMew") return `m/44'/60'/0'/${index}`;

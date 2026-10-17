@@ -327,7 +327,7 @@ export function SafeProposalConfirmation({
             simulationReverted={simulationReverted}
             showRequestLifecycle={displayRequestView}
           />
-          <HardwareAccountSigningStatus accountType={selectedAccount?.type} active={isLedgerWaiting} />
+          <HardwareAccountSigningStatus accountType={selectedAccount?.type} active={isLedgerWaiting} vendor={selectedAccount?.type === "ledger" ? selectedAccount.vendor : undefined} />
         </SafeTransactionWarnings>
       )}
       contextTitle={displayRequestView ? "Request details" : "Safe transaction"}

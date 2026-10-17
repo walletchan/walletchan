@@ -39,7 +39,7 @@ import {
   HiddenPortfolioTokensView,
   HideTokensView,
   LedgerSetupScreen,
-  TrezorSetupScreen,
+  TrezorSetupScreen, KeycardShellSetupScreen,
   MoreActionsView,
   PendingTxList,
   preloadApprovalRequestScreen,
@@ -133,6 +133,7 @@ import {
 } from "@/app/unlockRouting";
 import { SafeApprovalsSurface, SafeFeatureUnavailable, SafeHomeActivity, SafeHomeApprovalRail, SafeHomeQuickActions } from "@/app/SafeAppSurfaces";
 import { toLegacyAccountType } from "@/app/safeAccountType";
+import { getHardwareVendor } from "@/components/accountIdentityLabels";
 import { HomeBackupReminder } from "@/app/home/HomeBackupReminder";
 import { PrivatePortfolioHome, useWalletHomeMode, WalletModeToggle } from "@/app/home";
 import type { UnshieldOperation } from "@/components/Shield/model/unshield";
@@ -2411,8 +2412,8 @@ function App() {
 
   // Hardware setup uses a full tab so provider approval is not popup-constrained.
   if (view === "addAccount" && hardwareSetupProviderRef.current) {
-    const HardwareSetupScreen = hardwareSetupProviderRef.current === "trezor"
-      ? TrezorSetupScreen : LedgerSetupScreen;
+    const HardwareSetupScreen = hardwareSetupProviderRef.current === "trezor" ? TrezorSetupScreen
+      : hardwareSetupProviderRef.current === "keycard-shell" ? KeycardShellSetupScreen : LedgerSetupScreen;
     return (
       <Suspense fallback={<LoadingFallback />}>
         <HardwareSetupScreen onBack={leaveHardwareSetupRoute} onComplete={async () => {
@@ -2760,10 +2761,8 @@ function App() {
                 currentIndex={currentIndex >= 0 ? currentIndex : 0}
                 totalCount={totalCount}
                 isInSidePanel={isInSidePanel || isFullscreenTab}
-                accountType={
-                  selectedTxRequest.accountType ??
-                  toLegacyAccountType(activeAccount?.type)
-                }
+                accountType={selectedTxRequest.accountType ?? toLegacyAccountType(activeAccount?.type)}
+                hardwareVendor={getHardwareVendor(accounts, selectedTxRequest.accountId ?? activeAccount?.id)}
                 crossDappBatch={crossDappBatch}
                 onBack={() => {
                   if (selectedTxRequest.replacement) {
@@ -3148,10 +3147,8 @@ function App() {
               currentIndex={currentIndex >= 0 ? currentIndex : 0}
               totalCount={totalCount}
               isInSidePanel={isInSidePanel || isFullscreenTab}
-              accountType={
-                selectedSignatureRequest.accountType ??
-                toLegacyAccountType(activeAccount?.type)
-              }
+              accountType={selectedSignatureRequest.accountType ?? toLegacyAccountType(activeAccount?.type)}
+              hardwareVendor={getHardwareVendor(accounts, selectedSignatureRequest.accountId ?? activeAccount?.id)}
               onBack={() => {
                 setSelectedSignatureRequest(null);
                 if (totalCount > 1) {

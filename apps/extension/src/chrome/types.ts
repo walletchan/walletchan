@@ -46,6 +46,8 @@ export interface LedgerAccount extends BaseAccount {
   deviceId: string;
   hdPath: string;
   hdIndex: number;
+  /** Set for a Keycard Shell signing through the shared Ledger WebHID path; absent means Ledger. */
+  vendor?: "keycardShell";
 }
 
 export interface LedgerDevice {

@@ -39,7 +39,7 @@ interface SignatureRequestConfirmationProps {
   currentIndex: number;
   totalCount: number;
   isInSidePanel: boolean;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator" | "safe";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator" | "safe"; hardwareVendor?: "keycardShell";
   onBack: () => void;
   onCancelled: () => void;
   onRejectAll: () => void;
@@ -51,7 +51,7 @@ function SignatureRequestConfirmation({
   sigRequest,
   currentIndex,
   totalCount,
-  accountType = "bankr",
+  accountType = "bankr", hardwareVendor,
   onBack,
   onCancelled,
   onRejectAll,
@@ -388,7 +388,7 @@ function SignatureRequestConfirmation({
       }
       actionNotice={<VStack align="stretch" spacing={2}>
         <SafeRiskDecision decision={safeDecision} isDisabled={isSubmitting || isRejecting} />
-        {accountType === "safe" ? <ViewOnlySigningNotice message="Safe message signing is not supported yet. Use an owner account to sign as that owner." /> : accountType === "impersonator" ? <ViewOnlySigningNotice /> : accountType === "ledger" || accountType === "trezor" ? <HardwareAccountSigningStatus accountType={accountType} active={isLedgerWaiting} /> : null}
+        {accountType === "safe" ? <ViewOnlySigningNotice message="Safe message signing is not supported yet. Use an owner account to sign as that owner." /> : accountType === "impersonator" ? <ViewOnlySigningNotice /> : accountType === "ledger" || accountType === "trezor" ? <HardwareAccountSigningStatus accountType={accountType} active={isLedgerWaiting} vendor={hardwareVendor} /> : null}
       </VStack>}
       isInteractionLocked={isLedgerWaiting}
       confirmAction={confirmButton}

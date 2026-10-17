@@ -369,7 +369,7 @@ function BatchTransactionConfirmation(props: BatchTransactionConfirmationProps) 
           accountType === "impersonator" && !customConfirmHandler
             ? <ViewOnlySigningNotice />
             : unsupportedHardware && !customConfirmHandler
-              ? <ViewOnlySigningNotice message={`Batch transactions are not supported with ${accountType === "ledger" ? "Ledger yet" : "Trezor"}.`} />
+              ? <ViewOnlySigningNotice message={`Batch transactions are not supported with ${accountType === "ledger" ? "Ledger or Keycard Shell yet" : "Trezor"}.`} />
               : undefined
         }
         confirmAction={canConfirmBatch ? <ConfirmAction

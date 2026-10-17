@@ -36,6 +36,7 @@ test("third-party contract signatures and personal_sign remain available", () =>
   assert.equal(result.valid, true);
   assert.equal(hashTypedData(JSON.parse(result.sanitized!)), hashTypedData(data));
   delete data.domain.verifyingContract;
+  data.types.EIP712Domain = data.types.EIP712Domain.filter((field: { name: string }) => field.name !== "verifyingContract");
   assert.equal(validateEIP712TypedData("eth_signTypedData_v4", data, [address]).valid, true);
   assert.equal(validateEIP712TypedData("personal_sign", "0x1234", [address]).valid, true);
   assert.equal(validateEIP712TypedData("eth_signTypedData_v4", "null", [address]).valid, false);

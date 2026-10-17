@@ -6,6 +6,9 @@ import {
 
 const TARGET = "walletchan-ledger-offscreen";
 
+/** Absent means Ledger; the Keycard Shell shares this WebHID pipeline. */
+export type LedgerVendor = "keycardShell" | undefined;
+
 export type LedgerStatusUpdate = {
   opId: string;
   status: "connecting" | "awaiting-app" | "scanning" | "awaiting-confirmation" | "signing" | "success" | "error";
@@ -48,15 +51,16 @@ async function send<T>(type: string, body: Record<string, unknown>): Promise<T> 
   }
 }
 
-export function connectLedger(opId: string, productName?: string) {
+export function connectLedger(opId: string, productName?: string, vendor?: LedgerVendor) {
   return send<{ deviceId: string; deviceLabel: string; deviceModel: string }>(
-    "offscreen:ledgerConnect", { opId, productName },
+    "offscreen:ledgerConnect", { opId, productName, vendor },
   );
 }
 
 export function scanLedgerAddresses(input: {
   opId: string; deviceId: string; startIndex: number; count: number;
   scheme: "ledgerLive" | "bip44" | "legacyMew" | "custom"; customTemplate?: string;
+  vendor?: LedgerVendor;
 }) {
   return send<Array<{ hdPath: string; hdIndex: number; address: `0x${string}` }>>(
     "offscreen:ledgerScan", input,
@@ -64,7 +68,7 @@ export function scanLedgerAddresses(input: {
 }
 
 export function signLedgerTransaction(input: {
-  opId: string; deviceId: string; hdPath: string; unsignedTx: `0x${string}`;
+  opId: string; deviceId: string; hdPath: string; vendor?: LedgerVendor; unsignedTx: `0x${string}`;
 }) {
   return send<{ r: `0x${string}`; s: `0x${string}`; v: number }>(
     "offscreen:ledgerSignTx", input,
@@ -72,7 +76,7 @@ export function signLedgerTransaction(input: {
 }
 
 export function signLedgerMessage(input: {
-  opId: string; deviceId: string; hdPath: string; hex: `0x${string}`;
+  opId: string; deviceId: string; hdPath: string; vendor?: LedgerVendor; hex: `0x${string}`;
 }) {
   return send<{ r: `0x${string}`; s: `0x${string}`; v: number }>(
     "offscreen:ledgerSignMessage", input,
@@ -80,7 +84,7 @@ export function signLedgerMessage(input: {
 }
 
 export function signLedgerTypedData(input: {
-  opId: string; deviceId: string; hdPath: string; typedData: Record<string, unknown>;
+  opId: string; deviceId: string; hdPath: string; vendor?: LedgerVendor; typedData: Record<string, unknown>;
 }) {
   return send<{ r: `0x${string}`; s: `0x${string}`; v: number }>(
     "offscreen:ledgerSignTypedData", input,

@@ -1,4 +1,5 @@
 import type { Account } from "@/chrome/types";
+import { hardwareName } from "@/components/accountIdentityLabels";
 
 export function formatTokenAmount(value: number): string {
   if (value === 0) return "0";
@@ -10,7 +11,7 @@ export function getAccountTypeLabel(account: Account): string {
   if (account.type === "bankr") return "Bankr";
   if (account.type === "privateKey") return "Private Key";
   if (account.type === "seedPhrase") return "Seed Phrase";
-  if (account.type === "ledger") return "Ledger";
+  if (account.type === "ledger") return hardwareName(account);
   if (account.type === "trezor") return "Trezor";
   if (account.type === "safe") return "Safe";
   return "View Only";

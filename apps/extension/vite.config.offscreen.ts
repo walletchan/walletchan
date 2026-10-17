@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import path from "path";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 import { sharedConfig, sharedBuildConfig, buildDir } from "./vite.config";
 
 const hardwareOffscreenCspBoundary = (): Plugin => ({
@@ -43,7 +44,11 @@ export default defineConfig({
       "reflect-metadata": "reflect-metadata/lite",
     },
   },
-  plugins: [hardwareOffscreenCspBoundary()],
+  plugins: [
+    // Keycard ShellJS frames APDUs with Node's Buffer.
+    nodePolyfills({ include: ["buffer"], globals: { Buffer: true, global: false, process: false } }),
+    hardwareOffscreenCspBoundary(),
+  ],
   build: {
     ...sharedBuildConfig,
     outDir: `${buildDir}/static/js`,

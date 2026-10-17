@@ -61,6 +61,7 @@ export async function addLedgerAccounts(input: {
       return {
         id: crypto.randomUUID(), type: "ledger", address: checksummedAddress, deviceId,
         hdPath: entry.hdPath, hdIndex: entry.hdIndex,
+        ...(input.deviceModel === "keycardShell" ? { vendor: "keycardShell" as const } : {}),
         displayName: entry.displayName?.trim().slice(0, 64) || undefined,
         createdAt: Date.now(),
       };

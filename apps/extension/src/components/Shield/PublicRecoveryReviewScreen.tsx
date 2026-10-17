@@ -194,7 +194,7 @@ export default function PublicRecoveryReviewScreen({
                         ? ` · One per ${
                             first.preview.accountType === "trezor"
                               ? "Trezor"
-                              : "Ledger"
+                              : "hardware wallet"
                           } transaction`
                         : group.options.length > 8
                           ? " · Up to 8 per transaction"

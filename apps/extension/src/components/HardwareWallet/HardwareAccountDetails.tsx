@@ -10,6 +10,7 @@ import {
   ListSurface,
   ScreenSection,
 } from "@/components/ui";
+import { hardwareName } from "@/components/accountIdentityLabels";
 
 interface StoredHardwareDevice {
   label: string;
@@ -42,7 +43,7 @@ export default function HardwareAccountDetails({
     };
   }, [account.deviceId, account.type]);
 
-  const providerName = account.type === "ledger" ? "Ledger" : "Trezor";
+  const providerName = account.type === "ledger" ? hardwareName(account) : "Trezor";
 
   return (
     <ScreenSection
@@ -53,7 +54,7 @@ export default function HardwareAccountDetails({
           <ListItemContent>
             <ListItemTitle>{device?.label || providerName}</ListItemTitle>
             <ListItemDescription>
-              {device?.model || `${providerName} model unavailable`}
+              {(device?.model === "keycardShell" ? "Keycard Shell" : device?.model) || `${providerName} model unavailable`}
             </ListItemDescription>
           </ListItemContent>
         </ListItem>
