@@ -1,15 +1,15 @@
 import { Box, HStack, Text } from "@chakra-ui/react";
 import { ChevronRightIcon } from "@chakra-ui/icons";
-import type { Account, SeedPhraseAccount } from "@/chrome/types";
+import type { Account, SafeBunkerAccount, SeedPhraseAccount } from "@/chrome/types";
 import { useSeedBackupState } from "@/components/SeedBackup/useSeedBackupState";
 
 export function HomeBackupReminder({ accounts, onBackup }: {
   accounts: Account[];
-  onBackup: (account: SeedPhraseAccount) => void;
+  onBackup: (account: SeedPhraseAccount | SafeBunkerAccount) => void;
 }) {
   const { groups, error } = useSeedBackupState();
-  const account = accounts.find((candidate): candidate is SeedPhraseAccount =>
-    candidate.type === "seedPhrase" && groups.some((group) => group.id === candidate.seedGroupId && group.backupPending === true),
+  const account = accounts.find((candidate): candidate is SeedPhraseAccount | SafeBunkerAccount =>
+    candidate.type === "safeBunker" && candidate.backupPending === true || candidate.type === "seedPhrase" && groups.some((group) => group.id === candidate.seedGroupId && group.backupPending === true),
   );
   if (!account) return error ? <Text role="alert" color="status.error.emphasis" fontSize="sm">{error}. Reopen the wallet to retry.</Text> : null;
   return <Box as="button" type="button" w="full" textAlign="left" px={3} py={2} minH="52px"

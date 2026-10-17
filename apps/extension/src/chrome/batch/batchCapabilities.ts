@@ -50,6 +50,8 @@ export async function handleWalletGetCapabilities(
     );
   };
 
+  if (account?.type === "safeBunker" && shouldEmit(account.chainId, toHexChainId(account.chainId))) capabilities[toHexChainId(account.chainId)] = { ...ATOMIC_SUPPORTED_CAP };
+
   if (account?.type === "bankr") {
     emitSupportedChains(
       capabilities,

@@ -19,3 +19,7 @@ This directory audits service-worker and renderer egress boundaries:
 
 ENS gateway traffic has additional page/sender rules and therefore lives in
 `../ensBrowsing/`. URL-to-browser navigation policy lives in `../navigation/`.
+
+`blockNumberCompatibility.test.ts` covers normal and fallback reads (including
+HTTP 400 JSON-RPC errors), explicit block pinning, invalid/missing latest blocks,
+RPC failure diagnostics, private-data suppression and no submission replay.

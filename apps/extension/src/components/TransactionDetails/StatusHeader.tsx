@@ -127,8 +127,9 @@ export default function StatusHeader({
   const originHostname = getOriginHostname(tx.origin);
   const openableOrigin = getOpenableOrigin(tx.origin);
   const privacyIdentity = getPrivacyTransactionIdentity(tx);
+  const isOwnerRotation = tx.safeBunkerMeta?.kind === "recovery";
   const isInternalWalletChan =
-    !privacyIdentity && !originHostname && tx.origin.startsWith("WalletChan");
+    !!tx.safeDeploymentMeta || isOwnerRotation || (!privacyIdentity && !originHostname && tx.origin.startsWith("WalletChan"));
   const status = getStatusPresentation(tx);
   const StatusIcon = status.icon;
   const isPending = status.pending;
@@ -189,7 +190,7 @@ export default function StatusHeader({
         iconChipBg={iconChipBg}
         isInternalWalletChan={isInternalWalletChan}
         originInitials={initials}
-        labelOverride={privacyIdentity?.label}
+        labelOverride={isOwnerRotation ? "Owner rotation" : privacyIdentity?.label}
         identityIcon={
           privacyIdentity ? (
             <PrivacyShieldIcon boxSize="24px" color="accent.highlight" />

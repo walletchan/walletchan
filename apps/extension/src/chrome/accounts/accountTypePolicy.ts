@@ -19,6 +19,7 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
   seedPhrase: { directSigner: true, forceInclusion: "raw", forceInclusionBatch: true },
   ledger: { directSigner: true, forceInclusion: "raw", forceInclusionBatch: false },
   impersonator: { directSigner: false, forceInclusion: false, forceInclusionBatch: false },
+  safeBunker: { directSigner: false, forceInclusion: false, forceInclusionBatch: false },
   safe: { directSigner: false, forceInclusion: false, forceInclusionBatch: false },
 } as const satisfies Record<AccountType, AccountTypeCapabilities>;
 

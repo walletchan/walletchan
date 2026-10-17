@@ -53,3 +53,90 @@ preview with headroom; after obtaining the real owner signature, the background
 estimates the exact envelope again and refuses execution above the reviewed limit.
 It passes those exact native overrides through normal Safe execution. This does
 not change gas behavior on single, batch, cross-dapp, or swap/bridge surfaces.
+
+## Safe Bunker confirmation
+
+Bunker single Send, ERC-5792, grouped cross-dapp intents, WalletConnect and supported
+same-chain swap CALLs converge on chrome/safeBunker/operations.ts. They do not use
+generic EOA gas/signature handlers or ordinary Safe proposal owner selection.
+Payer/gas changes invalidate the UI confirmation; background review binds the full
+envelope and re-estimates exact signed execution at release. Bunker asset preview
+uses Safe-owned user CALLs, with unavailable acknowledgement; rotation is checked
+separately in the real signed execution. Native MAX does not reserve owner gas.
+Cross-chain bridges are disabled until destination Safe/settlement support exists.
+
+### Bunker transaction confirmations
+
+Bunker transaction intents open a single `BunkerTransactionConfirmation` adapter
+using the same `ConfirmationScreen`, requesting-app identity, estimated changes,
+call list, and sticky decision region as imported Safe transactions. Fee preparation
+runs automatically for the chosen payer. The shared account picker appears compactly
+in the footer with the optional per-Bunker default preference; payer or fee changes
+invalidate the reviewed digest before confirmation. Expired reviews need a refresh.
+Unavailable asset previews retain explicit acknowledgement, while exact signed
+execution simulation and all release checks remain in the background coordinator.
+
+Incoming requests and Send/swap continuations pin the account and open its earliest
+unresolved request; explicit recovery remains directly accessible. The shared
+`QueueNavigation` shows request position, previous/next and reject-all only when
+every request is unsigned. Later ordinary requests show a link to the earlier
+request and do not prepare gas prematurely. Rejecting a request advances to the
+next pending review; cold unlock resumes the same FIFO queue. Submission selects the Bunker account and returns to
+Home Activity, which already projects its durable history row. Request management
+retains compact pending rows, grouping/separation and security/recovery controls;
+it no longer embeds transaction confirmation forms or settled transaction history.
+Signed intents cannot be rejected, and exact-byte retry remains available.
+
+### Bunker confirmation latency
+
+Review owns canonical Safe/factory/MultiSend code verification, owner discovery,
+gas estimation and fee preparation. Independent fee, gas and balance reads run
+in parallel. Review saves the existing operation.scanBlock as an exposure-scan
+anchor without adding a storage field. Historical block-anchor checks run in
+background reconciliation, never in review or Confirm.
+
+Confirm validates the live session, review/indices/call hash and origin authority
+locally, derives the owner/successor and persists the Safe signature before any
+signature-bearing RPC. It then signs the payer envelope. Local preparation fills
+only the payer nonce (explicit chain/type/gas/fees prevent eth_fillTransaction
+or re-estimation from changing reviewed values). Ledger approval precedes the
+same final preflight as local signing.
+
+safeBunker/preflight.ts chooses one fresh block and checks current chain,
+singleton/version, owner, nonce, threshold, modules, guard/fallback and owner/
+successor code/sender nonces. These reads, payer balance and one exact eth_call
+run in parallel at that block. The exact simulation uses the actual Safe
+signature, payer and reviewed gas ceiling; Confirm makes no eth_estimateGas call
+and does not re-fetch deployment bytecode or historical blocks. Auth/origin gates,
+review expiry and durable outer-byte persistence remain immediately before release.
+
+The background emits safeBunkerExecutionProgress containing only account ID,
+request ID and an allowlisted phase: signing, checking, broadcasting, submitted.
+The exact busy renderer accepts only same-extension background hints, displays
+Signing / Checking / Broadcasting, and returns to Home Activity after broadcast
+and durable pending/ambiguous status. Dapp result/history publication continues
+in the awaited background operation, with the ordinary response as a fallback
+if the hint is missed. Hints grant no authority and are not forwarded to dapps.
+
+### Bunker rejection does not wait for fee previews
+
+Bunker confirmation tracks an action identity, so only Confirm displays execution
+phases and only Reject displays Rejecting. Rejection invalidates the fee-preview
+UI effect; late responses cannot replace a rejected request. The parent advances
+from its local queue after the durable acknowledgement without awaiting a fresh
+view read, and masks rejected IDs from any older view response.
+
+Fee review performs public RPC work outside request/global secret-operation locks.
+Seed derivation remains inside the secret-operation lock with the captured live
+access guard. A latest-review claim and signing-state snapshot are checked under
+the locks before committing prepared fees. Changes from rejection, confirmation,
+recovery, grouping or account mutation invalidate stale reviews. Delivery flags
+are excluded from that snapshot but are preserved by merging only prepared fields
+into freshly loaded state. No stale review can overwrite journal changes.
+
+Reject still refuses every signed intent. It commits rejected state and the
+pending-index update first, then the trusted router replies exactly once. Result
+delivery continues outside locks; completion flags merge into a fresh journal.
+Reconciliation retries unpublished unsigned rejections before any chain RPC.
+Unpublished rejections are retained during journal compaction. Existing optional
+resultPublished/published fields supply this outbox; keys and schemas are unchanged.

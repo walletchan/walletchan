@@ -1,3 +1,4 @@
+import { formatCompactFee } from "@/lib/gasFormatUtils";
 import { useState, useEffect, useCallback, memo, useMemo } from "react";
 import {
   Box,
@@ -29,7 +30,7 @@ import {
   type GasTierSelection,
 } from "@/lib/gasTiers";
 import { useScreenEntered } from "@/components/ScreenTransition";
-import { ShapesLoader } from "@/components/Chat/ShapesLoader";
+import { GasFeeLoading } from "@/components/GasEstimate/GasFeeLoading";
 import { CustomGasEditor } from "@/components/GasEstimate/CustomGasEditor";
 import { GasFeePopover } from "@/components/GasEstimate/GasFeePopover";
 import { getInsufficientBalanceMessage } from "@/components/GasEstimate/model/balanceWarnings";
@@ -72,14 +73,6 @@ function weiToGweiStr(wei: string): string {
   return gwei.toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
 }
 
-function formatCompactFee(wei: string, symbol: string): string {
-  const value = Number(BigInt(wei)) / 1e18;
-  const amount = value.toLocaleString("en-US", {
-    maximumSignificantDigits: 4,
-    useGrouping: false,
-  });
-  return `${amount} ${symbol}`;
-}
 
 function gweiStrToWei(gweiStr: string): string | null {
   const val = Number(gweiStr);
@@ -617,24 +610,7 @@ function GasEstimateDisplay({
     onFeeSummaryChange?.(feeSummary);
   }, [feeSummary, onFeeSummaryChange]);
 
-  if (loading) {
-    return (
-      <Box
-        border="1px solid"
-        borderColor="border.default"
-        borderRadius="lg"
-        bg="surface.raised"
-        boxShadow="none"
-      >
-        <HStack px={3} py={3} justify="center" spacing={3}>
-          <ShapesLoader size="6px" />
-          <Text fontSize="xs" color="text.secondary" fontWeight="600">
-            Estimating gas…
-          </Text>
-        </HStack>
-      </Box>
-    );
-  }
+  if (loading) return <GasFeeLoading />;
 
   if (error && !estimate) {
     return (

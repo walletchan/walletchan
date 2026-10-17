@@ -101,7 +101,7 @@ export async function handleWalletConnectSendCalls(
     },
   );
 
-  if (account.type === "safe") {
+  if (account.type === "safe" || account.type === "safeBunker") {
     await withWalletConnectPendingRoute({
       id: bundleId,
       kind: "batch",

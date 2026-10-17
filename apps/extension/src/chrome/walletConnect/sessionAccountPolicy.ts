@@ -8,7 +8,7 @@ import {
   type SigningAccount,
 } from "./sessionPolicy";
 
-export type SessionAccount = SigningAccount | Extract<Account, { type: "safe" }>;
+export type SessionAccount = SigningAccount | Extract<Account, { type: "safe" | "safeBunker" }>;
 
 const SAFE_UNSUPPORTED_SESSION_METHODS = new Set([
   "personal_sign",
@@ -30,7 +30,7 @@ const LEDGER_UNSUPPORTED_SESSION_METHODS = new Set([
 ]);
 
 export function getWalletConnectMethodsForAccount(account: SessionAccount): string[] {
-  const unsupported = account.type === "safe"
+  const unsupported = (account.type === "safe" || account.type === "safeBunker")
     ? SAFE_UNSUPPORTED_SESSION_METHODS
     : account.type === "ledger"
       ? LEDGER_UNSUPPORTED_SESSION_METHODS
@@ -43,7 +43,7 @@ export function getWalletConnectMethodsForAccount(account: SessionAccount): stri
 }
 
 export function isSessionAccount(account: Account | null): account is SessionAccount {
-  return isSigningAccount(account) || account?.type === "safe";
+  return isSigningAccount(account) || account?.type === "safe" || account?.type === "safeBunker";
 }
 
 export async function resolveSessionAccount(
@@ -64,5 +64,6 @@ export async function resolveSessionAccount(
       ? "Session account identity is ambiguous"
       : "No supported account found for this session");
   }
+  if (matching[0].type === "safeBunker" && matching[0].chainId !== chainId) throw new Error("Bunker is not deployed on this chain");
   return matching[0] as SessionAccount;
 }

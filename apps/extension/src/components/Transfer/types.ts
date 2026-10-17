@@ -7,7 +7,8 @@ export type TransferAccountType =
   | "seedPhrase"
   | "ledger"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 export interface TokenTransferProps {
   token?: PortfolioToken | null;

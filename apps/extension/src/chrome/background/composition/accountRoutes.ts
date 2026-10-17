@@ -76,6 +76,7 @@ import { createBackgroundAccountManagementMessageRouter } from "../accountManage
 import { createBackgroundDappPermissionMessageRouter } from "../dappPermissionRouter";
 import { createBackgroundSecretManagementMessageRouter } from "../secretManagementRouter";
 import { createBackgroundWalletConnectSessionMessageRouter } from "../walletConnectSessionRouter";
+import { routeBackgroundSafeBunkerMessage } from "../safeBunkerRouter";
 import { createBackgroundSafeAccountMessageRouter } from "../safeAccountRouter";
 import { routeBackgroundSafeProposalMessage } from "../safeProposalRouter";
 import type { PendingResolutionComposition } from "./pendingResolution";
@@ -192,6 +193,7 @@ export function composeAccountRoutes(
     });
 
   return {
+    routeBackgroundSafeBunkerMessage,
     routeBackgroundSafeAccountMessage,
     routeBackgroundSafeProposalMessage,
     routeBackgroundDappPermissionMessage,

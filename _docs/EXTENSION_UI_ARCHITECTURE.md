@@ -266,3 +266,70 @@ types rather than introducing another account-type allowlist.
 8. Lower the source-size ratchet and update the domain audit map.
 9. Update `_docs/IMPLEMENTATION.md` only when runtime UI architecture or flow
    changed; do not duplicate styling rules here.
+
+## Safe Bunker surface
+
+`components/SafeBunker/` owns an illustrated setup intro, Create/Restore modes, canonical deployment/payer review,
+request confirmation, asset preview, bounded restore and dedicated account settings.
+See its README for individual owners. `app/BunkerAppSurfaces.tsx` composes a lazy
+request screen; `useBunkerNavigation` pins incoming and cold pending requests.
+The existing Send form is reused, with external-gas native MAX for Bunker. Existing
+Safe swap CALL preparation forwards to this coordinator for Bunker accounts.
+
+Background owns chain/config policy, secret operations and persisted envelopes.
+UI DTOs expose only Safe identity, user calls, payer/gas, status, backup reminder and review digest;
+only the last verified public owner index, never derived keys or signed envelopes. Shared asset simulation is explicitly
+a preview; exact signed execution and mandatory rotation are background gates.
+Use current semantic theme primitives, keyboard labels and narrow-width layout.
+
+Bunker requests use `components/SafeBunker/BunkerTransactionConfirmation.tsx` as
+a domain adapter to the shared `ConfirmationScreen` composition. Do not adapt
+Bunker operations into imported-Safe proposal records: their authority, rotation,
+and durable signature lifecycle remain owned by `chrome/safeBunker/`. The Bunker
+settings screen contains account details and security/recovery controls; request
+summaries are not part of settings. `requestQueue.ts` projects the background FIFO order into shared request
+navigation without hiding earlier unsigned requests. `useBunkerNavigation` pins
+incoming accounts and request hints; submission returns to
+Home Activity through the existing tab-precedence action.
+
+Bunker incoming requests use InitialRequestLoadingScreen for both the lazy surface
+and the encrypted-view load. Account settings is an independent route. Home uses PendingTxBanner and mixed PendingTxList entries; the removed
+BunkerHomeRail is not replaced with a feature-specific Home control.
+
+BunkerTransactionConfirmation shows background-owned Signing / Checking /
+Broadcasting phases. Correlated submission progress returns to Activity without
+waiting for post-broadcast route/history publication; command response remains
+an idempotent fallback. Progress is presentation-only and contains no raw signer
+material. The UI neither performs nor skips authority verification.
+
+The shared request skeleton accepts a real heading and an optional onBack handler. Bunker supplies Transaction request as its heading. Both Bunker lazy loading and encrypted-view loading pass the same Home navigation callback, so delayed loading cannot trap the user. Returning Home preserves the pending request and ignores late view responses after unmount.
+
+Bunker pending banner, notification index and request carousel share
+`safeBunker/requestPolicy.ts`. A persisted outer envelope/hash identifies a
+submitted execution, which leaves approval selection before onchain settlement.
+The next approval can render a waiting-for-settlement state without showing the
+previous transaction's hash or retry action. Submitted execution details remain outside the approval carousel.
+
+Bunker confirmation uses distinct confirm/reject/reject-all/retry/status action
+identities. Reject never renders signing progress and cancels presentation of
+in-flight fee preparation. After durable rejection acknowledgement, the parent
+advances locally and ignores rejected IDs in late view responses; navigation
+never waits for preview RPC completion or a refresh round trip.
+
+`RequestConfirmation/DecisionAccountSelector` owns the compact account identity
+and anchored menu shared by Safe proposal and Bunker request decision footers.
+It is controlled and performs no account loading, authorization, or persistence.
+
+`GasEstimate/GasFeeLoading` owns the shared animated fee-loading row for single,
+batch and Bunker transaction confirmations, including its accessible status label.
+
+Bunker account settings is a distinct `BunkerSettingsScreen` with `useBunkerSettings`
+for effects. Recovery details and sensitive-action destinations reuse app layout
+primitives. It contains no request queue, grouping controls or payer selector.
+Recovery opens its exact standard transaction review locally, preserving Back to
+recovery settings; incoming ordinary requests retain app-owned navigation.
+
+Bunker settings saves its ScreenBody scroll offset before a local sub-screen
+opens and restores it in a layout effect on Back with the existing
+`useScreenScrollRestoration` hook. The snapshot is component-local and resets
+when switching accounts; no persisted preference or second scroll owner is added.

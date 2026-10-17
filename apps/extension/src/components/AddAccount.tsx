@@ -1,3 +1,5 @@
+import { accountTypeTitles } from "./AddAccount/model/accountTypeTitles";
+import { SafeBunkerDraftScreen } from "./SafeBunker/SafeBunkerDraftScreen";
 import { useState, useEffect, memo, useMemo, useCallback } from "react";
 import {
   Box,
@@ -57,14 +59,7 @@ interface AddAccountProps {
   onOpenBiometricSettings: () => void;
 }
 
-const accountTypeTitles: Record<AccountType, string> = {
-  privateKey: "Private key",
-  seedPhrase: "Seed phrase",
-  ledger: "Ledger",
-  bankr: "Bankr API",
-  impersonator: "View-only account",
-  safe: "Safe",
-};
+
 
 function AddAccount({
   onBack,
@@ -481,6 +476,7 @@ function AddAccount({
     );
   }
 
+  if (accountType === "safeBunker") return <SafeBunkerDraftScreen onBack={() => setAccountType(null)} onActivated={(accountId) => { void chrome.runtime.sendMessage({ type: "getAccounts" }).then((accounts: Account[]) => { const account = accounts.find((candidate) => candidate.id === accountId); if (account) onAccountAdded(account); }); }} />;
   if (accountType === "safe") return <SafeEntryScreen onBack={() => setAccountType(null)} onAccountAdded={onAccountAdded} />;
   const isLocalAccount =
     accountType === "privateKey" || accountType === "seedPhrase";

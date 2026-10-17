@@ -1,3 +1,4 @@
+import { startBunkerReconciliation } from "../../safeBunker/reconciliation";
 /** Chrome listener registration and immediate startup composition. */
 
 import { sanitizeCustomExplorerUrl } from "@/lib/externalNavigation";
@@ -80,6 +81,7 @@ export function registerBackgroundLifecycle(
   onMessage: BackgroundMessageListener,
 ): void {
   startSafeSync();
+  startBunkerReconciliation();
   registerStorageAuthLockLifecycle({
     storageOnChanged: chrome.storage.onChanged as any,
     autoLockStorageKey: AUTO_LOCK_STORAGE_KEY,

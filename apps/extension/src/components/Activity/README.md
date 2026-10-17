@@ -71,3 +71,9 @@ the same `lib/privacyTransactionIdentity.ts` labels so internal storage origins
 never leak into either presentation. Keep implementation modules below roughly
 400 lines and place pure formatting/grouping coverage in
 `tests/ui/activityModel.test.ts`.
+
+Bunker rows retain a public user-call snapshot and reuse imported-Safe action
+naming/function resolution. The automatic owner swap is not shown as another
+user action. Gas payer rows use the existing Safe executor marker and normal
+EOA receipt/gas tracking. Transaction details use `historyCallModel.ts` to
+present the complete user-call list even after history calldata compaction.

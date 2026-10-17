@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRightIcon } from "@chakra-ui/icons";
 import { Button, Flex, HStack, Icon, IconButton, Text, VStack } from "@chakra-ui/react";
 
@@ -52,6 +52,7 @@ function AccountSwitcher({
   const [uncontrolledPickerOpen, setUncontrolledPickerOpen] = useState(false);
   const isPickerOpen = controlledPickerOpen ?? uncontrolledPickerOpen;
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
   const { getDisplayName, getEnsAvatar } = useAccountIdentityLabels(accounts);
 
   const setPickerOpen = useCallback(
@@ -63,9 +64,17 @@ function AccountSwitcher({
   );
 
   const closePicker = useCallback((restoreFocus = true) => {
+    restoreFocusRef.current = restoreFocus;
     setPickerOpen(false);
-    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus());
   }, [setPickerOpen]);
+
+  useEffect(() => {
+    if (isPickerOpen || !restoreFocusRef.current) return;
+    restoreFocusRef.current = false;
+    // Wait for the picker to unmount and release inert before restoring focus.
+    const frame = requestAnimationFrame(() => triggerRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [isPickerOpen]);
 
   const selectAccount = (account: Account) => {
     onAccountSelect(account);

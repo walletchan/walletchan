@@ -22,7 +22,8 @@ Review this domain in dependency order:
 7. `rpc.ts` — bounded receipt/balance/block reads, balance retry policy, and
    same-block sibling-cost correction.
 8. `nativeDelta.ts` — pure fee and sibling-cost removal from block-level native
-   balance deltas.
+   balance deltas. `nativeGasPayerPolicy.ts` shares observed-account gas-payer
+   attribution between initial enrichment and detail backfill.
 9. `assetChangeExtraction.ts` and `erc20FeeSettlement.ts` — ERC-20/NFT/native
    delta assembly and exact sponsored treasury debit/refund separation.
 10. `detailResolution.ts`, `nftTransferMetadata.ts`, and `nftMetadataCache.ts` —

@@ -33,7 +33,7 @@ export async function handleSponsoredTransfer(message: {
         error: "View-only accounts cannot send transactions",
       };
     }
-    if (account.type === "ledger" || account.type === "safe") {
+    if (account.type === "ledger" || account.type === "safe" || account.type === "safeBunker") {
       return {
         success: false,
         error: "Sponsored transfers are not supported for this account type",

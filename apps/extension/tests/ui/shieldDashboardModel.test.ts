@@ -778,7 +778,7 @@ test("Shield details and Activity use elapsed compliance progress without step c
   assert.match(statusSource, /getPrivacyShieldActivityState/);
   assert.match(statusSource, /getPrivacyTransactionIdentity/);
   assert.match(statusSource, /<PrivacyShieldIcon/);
-  assert.match(statusSource, /labelOverride=\{privacyIdentity\?\.label\}/);
+  assert.match(statusSource, /labelOverride=\{isOwnerRotation \? "Owner rotation" : privacyIdentity\?\.label\}/);
   assert.match(statusSource, /Compliance check/);
   assert.match(statusSource, /<ShieldComplianceInfoPopover/);
   assert.match(detailSource, /getShieldOperationProgress/);

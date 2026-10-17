@@ -3,7 +3,7 @@ import type { SponsoredTransferIntentValidation } from "./validation";
 
 export type SponsoredTransferSignerAccount = Exclude<
   Account,
-  { type: "impersonator" | "ledger" | "safe" }
+  { type: "impersonator" | "ledger" | "safe" | "safeBunker" }
 >;
 
 export type ValidSponsoredTransferIntent = Extract<

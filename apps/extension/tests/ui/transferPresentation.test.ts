@@ -143,5 +143,8 @@ test("native MAX preparation is shared by every signing wallet type", async () =
   assert.ok(preparationCall);
   assert.match(preparationCall, /fromAddress/u);
   assert.match(preparationCall, /resolvedAddress/u);
-  assert.doesNotMatch(preparationCall, /accountType/u);
+  assert.match(preparationCall, /accountType/u);
+  const preparation = await readFile(new URL("../../src/components/Transfer/hooks/useTransferPreparation.ts", import.meta.url), "utf8");
+  assert.match(preparation, /accountType === "safeBunker" \? token\?\.balance : isNativeToken \? nativeMaxAmount/u);
+  assert.match(preparation, /return effectiveMaxAmount \?\? ""/u);
 });

@@ -22,3 +22,7 @@
 The background remains authoritative for authentication and secret storage.
 This feature only projects `getPasskeyUnlockStatus` into an early, secret-free
 renderer guard and delegates navigation back to the App composition root.
+
+Safe Bunker selects the separate `SafeBunkerDraftScreen` for local draft creation
+and reveal only. It does not call onAccountAdded or enter normal signer setup.
+The account-type title map lives in `model/accountTypeTitles.ts`.

@@ -130,6 +130,7 @@ export async function handleRemoveAccount(
         );
       }
 
+      if (account.type === "safeBunker") throw new Error("Use Bunker security to remove this account");
       if (account.type === "safe") {
         await removeSafeAccountRecord(accountId, { walletSecretLockHeld: true });
       } else {

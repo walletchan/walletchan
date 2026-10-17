@@ -2956,3 +2956,187 @@ still reject creation. Injected Safe signature requests can enter the durable
 review queue but remain excluded from direct signing and release; the disabled
 UI action does not replace backend enforcement. No signature, submission, or
 ERC-5792 acknowledgement occurs from queuing alone.
+
+## Safe Bunker security boundary (2026-10-16)
+
+Bunker seeds use exactly 12 BIP39 words (128-bit entropy); generation, restore
+and decrypted-vault validation reject every other word count.
+
+The dedicated seed vault and revision-bound encrypted operation journal are
+wallet identity, covered by hydration/master recovery, reset and onboarding
+manifests. Missing optional keys are empty; malformed/future keys are preserved
+and fail closed. AAD binds immutable identity, purpose and journal revision.
+General vault wrapping permits agent execution but not draft management, recovery,
+removal or phrase release. Derived owner keys never enter pkVault or key caches.
+Mutable seed/key byte buffers are cleared best effort; JavaScript strings cannot
+be reliably erased. No post-quantum claim is made.
+
+Bunker messages are exact trusted UI routes, absent from provider forwarding.
+Provider/WC adapters author unsigned route provenance and exact chain/account
+binding. Every contributing origin/topic has a final synchronous revocation epoch
+gate plus live authorization checks. Unsigned revoked groups are rejected together;
+signed exposure is retained and cannot be made safe by deleting a request.
+
+Review `chrome/safeBunker/README.md` in order. Canonical Safe/factory/CALL-only
+MultiSend hashes and chain identity are checked. Only one plain EOA owner,
+threshold one, no modules/guard/fallback are accepted. User CALLs cannot target
+Safe/owner/infrastructure authority, and the only appended authority mutation is
+swapOwner. All user calls and rotation revert atomically, inner reimbursement is
+zero. Pre-sign asset/gas previews grant no execution authority.
+
+Persist an inner signature before any signature-bearing RPC request. Persist exact
+outer bytes/hash before submission. The Bunker broadcaster suppresses raw RPC
+errors and router responses use a fixed error allowlist. Recheck auth/key/role,
+request provenance, live Safe config/nonce and payer identity before signing and
+broadcast under secret-operation locking. Ledger approvals are revalidated after
+the hardware step. Bankr, view-only, imported Safe and Bunker accounts cannot pay
+outer gas. An uncertain submission only retries identical bytes; no automatic
+fresh signatures or autonomous rebroadcast.
+
+Canonical depth-three receipt, Safe execution hash, owner events and live authority
+are required for index progression. Reorg detection blocks fresh execution.
+Recovery preserves prior competing signatures and chooses unused known successors;
+a confirmed rotation invalidates same/earlier nonce signatures. Phrase restore
+cannot prove absence of unpublished signatures elsewhere: master recovery rotation
+is required, and the original transaction may win the race. Other UIs need not
+rotate. A compromised seed/current key remains full Safe authority.
+
+Bunker account removal requires a live master session and explicit backup acknowledgement,
+disconnects mapped sites before metadata removal, repairs selection, and retains
+encrypted recovery archives. Pending signed effects and unactivated submitted
+deployments block reset. Do not downgrade to a build unaware of these identity keys.
+Real hardware and funded-network QA are separate from synthetic EVM tests.
+
+Bunker RPC estimation, fee-price and exact-simulation failures use fixed step
+messages from `chrome/safeBunker/errors.ts`; raw RPC error text, causes, signed
+calldata and transport URLs are never reflected or logged. The router may expose
+its already-allowlisted command name as a diagnostic, plus exact allowlisted
+local policy errors. Unknown errors remain redacted.
+
+Retired built-in RPC defaults are upgraded only by exact chain ID and canonical
+URL in `lib/builtInRpcDefaults.ts`; custom endpoints, credentials, paths, query
+parameters and unrelated chain settings are not replaced. This compatibility
+normalization does not relax transport URL limits, chain identity, Safe runtime
+hashes, owner/nonce checks, receipt anchors or signature-release authorization.
+
+### RPC block-height compatibility and Bunker diagnostics
+
+The shared bounded `secureHttpTransport` retries a failed `eth_blockNumber`
+read using `eth_getBlockByNumber("latest", false)` on the same configured
+endpoint. It validates a non-null canonical block-number quantity before
+returning the height; Safe/Bunker state reads remain pinned to that number,
+and confirmation and reorg checks remain in force. Only the height read has
+this method fallback; signing and submission calls are never replayed by it.
+Existing per-request deadlines, byte limits, URL policy and credential/redirect
+restrictions apply to both reads. No RPC setting or persisted shape changes.
+
+`network/rpcDiagnostics.ts` maps bounded structured error metadata to fixed
+public messages for timeouts, rate limits, denied access, unsupported methods,
+invalid responses and unavailable endpoints. When both height methods are
+unsupported or the latest block is missing/invalid, Bunker review explains that
+the RPC cannot provide the block height and directs users to Network settings.
+Bunker step wrappers and the trusted UI router preserve these diagnostics;
+raw remote messages, URLs/API keys, calldata and stacks are never reflected.
+Packaged browser QA uses a disposable local proxy that rejects eth_blockNumber,
+then rejects both methods to verify the visible error and disabled confirmation,
+and restores the fallback to complete deployment, execution and rotation.
+
+### Bunker notification metadata
+
+`safeBunkerPendingV1` is local non-secret notification metadata containing only
+request ID, account ID and creation time. No seed, signature, raw transaction,
+calldata, payer, routes or origin is copied into it. It never authorizes execution:
+all review/sign/reject paths still load the validated encrypted journal and apply
+existing authority checks. Atomic journal/index writes use the existing wallet
+secret-storage lock. The trusted-UI command getPendingSafeBunkerRequests performs
+an idempotent index repair from authenticated journals with a captured live
+session; the public badge may read the index while locked. Reset clears it.
+
+### Bunker consolidated final preflight
+
+Canonical deployment verification belongs to the reviewed intent. Confirmation
+retains a single fresh, block-pinned mutable-authority check and exact gas-capped
+simulation after payer signing, including after Ledger approval. Current owner,
+nonce, singleton/version, threshold, modules, guard/fallback, payer funds and plain
+unused owner/successor checks remain mandatory. Historical receipt anchors are
+checked by reconciliation rather than by signing. Signature-before-RPC and exact
+outer-bytes-before-broadcast commits, reset/session/origin gates and ambiguity
+handling remain intact. Payer preparation cannot replace reviewed gas/fee fields.
+Progress events carry only account/request IDs and fixed phase names; no seeds,
+signatures, raw bytes, RPC URLs or errors. The renderer checks sender identity,
+absence of a sender tab, exact account/request and its active claim. Events do
+not authorize signing or bypass any background gate. Submission navigation can
+precede result/history publication, whose durable state remains background-owned.
+
+Bunker approval-queue filtering does not release signed-operation locks or erase
+journals. Submitted/ambiguous outer envelopes are excluded from notification and
+approval selection but remain available for reconciliation and explicit same-byte
+retry. Later transactions remain blocked by prior signed exposure/owner rotation;
+only their own details are presented while waiting. Recovery's master-only
+competing-operation policy is unchanged.
+
+### Bunker rejection and concurrent reviews
+
+The UI acknowledges rejection only after the encrypted rejected state and public
+pending projection commit under request/secret locks with live session proof.
+Signed intents remain non-rejectable. UI navigation precedes result delivery;
+rejected/unpublished entries persist and are retried before reconciliation RPCs.
+Delivery runs outside signing locks and merges flags into fresh state.
+Fee-review network work is unprivileged and holds no signing locks. Owner seed
+access still uses a captured live capability inside the secret-operation lock.
+Only the latest review may commit, after a locked comparison of signing state;
+prepared fields are merged without overwriting concurrent delivery flags. Late
+reviews cannot revive rejected, signed, grouped or recovered operations. The
+router suppresses second replies after its durable acknowledgement, including
+when later publication fails. Reset-aware operation claims cover that delivery.
+
+Bunker Activity projections publish only the reviewed user calls and operation
+kind through optional `safeBunkerMeta`. The final owner-swap call, Bunker owner
+signature, seed/index material, and raw signed outer envelope remain excluded
+from public history metadata. Executor rows reuse Safe address/nonce metadata
+and parse only public fee/nonce fields from the encrypted outer transaction.
+Bunker inner calldata resolution reads this public snapshot instead of
+fetching an outer transaction with a different sender and target.
+
+Bunker Activity rotation cards receive only public old/new owner addresses and
+zero-based derivation indices extracted from the final reviewed `swapOwner`.
+They do not receive the seed, derived keys, Safe signature, or signed outer
+transaction. Missing or undecodable review data omits the metadata; the UI
+never infers historical owners from the account's current state.
+
+Bunker settings removal uses the existing live master session and explicit backup acknowledgement, without transporting or re-verifying a password. The captured key/role/auth epoch are revalidated before mutation; agent and expired sessions remain blocked.
+After mapped-site disconnection, selection repair must succeed before the atomic
+local account/archive commit. Sync quota failure preserves identity and returns
+fixed public text; remote/native error payloads are not exposed. The settings owner index is public journal metadata.
+
+Bunker backup acknowledgment reuses the wallet-UI-only confirmSeedBackup route.
+Bunker IDs delegate to safeBunker/backup.ts, requiring a live master session and
+rechecking its auth epoch/key before the atomic encrypted journal/account update.
+It releases no secrets, makes no RPC calls and never treats reminder metadata as
+signing authority. Phrase release retains explicit master-password verification.
+Optional encrypted backupConfirmed and public account backupPending markers do
+not change any seed/header AAD or secret encryption.
+
+Bunker restore imports user-supplied recovery material under an existing coherent master session; it does not release an existing secret. restoreSafeBunker accepts id/seed/address/deploymentHash only. It requires a live master role and general vault key, captures the current auth epoch, and rechecks the same key/role/epoch after RPC proofs and immediately before the atomic encrypted write. Missing/expired/agent/partial capabilities cannot commit, including a lock-and-reunlock during the proof. The renderer routes expired authorization through the existing UnlockScreen; unlocking never automatically replays restore. Passwordless passkey-master sessions remain supported without reading a cached plaintext password. Explicit password gates for secret reveal remain unchanged; Bunker removal uses live master-session authorization.
+
+### Bunker current-owner recovery
+
+Phrase restore verifies original deployment and full live Safe configuration, then
+matches getOwners() against bounded local derivation pages without eth_getLogs.
+Final activation rechecks the full configuration and matched owner; owner changes
+restart the search. Current-owner matching does not establish historical owner
+usage or absence of signatures created elsewhere. Known local used owners and
+reserved nextIndex remain intact, and exposureUnknown still requires explicit
+confirmed owner rotation before spending. Legacy recovery checkpoints gain the
+optional targetOwner lazily and restart local derivation without dropping exposure.
+
+Bunker pending deployment publication: deploymentPending is public presentation
+metadata, never signing authority. An unactivated account passes hydration only
+with that exact true marker, authenticated seed/journal/account bindings and a
+valid recovered Sepolia EIP-1559 factory signature whose hash, destination, zero
+value and deterministic setup calldata match the journal. Only a broadcast attempt
+can publish a new pending account. stateForAccount continues to require activated
+state before any Bunker owner signing. Existing canonical receipt, confirmation
+and owner checks alone activate it. Payer signature paths and release locks are
+unchanged. History contains only addresses/hash/gas metadata and separate Safe and
+payer projections; no seed, child key, raw transaction or initializer is exposed.

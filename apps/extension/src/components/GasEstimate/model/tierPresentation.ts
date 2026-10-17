@@ -4,6 +4,6 @@ import type { GasTierSelection } from "@/lib/gasTiers";
 export const GAS_TIER_ACCENT: Record<GasTierSelection, string> = {
   slow: "chart.positive",
   standard: "accent.secondary",
-  fast: "chart.numeric",
+  fast: "status.warning.emphasis",
   custom: "fg.secondary",
 };

@@ -329,3 +329,36 @@ Before every release that touches `chrome.storage`:
 - **Never commit the .pem file** to the repository (it's in `.gitignore`)
 - The website API caches GitHub responses for 5 minutes to avoid rate limits
 - CWS publishing info and permission justifications are in `CHROME_WEBSTORE.md`
+
+### Sepolia default RPC compatibility (next release)
+
+Ethereum Sepolia now defaults to the live-verified PublicNode endpoint. The shared
+network normalizer upgrades only exact saved copies of the retired shipped dRPC
+default; background reads work before the UI opens, and the existing locked
+`ensureNetworksInfo` path persists the change once. This changes no key or record
+shape and needs no secret access or eager install-time migration. Check trailing
+slashes, old chain-name aliases, custom RPC preservation and repeated startup.
+
+### Bunker notification-index compatibility
+
+The additive safeBunkerPendingV1 key holds only account/request IDs and creation
+time. Older journals remain readable without migration or ciphertext changes.
+On the next authenticated pending-request load, synchronizeBunkerPendingIndex
+reconstructs the index under the owning domain lock and skips unchanged writes.
+Before first unlock, the existing unsigned inbox still contributes to the badge.
+Check missing-index repair twice, unchanged encrypted journal bytes, inbox/index
+deduplication, badge persistence while locked, removal after submission/rejection,
+account deletion and reset cleanup. Never use notification hints for authority.
+
+Bunker history rotation metadata is additive and optional: older rows render
+without the card until unlocked journal reconciliation backfills public
+addresses and indices from each operation's review. No install-time seed
+access or encrypted-journal rewrite is needed.
+
+Bunker pending-deployment checks: verify an unsigned preparation adds no account;
+a broadcast attempt publishes a selectable pending account and both Activity rows.
+Lock/restart preserves it without permitting owner execution. A mined success
+updates both rows; canonical three-confirmation verification clears pending state
+without stealing the selected account. Missing history repairs idempotently. Check
+reverted/uncertain submission, exact retry, gas payer history attribution and old
+confirmed accounts with no deploymentPending field.

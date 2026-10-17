@@ -1,3 +1,5 @@
+import { enqueueBunkerRequest } from "../safeBunker/inbox";
+import { normalizeBunkerIngressTransaction } from "../safeBunker/ingress";
 import { getActiveAccount } from "../accountStorage";
 import type { TransactionParams } from "../bankr/submission";
 import { savePendingTxRequest } from "../requests/pendingTxStorage";
@@ -27,6 +29,12 @@ export async function handleInitiateTransfer(message: {
   const activeAccount = await getActiveAccount();
   if (!activeAccount) {
     return { success: false, error: "No active account" };
+  }
+  if (activeAccount.type === "safeBunker") {
+    const id = crypto.randomUUID();
+    await enqueueBunkerRequest({ accountId: activeAccount.id, id, chainId: tx.chainId,
+      calls: normalizeBunkerIngressTransaction(activeAccount, tx), routes: [{ kind: "wallet", origin: "WalletChan", requestId: id }] });
+    return { success: true, txId: id };
   }
   if (activeAccount.type === "safe") {
     try {

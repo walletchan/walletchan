@@ -9,7 +9,8 @@ export type AccountType =
   | "seedPhrase"
   | "ledger"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 /**
  * Password type for unlock sessions
@@ -66,13 +67,24 @@ export interface SafeAccount extends BaseAccount {
   type: "safe";
 }
 
+/** Standard Safe controlled by a dedicated Bunker seed; pending deployment cannot execute. */
+export interface SafeBunkerAccount extends BaseAccount {
+  type: "safeBunker";
+  deploymentPending?: true;
+  backupPending?: true;
+  chainId: number;
+  derivationVersion: 1;
+  seedVaultId: string;
+}
+
 export type Account =
   | BankrAccount
   | PrivateKeyAccount
   | SeedPhraseAccount
   | LedgerAccount
   | ImpersonatorAccount
-  | SafeAccount;
+  | SafeAccount
+  | SafeBunkerAccount;
 
 /**
  * Seed group metadata (stored alongside accounts)

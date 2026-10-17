@@ -20,7 +20,8 @@ export type AccountType =
   | "seedPhrase"
   | "ledger"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 interface AddAccountTypeGridProps {
   hasBankrAccount: boolean;
@@ -67,6 +68,14 @@ const accountTypes = [
     icon: SafeIcon,
     iconBg: "status.success.bg",
     iconColor: "status.success.fg",
+  },
+  {
+    type: "safeBunker" as const,
+    title: "Safe Bunker",
+    description: "with automatic owner rotation",
+    icon: SafeIcon,
+    iconBg: "status.info.bg",
+    iconColor: "status.info.fg",
   },
   {
     type: "bankr" as const,

@@ -38,7 +38,7 @@ export async function handleWalletConnectSessionProposal(
   try {
     const networksInfo = await getStoredNetworksInfo();
     const visibleChains = getVisibleChains(networksInfo, account.type);
-    let eligibleChains = visibleChains;
+    let eligibleChains = account.type === "safeBunker" ? visibleChains.filter((c) => c.chainId === account.chainId) : visibleChains;
     if (account.type === "safe") {
       requireSafeFeature("walletConnect");
       const record = await getSafeAccountRecord(account.id);

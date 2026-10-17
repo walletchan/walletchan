@@ -114,7 +114,7 @@ export default function AccountSettingsIdentity({
           >
             {title}
           </Text>
-          <Badge variant="subtle" fontSize="xs" flexShrink={0}>
+          <Badge variant="subtle" bg="surface.raisedHover" color="fg.secondary" fontSize="xs" flexShrink={0}>
             {getAccountSettingsTypeLabel(account)}
           </Badge>
         </HStack>

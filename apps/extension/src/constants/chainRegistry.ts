@@ -730,7 +730,7 @@ interface NativeTestnetSpec {
  * `testnetChainIds` arrays for icon recognition but are not native entries.
  */
 const NATIVE_TESTNET_SPECS: readonly NativeTestnetSpec[] = [
-  { chainId: 11155111, parentChainId: 1, name: "Ethereum Sepolia", rpcUrl: "https://sepolia.drpc.org", explorer: "https://sepolia.etherscan.io", nativeCurrency: ETH_CURRENCY, isEip7702Supported: true },
+  { chainId: 11155111, parentChainId: 1, name: "Ethereum Sepolia", rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io", nativeCurrency: ETH_CURRENCY, isEip7702Supported: true },
   { chainId: 560048, parentChainId: 1, name: "Ethereum Hoodi", rpcUrl: "https://rpc.hoodi.ethpandaops.io", explorer: "https://hoodi.etherscan.io", nativeCurrency: ETH_CURRENCY, isEip7702Supported: true },
   { chainId: 11124, parentChainId: 2741, name: "Abstract Sepolia", rpcUrl: "https://api.testnet.abs.xyz", explorer: "https://sepolia.abscan.org", nativeCurrency: ETH_CURRENCY },
   { chainId: 421614, parentChainId: 42161, name: "Arbitrum Sepolia", rpcUrl: "https://arbitrum-sepolia.drpc.org", explorer: "https://sepolia.arbiscan.io", nativeCurrency: ETH_CURRENCY, isEip7702Supported: true },

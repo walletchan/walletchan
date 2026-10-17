@@ -19,6 +19,7 @@ const accountTypes: AccountType[] = [
   "seedPhrase",
   "ledger",
   "impersonator",
+  "safeBunker",
   "safe",
 ];
 

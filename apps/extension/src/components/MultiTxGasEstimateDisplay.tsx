@@ -4,6 +4,7 @@ import { WarningIcon, ExternalLinkIcon } from "@chakra-ui/icons";
 import { GasEstimate } from "@/chrome/gasEstimation";
 import {
   formatEthCompact,
+  formatCompactFee,
   formatEthExact,
   formatGwei,
   formatWeiToUsd,
@@ -20,7 +21,7 @@ import {
   type GasTierSelection,
 } from "@/lib/gasTiers";
 import { useScreenEntered } from "@/components/ScreenTransition";
-import { ShapesLoader } from "@/components/Chat/ShapesLoader";
+import { GasFeeLoading } from "@/components/GasEstimate/GasFeeLoading";
 import { GasFeePopover } from "@/components/GasEstimate/GasFeePopover";
 import {
   applyBatchedNativeOutlayBalance,
@@ -940,24 +941,7 @@ function MultiTxGasEstimateDisplay({
   }, [hasFallback, autoExpanded]);
 
   // Loading state
-  if (loading) {
-    return (
-      <Box
-        border="1px solid"
-        borderColor="border.default"
-        borderRadius="lg"
-        bg="surface.raised"
-        boxShadow="none"
-      >
-        <HStack px={3} py={3} justify="center">
-          <ShapesLoader size="6px" />
-          <Text fontSize="xs" color="text.secondary" fontWeight="600">
-            Estimating gas…
-          </Text>
-        </HStack>
-      </Box>
-    );
-  }
+  if (loading) return <GasFeeLoading />;
 
   // Error state
   if (error && validEstimates.length === 0) {
@@ -1062,7 +1046,7 @@ function MultiTxGasEstimateDisplay({
       <GasFeePopover
         expanded={expanded}
         fiatFee={usdDisplay}
-        nativeFee={formatEthCompact(totalCostWei, sym)}
+        nativeFee={formatCompactFee(totalCostWei, sym)}
         tier={showPicker ? tier : undefined}
         onToggle={() => setExpanded((value) => !value)}
         onClose={() => setExpanded(false)}

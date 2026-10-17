@@ -38,6 +38,7 @@ export type AppView =
   | "chat"
   | "addAccount"
   | "safeApprovals"
+  | "safeBunker"
   | "transfer"
   | "swap"
   | "staking"
@@ -49,7 +50,6 @@ export type AppView =
   | "batchTxConfirm"
   | "crossDappBatchConfirm"
   | "txDetail";
-
 interface ScreenMeta {
   kind: ScreenTransitionKind;
   depth: number;
@@ -70,6 +70,7 @@ export const SCREEN_META: Record<AppView, ScreenMeta> = {
   walletConnect: { kind: "slide", depth: 1 },
   chat: { kind: "slide", depth: 1 },
   addAccount: { kind: "slide", depth: 1 },
+  safeBunker: { kind: "slide", depth: 1 },
   safeApprovals: { kind: "slide", depth: 1 },
   pendingTxList: { kind: "slide", depth: 1 },
   txDetail: { kind: "slide", depth: 2 },

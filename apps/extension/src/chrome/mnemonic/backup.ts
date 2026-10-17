@@ -1,4 +1,5 @@
 /** Master-only acknowledgment of the non-secret recovery reminder. */
+import { confirmBunkerBackup } from "../safeBunker/backup";
 import { confirmSeedGroupBackup } from "../accountStorage";
 import { resolveMasterMnemonicAccess } from "./masterAccess";
 import { assertCurrentMasterAuthorization } from "../masterAuthorization";
@@ -6,6 +7,7 @@ import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLoc
 
 export async function confirmSeedBackup(seedGroupId: string) {
   try {
+    if (seedGroupId.startsWith("bunker-draft:")) return await confirmBunkerBackup(seedGroupId);
     const access = await resolveMasterMnemonicAccess();
     if (!access.success) return access;
     await withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {

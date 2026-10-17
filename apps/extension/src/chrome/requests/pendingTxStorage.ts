@@ -220,6 +220,8 @@ export async function updateBadge(): Promise<void> {
   const crossDappBatch = await getCrossDappBatch();
   const dappConnectionRequests = await getPendingDappConnectionRequests();
   const safeProposals = await getSafeProposals().catch(() => []);
+  const { getPendingBunkerRequests } = await import("../safeBunker/pendingRequests");
+  const bunkerPendingCount = (await getPendingBunkerRequests().catch(() => [])).length;
   const safePendingCount = getPendingSafeRequests(safeProposals).length;
   const crossDappBatchCount = crossDappBatch?.entries.length ? 1 : 0;
   const approvalCount =
@@ -228,7 +230,7 @@ export async function updateBadge(): Promise<void> {
     batchRequests.length +
     permissionRequests.length +
     crossDappBatchCount +
-    safePendingCount;
+    safePendingCount + bunkerPendingCount;
   // A connection prompt should make an otherwise-idle extension noticeable,
   // but it must never inflate or obscure the actionable approval count.
   const count = approvalCount || (dappConnectionRequests.length > 0 ? 1 : 0);

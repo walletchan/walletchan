@@ -1,3 +1,4 @@
+import type { PendingBunkerRequest } from "@/chrome/safeBunker/pendingRequests";
 import { memo } from "react";
 import { Button, Text } from "@chakra-ui/react";
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
@@ -13,7 +14,7 @@ import {
   EmptyStateDescription,
   EmptyStateHeader,
   EmptyStateTitle,
-  ListSurface,
+  ListSurface, ListItem, ListItemContent, ListItemTitle, ListItemDescription,
   ScreenBody,
   StickyActionBar,
 } from "@/components/ui";
@@ -25,6 +26,8 @@ interface PendingTxListProps {
   permissionRequests?: PendingErc7715PermissionRequest[];
   batchRequests?: PendingBatchTxRequest[];
   crossDappBatch?: CrossDappBatch | null;
+  bunkerRequests?: PendingBunkerRequest[];
+  onSelectBunker?: (id: string) => void;
   onBack: () => void;
   onSelectTx: (txRequest: PendingTxRequest) => void;
   onSelectSignature: (sigRequest: PendingSignatureRequest) => void;
@@ -36,6 +39,7 @@ interface PendingTxListProps {
 
 function PendingTxList({
   txRequests,
+  bunkerRequests = [], onSelectBunker,
   signatureRequests,
   permissionRequests = [],
   batchRequests = [],
@@ -55,7 +59,7 @@ function PendingTxList({
     crossDappBatch,
     permissionRequests,
   );
-  const totalCount = combinedRequests.length;
+  const totalCount = combinedRequests.length + bunkerRequests.length;
 
   return (
     <AppScreen>
@@ -103,6 +107,9 @@ function PendingTxList({
                   onSelectCrossDappBatch={onSelectCrossDappBatch}
                 />
               ))}
+              {bunkerRequests.map((request) => <ListItem key={`bunker:${request.id}`} as="button" interactive type="button" w="full" textAlign="start" onClick={() => onSelectBunker?.(request.id)}>
+                <ListItemContent><ListItemTitle>Transaction request</ListItemTitle><ListItemDescription>Safe Bunker · Sepolia</ListItemDescription></ListItemContent>
+              </ListItem>)}
             </ListSurface>
           </>
         ) : (
@@ -117,7 +124,7 @@ function PendingTxList({
         )}
       </ScreenBody>
 
-      {totalCount > 0 && (
+      {totalCount > 0 && bunkerRequests.length === 0 && (
         <StickyActionBar
           primaryAction={
             <Button variant="danger" minH="44px" onClick={onRejectAll}>

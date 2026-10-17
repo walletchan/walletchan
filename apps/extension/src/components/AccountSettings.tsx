@@ -1,3 +1,4 @@
+import { BunkerSettingsScreen } from "./SafeBunker/BunkerSettingsScreen";
 import { useState, useEffect, useRef, memo } from "react";
 import {
   Box,
@@ -33,7 +34,7 @@ import {
   CheckIcon,
 } from "@chakra-ui/icons";
 import { useThemedToast } from "@/hooks/useThemedToast";
-import type { Account, PasswordType, SeedGroup } from "@/chrome/types";
+import type { PasswordType, SeedGroup } from "@/chrome/types";
 import { resolveNameToAddress, isResolvableName } from "@/lib/ensUtils";
 import { isAddress } from "@ethersproject/address";
 import {
@@ -67,30 +68,8 @@ import { formatUsd } from "@/lib/currencyFormatUtils";
 import MiddleTruncatedAddress from "@/components/MiddleTruncatedAddress";
 import { getAccountRemovalCopy } from "./accountRemovalModel";
 import { SafeSecurityScreen } from "./SafeAccount/SafeSecurityScreen";
-interface AccountSettingsProps {
-  account: Account | null;
-  onClose: () => void;
-  onAccountUpdated: () => void | Promise<unknown>;
-  accounts: Account[];
-  initialView?: AccountSettingsSubView;
-  onSessionExpired?: (returnView?: AccountSettingsSubView) => void;
-  apiKeyDraft?: BankrConfigDraft | null;
-  onApiKeyDraftChange?: (draft: BankrConfigDraft | null) => void;
-}
-
-export type AccountSettingsSubView =
-  | "settings"
-  | "changeApiKey"
-  | "revealPrivateKey"
-  | "revealSeedPhrase"
-  | "smartAccount"
-  | "delegatedPermissions";
-
-export interface BankrConfigDraft {
-  accountId: string;
-  apiKey: string;
-  walletAddress: string;
-}
+import type { AccountSettingsProps, AccountSettingsSubView, BankrConfigDraft } from "./AccountSettings/types";
+export type { AccountSettingsSubView, BankrConfigDraft } from "./AccountSettings/types";
 
 function isWalletLockedError(error: string | undefined): boolean {
   return /wallet is locked|session expired|please unlock/i.test(error || "");
@@ -100,6 +79,7 @@ function AccountSettings({
   account,
   onClose,
   onAccountUpdated,
+  onBunkerSubmitted,
   accounts,
   initialView = "settings",
   onSessionExpired,
@@ -583,6 +563,8 @@ function AccountSettings({
   };
 
   if (!account) return null;
+  if (account.type === "safeBunker" && initialView === "revealSeedPhrase") return <RevealSeedPhrase account={account} onBack={onClose} />;
+  if (account.type === "safeBunker") return <BunkerSettingsScreen key={account.id} account={account} accounts={accounts} onBack={onClose} onAccountUpdated={onAccountUpdated} onSubmitted={() => onBunkerSubmitted ? onBunkerSubmitted(account) : onClose()} />;
   if (account.type === "safe") return <SafeSecurityScreen account={account} onBack={onClose} onAccountUpdated={async () => { await onAccountUpdated(); }} onRemoved={async () => { await onAccountUpdated(); onClose(); }} />;
   if (view === "revealPrivateKey") {
     return <RevealPrivateKey account={account} onBack={() => setView("settings")} />;
