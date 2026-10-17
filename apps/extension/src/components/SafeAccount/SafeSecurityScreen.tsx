@@ -190,7 +190,7 @@ export function SafeSecurityScreen({
                 />
               </Box>
 
-              <ScreenSection title="Account name" description="Shown throughout WalletChan.">
+              <ScreenSection title="Account name">
                 <FormControl>
                   <HStack spacing={2}>
                     <Input
@@ -265,7 +265,6 @@ export function SafeSecurityScreen({
                     <ListItemMedia><DeleteIcon color="status.error.emphasis" boxSize={5} /></ListItemMedia>
                     <ListItemContent>
                       <ListItemTitle color="status.error.emphasis">Remove Safe</ListItemTitle>
-                      <ListItemDescription>Remove this Safe account from WalletChan</ListItemDescription>
                     </ListItemContent>
                   </ListItem>
                 </ListSurface>

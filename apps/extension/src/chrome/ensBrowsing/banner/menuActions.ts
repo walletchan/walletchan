@@ -1,3 +1,4 @@
+import { ensHistoryUrl, ensLimoUrl, gnsGatewayUrl, web3GatewayUrl } from "@/constants/externalUrls";
 import { currentPagePath } from "./pageState";
 import { openGatewayWithBypass } from "./transport";
 import type { BannerRefs, BannerTabContext } from "./types";
@@ -12,10 +13,10 @@ export function buildHostedGatewayUrl(
   const isGwei = /\.gwei$/i.test(context.ensName);
   const isWeb3 = !isWei && !isGwei && context.kind === "web3" && !!context.contractAddress;
   return isWeb3 && context.contractAddress
-    ? `https://${context.contractAddress}.w3eth.io${path}`
+    ? `${web3GatewayUrl(context.contractAddress)}${path}`
     : isGwei
-      ? `https://${context.ensName}.domains${path}`
-      : `https://${context.ensName}.limo${path}`;
+      ? `${gnsGatewayUrl(context.ensName)}${path}`
+      : `${ensLimoUrl(context.ensName)}${path}`;
 }
 
 export function wireBannerMenu(
@@ -27,7 +28,7 @@ export function wireBannerMenu(
   if (isAddressNavigation || isGwei || /\.wei$/i.test(context.ensName)) {
     refs.historyLink.style.display = "none";
   } else {
-    refs.historyLink.href = `https://ens.eth.sh/history/${context.ensName.toLowerCase()}`;
+    refs.historyLink.href = ensHistoryUrl(context.ensName);
   }
 
   const isWei = /\.wei$/i.test(context.ensName);

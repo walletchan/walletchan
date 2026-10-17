@@ -46,6 +46,9 @@ inject.ts (content script bridge)  Extension UI (popup/sidepanel)
   v                                  - Communicates via chrome.runtime
 background.ts (five-line entrypoint) → background/bootstrap.ts
   → background/messagePipeline.ts + background/composition/
+  → hardware/offscreenManager.ts → authenticated hardware offscreen
+       → Ledger WebHID signer
+       → Trezor Connect exact-payload signer
   → privacy/protocol/ (pinned crypto/artifact boundary; no UI import)
   → privacy/deployment/ (compile-time-selected fixed-chain public-RPC identity check; no account input)
   → privacy/deposit/ (public quote + master-only non-submittable review preparation)
@@ -175,6 +178,19 @@ To maintain agent password access control guards across service worker restarts:
 
 ---
 
+### Add-account seed navigation
+
+The Add account chooser shows only the existing public seed-group summaries
+before its new-account cards. The saved group’s + Add action does not grant
+mnemonic access: both it and the direct Seed phrase setup entry call the existing
+`ensureMnemonicAccess` gate. Signing-only legacy biometrics lead to the
+upgrade notice; cancelled/failed step-up cannot open the seed workflow.
+Seed setup and derivation recheck access on submission, and background
+`resolveMasterMnemonicAccess` plus epoch-bound secret-operation locks still
+reject locked, agent, stale, or missing-mnemonic-capability sessions. Listing
+groups does not reveal words or keys. No storage, message audience, or signing
+authority is added by this navigation change.
+
 ## Agent Password Access Control
 
 The agent password model restricts what operations are available when the wallet is unlocked with the agent (secondary) password vs. the master password.
@@ -209,10 +225,10 @@ The agent password model restricts what operations are available when the wallet
 | Quote an active-chain Shield amount | Yes | Yes | Read-only exact-account public balance/fee/gas simulation; impersonators rejected and no intent, note, signer, or submission exists |
 | Prepare an active-chain Shield review | Yes | **BLOCKED** | Decrypts recovery only under the wallet-secret lock and a live master epoch; exact-shape validation pins the accepted public gross quote to the entered net amount and produces a non-persisted, non-submittable background intent with no calldata or commitment material returned |
 | Persist an active-chain Shield operation | Yes | **BLOCKED** | `privacy/operations/prepare.ts` repeats deployment/quote/account/master checks, verifies the accepted public gross quote pin against the entered net amount, requires the authenticated dedicated privacy capability from a password or fresh matching biometric master session, atomically reserves a distinct index, and encrypts sensitive operation details before the trusted confirmation request exists; phrase reveal remains explicit-main-password-only |
-| Confirm/submit active-chain Shield | Yes | **BLOCKED** | Trusted account-pinned pending request; encrypted intent, deployment, account, and master epoch are rechecked at confirmation and the final effect boundary. Sepolia supports private-key/seed-phrase/Ledger but blocks Bankr; mainnet also supports Bankr. Ledger keeps the prompt pending through device approval and begins the privacy effect only at the final pre-broadcast boundary. Impersonators never submit. |
+| Confirm/submit active-chain Shield | Yes | **BLOCKED** | Trusted account-pinned pending request; encrypted intent, deployment, account, and master epoch are rechecked at confirmation and the final effect boundary. Sepolia supports private-key/seed-phrase/Ledger/Trezor but blocks Bankr; mainnet also supports Bankr. Ledger and Trezor keep the prompt pending through device approval and begin the privacy effect only at the final pre-broadcast boundary. Impersonators never submit. |
 | Prepare/submit private Unshield | Yes | **BLOCKED** | Wallet-wide privacy authority: no active public account is accepted in the request or consulted during quote/proof work. `privacy/withdrawals/` validates the dedicated master capability, signed relayer economics, roots, membership, proof signals, auth epoch, and nullifier immediately before POST. |
 | Preview public Shield recovery | Yes | **BLOCKED** | `privacyPreviewRagequit` requires live master authorization and returns every locally verified ragequittable deposit as only a bounded opaque commitment-record ID, timestamp, account metadata, source-operation binding, and current whole-commitment amount; a valid lookup with none returns an empty collection. Preview does not start the disposable global-event backfill; preparation still fail-closes by checking the selected current nullifier onchain before proof generation and again inside the final claim. Preview may materialize already-indexed encrypted commitment state but creates no proof, recovery intent, claim, pending request, or external effect. |
-| Prepare/confirm public Shield recovery | Yes | **BLOCKED** | `privacy/ragequit/` requires the original depositor, repeats every selected opaque commitment ID plus optional transaction-detail source binding, and rejects duplicates, mixed accounts, stale status, or account/source/amount drift. A single exit uses the normal pinned request for all four signing account types; 2–8 same-account exits use one immutable EIP-7702/ERC-7821/Bankr atomic batch whose operation-ID/call order and encrypted claims are rechecked at the final effect boundary. Ledger batches fail closed and exit one commitment per device-signed transaction. Impersonators never submit. |
+| Prepare/confirm public Shield recovery | Yes | **BLOCKED** | `privacy/ragequit/` requires the original depositor, repeats every selected opaque commitment ID plus optional transaction-detail source binding, and rejects duplicates, mixed accounts, stale status, or account/source/amount drift. A single exit uses the normal pinned request for all five signing account types; 2–8 same-account exits use one immutable EIP-7702/ERC-7821/Bankr atomic batch whose operation-ID/call order and encrypted claims are rechecked at the final effect boundary. Ledger and Trezor batches fail closed and exit one commitment per device-signed transaction. Impersonators never submit. |
 | Reveal/restore/rescan Privacy Pools recovery | Yes | **BLOCKED** | `background/privacyRecoveryRouter.ts` requires the exact trusted UI plus explicit main-password proof or a live master epoch; plaintext reveal is confined to the Settings leaf and restore resets only rebuildable privacy state |
 | Initiate token transfer          | Yes    | Yes         | `txHandlers.ts` - creates PendingTxRequest                                     |
 | Reset extension                  | Yes    | **BLOCKED** | `background/resetRouter.ts` requires an explicit boolean Shield-loss acknowledgement when Shield data exists, then uses the exact `storage/resetManifest.ts` |
@@ -523,10 +539,10 @@ change during review.
 
 `getTransactionNonce` is the adjacent read-only review helper. It stays
 `wallet-ui` only, accepts a pending transaction ID rather than an arbitrary
-address, re-resolves the exact pinned PK/seed/Ledger account, verifies the
+address, re-resolves the exact pinned PK/seed/Ledger/Trezor account, verifies the
 stored `from`, and previews the pending/cache nonce without advancing it. The
 confirmation handlers accept an explicit nonce only as a non-negative safe
-integer and only for native-gas PK/seed/Ledger execution; Bankr, impersonator,
+integer and only for native-gas PK/seed/Ledger/Trezor execution; Bankr, impersonator,
 force-inclusion, and fee-token paths cannot silently consume the override.
 
 `prepareTransactionReplacement` is also `wallet-ui` only. It accepts no
@@ -663,9 +679,10 @@ pairing, session relay, and active-session keepalive requests are functional
 transport traffic rather than product analytics.
 
 WalletConnect session methods are account-specific. Bankr, private-key, and
-seed-phrase accounts retain the full supported EOA method set. Ledger sessions
-allow single transactions plus `personal_sign` and validated EIP-712, but do
-not advertise or accept ERC-5792 or delegated-permission methods. Verified
+seed-phrase accounts retain the full supported EOA method set. Ledger and
+Trezor sessions allow single transactions plus `personal_sign` and validated
+EIP-712, but do not advertise or accept ERC-5792 or delegated-permission
+methods. Verified
 Safe sessions allow single transactions and ERC-5792 capability/batch/status
 methods, while EOA-style signatures and delegated permissions remain excluded.
 Impersonator accounts cannot approve a session. These proposal-time method
@@ -1061,15 +1078,16 @@ currently selected public account. The prepare request accepts only request ID,
 amount, and recipient; the execute request accepts only the durable operation
 ID. Extra account fields fail exact-shape validation. Both stages require the
 live dedicated privacy/master capability and revalidate encrypted commitment
-lineage, so changing between Bankr, private-key, seed-phrase, or impersonator
-display accounts cannot redirect the withdrawal or select different notes.
+lineage, so changing between Bankr, private-key, seed-phrase, Ledger, Trezor, or
+impersonator display accounts cannot redirect the withdrawal or select
+different notes.
 Agent sessions remain blocked. This is distinct from Shield deposits and
 public ragequit, which still need an explicit transaction signer and remain
 account-pinned through broadcast.
 
 Receiver-paid Unshield is the explicit signer-bound exception. Its exact
 wallet-UI request includes the receiving account snapshot and requires that
-snapshot to resolve to a Bankr, private-key, seed-phrase, or Ledger account
+snapshot to resolve to a Bankr, private-key, seed-phrase, Ledger, or Trezor account
 whose address is exactly the recipient. Impersonators fail request validation. The
 background proves with that recipient as `processooor`, validates all eight
 public signals, simulates the exact encrypted calldata from the same address,
@@ -1367,8 +1385,9 @@ This helps developers identify malicious sites attempting attacks.
 All `personal_sign` messages that match the EIP-4361 SIWE header are parsed and
 validated before signing. The popup shows a human-readable auth review, while
 `signatures/confirmationPolicy.ts` repeats the same validation at confirm time
-for Bankr, private-key, and seed-phrase accounts. The local and Bankr handlers
-share that preflight rather than maintaining parallel security checks.
+for Bankr, private-key, seed-phrase, Ledger, and Trezor accounts. Every signing
+handler shares that preflight rather than maintaining parallel security
+checks.
 
 ### Blocking Checks
 
@@ -1581,6 +1600,7 @@ accessible resources.
 | `seedGroups`               | No               | Seed group metadata (names, counts)                     |
 | `accounts`                 | No               | Account metadata (addresses, names, types)              |
 | `ledgerDevices`            | No               | Public Ledger label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport secret or private key |
+| `trezorDevices`            | No               | Public Trezor label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport/session identifier, PIN, passphrase, or private key |
 | `addressContacts`          | No               | Local-only user labels for public EVM addresses         |
 | `ensIdentityCache`         | No               | Six-hour public name/avatar cache keyed by `chainId:lowercaseAddress`; legacy address-only entries are ignored. `needsAvatar` hints require forward verification before display |
 | `networkRpcUrls`           | No               | Bounded Settings-only RPC history keyed by chain ID, including optional display names and an exact per-endpoint `allowImpersonatedTransactions` developer flag. It never changes runtime routing until the selected endpoint is validated and promoted to `networksInfo[*].rpcUrl` through the service worker. |
@@ -1669,14 +1689,14 @@ secrets cannot survive wallet replacement.
 | Setting                    | Value                                                        | Security Note                                                                  |
 | -------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | `manifest_version`         | 3                                                            | MV3 enforces CSP, no `eval()`, no remote code                                  |
-| `permissions`              | `activeTab`, `alarms`, `favicon`, `storage`, `sidePanel`, `notifications`, `offscreen`, `tabs`, `declarativeNetRequestWithHostAccess`, `unlimitedStorage` | No `webRequest`, no `debugger`; `alarms` wakes pending Shield compliance refreshes and Safe synchronization only for bounded lifecycle work. Chromium offscreen documents isolate both the Ledger WebHID SDK and the bounded packaged privacy proof worker; Firefox omits unsupported offscreen use. `favicon` reads Chrome's processed icon for exact local IPFS/IPNS and approved ENS/GNS/onchain gateway pages; `unlimitedStorage` protects wallet-critical writes from optional cache growth. |
+| `permissions`              | `activeTab`, `alarms`, `favicon`, `storage`, `sidePanel`, `notifications`, `offscreen`, `tabs`, `declarativeNetRequestWithHostAccess`, `unlimitedStorage` | No `webRequest`, no `debugger`, and no `scripting`; `alarms` wakes pending Shield compliance refreshes and Safe synchronization only for bounded lifecycle work. Chromium offscreen documents isolate Ledger WebHID and the bounded packaged privacy proof worker; Firefox omits unsupported offscreen use. `favicon` reads Chrome's processed icon for exact local IPFS/IPNS and approved ENS/GNS/onchain gateway pages; `unlimitedStorage` protects wallet-critical writes from optional cache growth. |
 | `host_permissions`         | `https://*/*`, `http://*/*`                                  | Broad, needed for content-script coverage and configured RPCs; egress is method/URL/origin/redirect/timeout/size/concurrency bounded |
-| `content_scripts.matches`  | All URLs                                                     | Wallet must inject on all pages for dapp detection                             |
-| `externally_connectable`   | Not defined                                                  | External websites cannot send messages to background                           |
+| `content_scripts.matches`  | Wallet provider on all URLs | Wallet must inject on all pages for dapp detection. Trezor Connect 10 has no WalletChan content-script relay. |
+| `externally_connectable`   | `https://suite.trezor.io/*` | Only the patched Connect 10 reply channel accepts external messages; it requires the active top-level Suite approval tab and grants no WalletChan UI/provider authority                           |
 | `web_accessible_resources` | Provider `inpage.js`; three packaged brand images; four exact ENS browsing HTML entrypoints in the Chrome manifest | The provider/assets are page-facing by design. ENS HTML is untrusted extension UI, exposes no JS bundle through WAR, and is authorized only for its exact message/page combinations; `isTrustedWalletUiSender()` never treats it as popup/onboarding UI. The Firefox manifest exposes only the provider/assets group. |
-| `content_security_policy`  | `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'` | Allows only packaged scripts/workers plus WebAssembly compilation; no inline script, `eval()`, Blob worker, or remote code |
+| `content_security_policy`  | `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'; frame-src 'none'` | Allows only packaged extension scripts/workers plus WebAssembly compilation; no inline script, `eval()`, Blob worker, or remote extension code |
 
-The offscreen page and its generated worker bundle are packaged extension
+The privacy prover offscreen page and its generated worker bundle are packaged extension
 resources and are not web accessible. Every offscreen page URL carries a fresh
 random request nonce, and its one-shot message is accepted only from the exact
 background service-worker URL with that nonce. The worker accepts one
@@ -1689,6 +1709,49 @@ Prover debugging is restricted to fixed stage/action/attempt/failure-code
 console entries. Proof inputs and results, public account/deposit fields,
 addresses, amounts, labels, commitments, nullifiers, and secrets are forbidden
 from diagnostic output.
+
+The hardware `offscreen.html` is packaged and not web accessible. It is used
+only by Ledger WebHID; its listener accepts only the exact extension ID and
+`/static/js/background.js` sender with no tab, query, or fragment.
+
+Trezor Connect 10 runs in the service worker through exact-pinned
+`@trezor/connect-web@10.0.1`, `env: "webextension"`, `coreMode: "auto"`, and
+`debug: false`. Suite Desktop's loopback WebSocket (`127.0.0.1:21335/connect-ws`)
+or the visible official Suite Web approval owns device transport, PIN and
+passphrase interaction. The manifest permits external messages only from
+`https://suite.trezor.io/*`; a pinned `connect-common` dependency patch binds
+replies to the current top-frame `/web/connect-popup` tab, exact sender origin,
+and bounded message size, and verifies the tab's URL before appending a
+request. The standard SDK UUID/channel correlation still applies. This SDK
+listener cannot invoke WalletChan's internal wallet-UI or provider routes.
+The generic foreground-proxy package, old content-script relay, local USB
+wrapper and relay-port exception are absent.
+
+`trezor/connectClient.ts` serializes operations, applies opaque IDs, matching
+cancellation, 90-second discovery and ten-minute signing deadlines. Cancellation
+rejects promptly but retains the slot until upstream settles and discards late
+results. Adapter abort checks prevent subsequent SDK calls. Discovery/scanning
+rebinds the canonical Ethereum identity, passes transient SDK device/instance/
+wallet state to later calls and rejects changed bindings. Each signing operation
+makes one SDK signing call at the stored path, without an address-export
+preflight or cached Suite session. Suite selects the wallet; exact local
+transaction/message/typed-data recovery to the pinned account is the mandatory
+wrong-wallet rejection boundary before broadcast or signature publication.
+A wrong wallet can reach device approval but its result cannot be released by
+WalletChan. No transport/session
+identifier is persisted or sent to the renderer. Existing final request and
+recovered-signer authority checks remain mandatory. See
+[`TREZOR_DEPENDENCY_REVIEW.md`](./TREZOR_DEPENDENCY_REVIEW.md) for package,
+license, endpoint, patch and bundle review. Suite is an upstream trust boundary:
+its own releases/privacy settings are outside WalletChan's bundled SDK pin.
+
+The production background build applies syntax-only Terser compaction with
+`compress: false` and `mangle: false` before its 4.25 MiB combined Safe Bunker/Trezor budget.
+This removes comments and whitespace without optimizer or identifier-mangling
+semantics. Release scripts delete the exact same-version archive before
+invoking `zip -r`, so a prior archive cannot retain stale hashed chunks.
+Firefox also removes the entire Trezor vendor subtree before its final marker
+scan and file-for-file archive comparison.
 
 The six Privacy Pools circuit files are packaged extension resources but are
 not listed in `web_accessible_resources`. The build verifies their pinned sizes
@@ -1749,6 +1812,21 @@ These must always hold true. Violations indicate a security bug.
    pre-broadcast callback; signature removal occurs only after those same final
    release checks. Renderer-side edit locks are UX defense-in-depth, not the
    concurrency boundary.
+
+3b. **Trezor approval cannot substitute for WalletChan authority** - Connect
+   10 is confined to the background adapter and its current Suite approval
+   channel. No password, vault key, private key, seed phrase, API key, PIN or
+   passphrase is supplied by WalletChan. The adapter returns only bounded
+   public addresses or signatures. Discovery/scanning rebinds canonical wallet
+   identity and pins subsequent calls to that device/wallet. Signing uses one
+   direct SDK method at the exact stored path; its returned signature must prove
+   the pinned account locally before any effect. It does not repeat address
+   export or trust an earlier SDK session as signing authority. Upstream
+   errors are bounded and normalized. Transaction `v` is a canonical hex
+   quantity (`0x0`/`0x1` valid); signature words and serialized transactions
+   remain bounded bytes. Every result is recovered against the exact pinned
+   account/payload, and account/device/path/origin/topic/reset/nonce authority
+   is repeated before broadcast, Safe publication or signature release.
 
 4. **Encryption uses fresh randomness** - Every encryption operation generates a new random salt and IV. Never reuse salt/IV pairs.
 
@@ -2082,11 +2160,11 @@ These must always hold true. Violations indicate a security bug.
     one-to-one exact event match before each source activity becomes terminal.
     Agent and impersonator accounts fail before
     relayer quote/proof publication or signing. Sepolia Bankr accounts also
-    fail before mutation. Production Bankr, private-key, seed-phrase, and Ledger
-    accounts may act only for an exact pinned original depositor.
+    fail before mutation. Production Bankr, private-key, seed-phrase, Ledger,
+    and Trezor accounts may act only for an exact pinned original depositor.
     Private-key/seed accounts share one bounded raw-RPC path, Bankr uses its
-    separately authorized submission path, and Ledger uses its guarded
-    single-transaction hardware path. Ledger cannot enter the atomic
+    separately authorized submission path, and Ledger/Trezor use guarded
+    single-transaction hardware paths. Neither can enter the atomic
     multi-commitment batch path.
     Local note records are canonicalized by immutable deposit lineage and the
     greatest withdrawal index. Same-index commitment forks fail closed;
@@ -2308,6 +2386,18 @@ or reveal capability. Failed writes leave the reminder pending. The reveal UI
 ignores responses after unmount or a wallet-lock event and clears its plaintext
 state on lock. Copying/showing alone never marks a backup complete.
 
+## External URL inventory
+
+`apps/extension/src/constants/externalUrls.ts` is the audit entrypoint for
+extension-owned fixed service destinations and links, including chain defaults,
+Safe configuration, ENS subgraph/history/gateways, Privacy Pools ASP/relayers,
+RPC recovery fallbacks, and token image hosts. Consumers retain transport,
+redirect, timeout, byte-limit, origin, and response validation policies. The
+Safe transaction-service host and MetaMask token-image response pin also use
+this registry; centralization does not authorize arbitrary service responses.
+Dynamic/custom URLs still require their owning domain's validation. The source
+guard in `tests/network/externalUrls.test.ts` prevents scattered fixed URLs.
+
 ## Pre-Commit Security Checklist
 
 When reviewing or making changes to extension code, verify the following:
@@ -2392,7 +2482,28 @@ When reviewing or making changes to extension code, verify the following:
 - [ ] Do account mutations remain master-only while agent sessions can sign but cannot reveal/add/remove?
 - [ ] Does first-account onboarding defer Ledger persistence until after master credential initialization and retain the rollback marker through the write?
 - [ ] Do Firefox builds omit the `offscreen` permission and offscreen JavaScript target?
-- [ ] Were normal Bankr, private-key, seed-phrase, and view-only paths regression-tested?
+- [ ] Were normal Bankr, private-key, seed-phrase, Ledger, Trezor, and
+      view-only paths regression-tested at the appropriate automated/device
+      boundary?
+
+Trezor is explicitly classified as a direct signing EOA by
+`accounts/accountTypePolicy.ts`, so external V3/V4 verifier protection includes
+its stored addresses. It has no force-inclusion transport; Ledger retains its
+separately authorized raw force-inclusion path. Both hardware accounts preserve
+the exact device/path binding at signature release.
+
+### If you modified the Trezor transport:
+
+- [ ] Is Connect exact-pinned, with runtime imports confined to `connectSdk.ts`?
+- [ ] Are SDK environment, Suite targets, endpoints and upstream privacy changes reviewed?
+- [ ] Does the dependency patch still enforce current tab, top frame, exact Suite origin/path, bounded replies and outbound URL checks?
+- [ ] Are UUID correlation, operation serialization, matching cancellation, deadlines, abort checks and stale-result suppression covered?
+- [ ] Does discovery rebind canonical identity and reject device/wallet drift?
+- [ ] Does signing avoid address-export preflight while requiring exact pinned-account recovery before every effect, including after worker restart?
+- [ ] Are SDK state/path/session identifiers excluded from storage and renderer messages?
+- [ ] Are transaction, personal and EIP-712 signatures recovered against the exact reviewed account/payload before final authorization?
+- [ ] Do Chromium bundles pass CSP/dynamic-code guards, and does Firefox omit Suite transport, setup and assets?
+- [ ] Are emulator and representative physical-device results recorded before release?
 
 ### General checks:
 
@@ -2599,7 +2710,8 @@ Quick reference for which files to examine based on what area of security you're
 
 4. **Owner discovery is one-address opt-in.** The trusted UI sends one selected
    local account ID. The background resolves it afresh and accepts only a
-   Bankr/private-key/seed/Ledger record before disclosing that one address to Safe.
+   Bankr/private-key/seed/Ledger/Trezor record before disclosing that one
+   address to Safe.
    It never batches all wallet addresses. Progressive discovery batches the
    intersection of visible WalletChan networks and Safe's live registry, not
    owners: hidden chains cause no owner disclosure, and each bounded page
@@ -2624,10 +2736,11 @@ Quick reference for which files to examine based on what area of security you're
    offered as a provider switch.
 
 5. **One pinned owner per authorization.** Each approval chooses one current
-   Bankr/private-key/seed/Ledger record and repeats live authority checks
-   immediately before releasing its signature. Ledger uses the central
-   device/path-bound SafeTx EIP-712 signer and repeats that public metadata
-   binding after hardware approval. Impersonator and Safe records cannot sign.
+   Bankr/private-key/seed/Ledger/Trezor record and repeats live authority checks
+   immediately before releasing its signature. Ledger and Trezor use their
+   central device/path-bound SafeTx EIP-712 signers and repeat that public
+   metadata binding after hardware approval. Impersonator and Safe records
+   cannot sign.
    Account-type eligibility is defined only by the exhaustive
    `safe/accountTypePolicy.ts` matrix; discovery, stored confirmation decoding,
    authorization, execution, and renderer filtering must use its guards rather
@@ -2671,11 +2784,12 @@ Quick reference for which files to examine based on what area of security you're
    persisted. Otherwise exact-envelope reconciliation remains mandatory.
 
 7. **Executor selection is explicit and bounded.** The UI defaults outer
-   execution to a WalletChan-controlled private-key/seed/Ledger owner when one
-   is available, but may select another local private-key/seed/Ledger account
-   to pay native gas. Bankr, impersonator, and Safe records never fall through
-   to the local outer signer. Ledger execution reuses the central
-   device/path-bound transaction signer, reserves the exact EOA nonce, and
+   execution to a WalletChan-controlled private-key/seed/Ledger/Trezor owner
+   when one is available, but may select another local
+   private-key/seed/Ledger/Trezor account to pay native gas. Bankr,
+   impersonator, and Safe records never fall through to the local outer signer.
+   Ledger and Trezor execution reuse their central device/path-bound
+   transaction signers, reserve the exact EOA nonce, and
    persists the same deterministic signed envelope before broadcast. The
    background resolves the selected account ID afresh, validates
    the shared gas override quantities, rechecks live quorum/configuration, and
@@ -2807,7 +2921,12 @@ These are security characteristics that have been reviewed and accepted:
 
 3. **`getCachedApiKey` returns plaintext API key** to the extension UI. This is necessary for displaying it in settings and for the UI to function. The UI is same-origin with the background worker.
 
-4. **Content script runs on all websites**. Required for wallet provider injection. The content script only bridges specific message types and does not expose any secrets.
+4. **The wallet-provider content script runs on all websites.** Required for
+   dapp detection and provider injection. It bridges only the reviewed provider
+   allowlist and exposes no secrets. Trezor uses a separate exact-Suite-origin
+   external reply channel with a pinned active-tab/frame/path check; it has no
+   WalletChan UI/provider authority. Firefox omits that channel and all Trezor
+   setup/transport assets.
 
 5. **RPC proxy in background (`rpcRequest` handler)** accepts allowlisted public
    read/simulation methods against extension-configured RPC URLs. This bypasses
@@ -3107,3 +3226,16 @@ by ID, can be read for badges while locked and never grants authority. Journal
 writes atomically project it; authenticated repair rebuilds it idempotently.
 Reset clears it. Previews, indexes and public deploymentPending flags remain
 presentation metadata, never execution capabilities.
+### Send ENS history advisory
+
+`getEnsRecipientHistory` is wallet-UI-only in the exhaustive message audience
+policy. It accepts a normalized bounded ENS name and an ENSIP-11 chain ID,
+queries fixed subgraph/RPC endpoints through existing bounded transports, and
+returns public event timestamps only. It never reads account credentials,
+changes the recipient, stores recipient history, or grants signing authority.
+Its capped one-minute in-memory cache contains public name/chain results only.
+The Send renderer discards stale responses and validates returned timestamps.
+Loading shows a status label; unavailable or incomplete history renders no notice.
+Absence of warnings is never presented as proof of recipient safety. Only address-record updates are
+queried; ownership and resolver-change events do not trigger warnings. Offchain/L2
+Basename records are excluded.

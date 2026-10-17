@@ -234,7 +234,8 @@ export function isValidPrivacyUnshieldSummary(value: unknown): value is PrivacyA
       ? typeof value.accountId === "string" && value.accountId.length > 0 && value.accountId.length <= 128 &&
         address(value.accountAddress) && value.accountAddress.toLowerCase() === value.recipient.toLowerCase() &&
         (value.accountType === "bankr" || value.accountType === "privateKey" ||
-          value.accountType === "seedPhrase" || value.accountType === "ledger") &&
+          value.accountType === "seedPhrase" || value.accountType === "ledger" ||
+          value.accountType === "trezor") &&
         uint(value.gasLimit) !== null && uint(value.gasLimit)! > 0n &&
         uint(value.maxFeePerGas) !== null && uint(value.maxFeePerGas)! > 0n &&
         uint(value.gasFeeEstimateWei) === uint(value.gasLimit)! * uint(value.maxFeePerGas)! &&

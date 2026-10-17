@@ -12,7 +12,10 @@ import {
 import { ensureSponsoredTransferHistory, updateTxInHistory } from "./history";
 import { reconcileSponsoredTransferRecord } from "./recovery";
 import { submitSponsoredTransfer } from "./submission";
-import type { SponsoredTransferHandlerResult } from "./types";
+import {
+  isSponsoredTransferSignerAccount,
+  type SponsoredTransferHandlerResult,
+} from "./types";
 import { validateSponsoredTransferIntent } from "./validation";
 import { ensureSponsoredVaultKey } from "./vaultAccess";
 
@@ -33,7 +36,7 @@ export async function handleSponsoredTransfer(message: {
         error: "View-only accounts cannot send transactions",
       };
     }
-    if (account.type === "ledger" || account.type === "safe" || account.type === "safeBunker") {
+    if (!isSponsoredTransferSignerAccount(account)) {
       return {
         success: false,
         error: "Sponsored transfers are not supported for this account type",

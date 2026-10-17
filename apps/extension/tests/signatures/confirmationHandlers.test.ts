@@ -115,6 +115,8 @@ test("confirmation preserves all wallet authorities and final release races", as
             if (importer?.split("?", 1)[0].endsWith("/chrome/ledger/signatureConfirmation.ts")) {
               if (source === "./session") return "\0signature-ledger-session";
               if (source === "./signing") return "\0signature-ledger-signing";
+              if (source === "../trezor/session") return "\0signature-trezor-session";
+              if (source === "../trezor/signing") return "\0signature-trezor-signing";
             }
             if (
               !importer
@@ -128,6 +130,8 @@ test("confirmation preserves all wallet authorities and final release races", as
             } as Record<string, string>)[source] ?? null;
           },
           load(id) {
+            if (id === "\0signature-trezor-session") return `export const ensureTrezorSigningSession = (...args) => globalThis.__walletchanSignatureTestHooks.ledgerSession(...args);`;
+            if (id === "\0signature-trezor-signing") return `export const signTrezorSignatureRequest = (...args) => globalThis.__walletchanSignatureTestHooks.ledger(...args);`;
             if (id === "\0signature-ledger-session") return `export const ensureLedgerSigningSession = (...args) => globalThis.__walletchanSignatureTestHooks.ledgerSession(...args);`;
             if (id === "\0signature-ledger-signing") return `export const signLedgerSignatureRequest = (...args) => globalThis.__walletchanSignatureTestHooks.ledger(...args);`;
             if (id === "\0signature-confirmation-local-signer") {
@@ -181,7 +185,7 @@ test("confirmation preserves all wallet authorities and final release races", as
     };
 
     const queue = async (
-      type: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "impersonator",
+      type: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator",
       id: string,
       options: {
         signature?: {
@@ -203,6 +207,7 @@ test("confirmation preserves all wallet authorities and final release races", as
         type,
         address,
         createdAt: 1,
+        ...(type === "trezor" ? { deviceId: address, hdPath: "m/44'/60'/0'/0/0", hdIndex: 0 } : {}),
         ...(type === "seedPhrase"
           ? { seedGroupId: "seed-group", derivationIndex: 0 }
           : {}),
@@ -268,7 +273,7 @@ test("confirmation preserves all wallet authorities and final release races", as
       });
     }
 
-    for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
+    for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
       for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
         await t.test(`${type} blocks already-pending ${method} execution signatures before signing`, async () => {
           reset();
@@ -277,8 +282,8 @@ test("confirmation preserves all wallet authorities and final release races", as
           // Even a forged internal-looking label and SIWE override cannot bypass this policy.
           hooks.local = async () => { assert.fail("local signer must not run"); };
           hooks.bankr = async () => { assert.fail("Bankr API must not run"); };
-          const result = type === "ledger"
-            ? await ledgerHandlers.handleConfirmLedgerSignatureRequest(id, "agent-password", undefined, true)
+          const result = type === "ledger" || type === "trezor"
+            ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"](id, "agent-password", undefined, true)
             : type === "bankr"
               ? await handlers.handleConfirmSignatureRequestBankr(id, "agent-password", true)
               : await handlers.handleConfirmSignatureRequest(id, "agent-password", undefined, true);
@@ -290,7 +295,7 @@ test("confirmation preserves all wallet authorities and final release races", as
     }
 
     await t.test("ordinary third-party typed data remains reviewable for every signing account", async () => {
-      for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
+      for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         reset();
         await queue(type, "ordinary", { signature: { method: "eth_signTypedData_v4", params: [address, accountExecutionTypedData("0x3333333333333333333333333333333333333333")], chainId: 1 } });
         assert.equal((await confirmationPolicy.prepareSignatureConfirmation("ordinary")).ok, true);
@@ -298,14 +303,14 @@ test("confirmation preserves all wallet authorities and final release races", as
     });
 
     await t.test("old pending deprecated methods cannot bypass the external signature policy", async () => {
-      for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
+      for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         for (const method of ["eth_signTypedData", "eth_sign"] as const) {
           reset();
           await queue(type, "deprecated", { signature: { method, params: [address, accountExecutionTypedData(address)], chainId: 1 } });
           hooks.local = async () => { assert.fail("local signer must not run"); };
           hooks.bankr = async () => { assert.fail("Bankr API must not run"); };
-          const result = type === "ledger"
-            ? await ledgerHandlers.handleConfirmLedgerSignatureRequest("deprecated", "agent-password", undefined, true)
+          const result = type === "ledger" || type === "trezor"
+            ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"]("deprecated", "agent-password", undefined, true)
             : type === "bankr"
               ? await handlers.handleConfirmSignatureRequestBankr("deprecated", "agent-password", true)
               : await handlers.handleConfirmSignatureRequest("deprecated", "agent-password", undefined, true);
@@ -316,9 +321,9 @@ test("confirmation preserves all wallet authorities and final release races", as
       }
     });
 
-    await t.test("imported SafeTx remains reviewable and releasable through all four signer handlers", async () => {
+    await t.test("imported SafeTx remains reviewable and releasable through all five signer handlers", async () => {
       const safeAddress = "0x3333333333333333333333333333333333333333";
-      for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
+      for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
           reset();
           const data = safeTransactionTypedData(safeAddress);
@@ -331,8 +336,8 @@ test("confirmation preserves all wallet authorities and final release races", as
           hooks.ledger = async () => `0x${"dd".repeat(65)}`;
           hooks.privateKey = privateKey;
           hooks.apiKey = "bankr-api-key";
-          const result = type === "ledger"
-            ? await ledgerHandlers.handleConfirmLedgerSignatureRequest("safe-owner", "master-password")
+          const result = type === "ledger" || type === "trezor"
+            ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"]("safe-owner", "master-password")
             : type === "bankr"
             ? await handlers.handleConfirmSignatureRequestBankr("safe-owner", "master-password")
             : await handlers.handleConfirmSignatureRequest("safe-owner", "master-password");
@@ -346,7 +351,7 @@ test("confirmation preserves all wallet authorities and final release races", as
       const safeAddress = "0x3333333333333333333333333333333333333333";
       const zeroAddress = "0x0000000000000000000000000000000000000000";
       const tokenAddress = "0x4444444444444444444444444444444444444444";
-      for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
+      for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
           for (const gasToken of [zeroAddress, tokenAddress]) {
             reset();
@@ -400,8 +405,8 @@ test("confirmation preserves all wallet authorities and final release races", as
             };
             hooks.privateKey = privateKey;
             hooks.apiKey = "bankr-api-key";
-            const result = type === "ledger"
-              ? await ledgerHandlers.handleConfirmLedgerSignatureRequest(id, "agent-password")
+            const result = type === "ledger" || type === "trezor"
+              ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"](id, "agent-password")
               : type === "bankr"
                 ? await handlers.handleConfirmSignatureRequestBankr(id, "agent-password")
                 : await handlers.handleConfirmSignatureRequest(id, "agent-password");
@@ -417,8 +422,8 @@ test("confirmation preserves all wallet authorities and final release races", as
     await t.test("SafeTx type cannot exempt a protected EOA and view-only verifiers are not signers", async () => {
       const target = "0x3333333333333333333333333333333333333333";
       const externalPolicy = await viteServer!.ssrLoadModule("/src/chrome/signatures/externalTypedData.ts");
-      for (const type of ["privateKey", "seedPhrase", "ledger", "bankr", "safe", "impersonator"] as const) {
-        local.accounts = [{ id: "target", type, address: target, createdAt: 1 }];
+      for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr", "safe", "impersonator"] as const) {
+        local.accounts = [{ id: "target", type, address: target, createdAt: 1, ...(type === "trezor" ? { deviceId: target, hdPath: "m/44'/60'/0'/0/0", hdIndex: 0 } : {}) }];
         const result = await externalPolicy.validateExternalSignatureTypedData({ method: "eth_signTypedData_v4", params: [address, safeTransactionTypedData(target)], chainId: 1 }, address);
         assert.equal(result.valid, type === "safe" || type === "impersonator", type);
       }
@@ -449,7 +454,7 @@ test("confirmation preserves all wallet authorities and final release races", as
     });
 
     await t.test("an account imported while signing prevents release for every signer transport", async () => {
-      for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
+      for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         reset();
         const target = "0x3333333333333333333333333333333333333333";
         await queue(type, "import-race", { signature: { method: "eth_signTypedData_v4", params: [address, accountExecutionTypedData(target)], chainId: 1 } });
@@ -463,8 +468,8 @@ test("confirmation preserves all wallet authorities and final release races", as
         hooks.bankr = async () => ({ signature: await sign() });
         hooks.ledgerSession = async () => {};
         hooks.ledger = sign;
-        const result = type === "ledger"
-          ? await ledgerHandlers.handleConfirmLedgerSignatureRequest("import-race", "master-password")
+        const result = type === "ledger" || type === "trezor"
+          ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"]("import-race", "master-password")
           : type === "bankr"
             ? await handlers.handleConfirmSignatureRequestBankr("import-race", "master-password")
             : await handlers.handleConfirmSignatureRequest("import-race", "master-password");

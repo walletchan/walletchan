@@ -36,3 +36,39 @@ source packages retain the detailed copyright notices for each work.
 
 The complete GNU GPL version 3 text is included in [COPYING](./COPYING) and as
 `LICENSE.txt` in every packaged extension build.
+
+## Trezor Connect
+
+- Component: `@trezor/connect-web@10.0.1` and MIT-licensed Trezor thin-client dependencies
+- Copyright: Trezor Company s.r.o.
+- Exact source: <https://github.com/trezor/trezor-suite/tree/2ee7bd0636889196bab33e6069e2736393a58f3c/packages/connect-web>
+- License: MIT
+- Local modification: `patches/@trezor__connect-common@10.0.1.patch` binds the Suite approval channel to its current top-level tab and verifies outbound tab URLs.
+
+WalletChan bundles the thin client only in its Chromium background worker.
+Trezor Suite is a separate upstream application with its own license and
+privacy terms. Firefox contains no Trezor signing transport. The unused
+`@trezor/crypto-utils` re-export is excluded by a build guard; its missing
+referenced license is not treated as permission to distribute its code.
+
+MIT License
+
+Copyright (c) Trezor Company s.r.o.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

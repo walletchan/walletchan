@@ -1,11 +1,85 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import path from "path";
+import { minify as minifyJavaScript } from "terser";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { sharedConfig, sharedBuildConfig, buildDir } from "./vite.config";
 import { compactBackground } from "./scripts/build/compactBackground";
 
 const isFirefox = process.env.BROWSER === "firefox";
+
+const firefoxTrezorBoundary = (): Plugin => {
+  const unavailable = path.resolve(
+    __dirname,
+    "src/chrome/trezor/firefoxUnavailable.ts",
+  );
+  const authorityModules = new Set(
+    [
+      "src/chrome/trezor/accountHandlers.ts",
+      "src/chrome/trezor/offscreenBridge.ts",
+      "src/chrome/trezor/operationId.ts",
+      "src/chrome/trezor/connectClient.ts",
+      "src/chrome/trezor/connectSdk.ts",
+      "src/chrome/trezor/connectAdapter.ts",
+      "src/chrome/trezor/session.ts",
+      "src/chrome/trezor/signing.ts",
+      "src/chrome/background/trezorRouter.ts",
+    ].map((relativePath) => path.resolve(__dirname, relativePath)),
+  );
+
+  return {
+    name: "firefox-trezor-release-boundary",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!isFirefox || !importer || !source.startsWith(".")) return null;
+      const cleanImporter = importer.split("?")[0];
+      const candidate = path.resolve(path.dirname(cleanImporter), source);
+      const withExtension = path.extname(candidate) ? candidate : `${candidate}.ts`;
+      return authorityModules.has(withExtension) ? unavailable : null;
+    },
+    generateBundle(_options, bundle) {
+      if (!isFirefox) return;
+      const background = Object.values(bundle).find(
+        (entry) => entry.type === "chunk" && entry.fileName === "background.js",
+      );
+      if (!background || background.type !== "chunk") {
+        this.error("Missing Firefox background bundle");
+      }
+      for (const marker of [
+        "https://connect.trezor.io",
+        "https://suite.trezor.io",
+        "ws://127.0.0.1:21335",
+        "offscreen:trezor",
+        "walletchan-trezor-connect",
+      ]) {
+        if (background.code.includes(marker)) {
+          this.error(`Trezor transport leaked into Firefox background: ${marker}`);
+        }
+      }
+    },
+  };
+};
+
+const trezorServiceWorkerBoundary = (): Plugin => ({
+  name: "trezor-service-worker-boundary",
+  enforce: "post",
+  generateBundle(_options, bundle) {
+    if (isFirefox) return;
+    for (const entry of Object.values(bundle)) {
+      if (entry.type !== "chunk") continue;
+      for (const [id, rendered] of Object.entries(entry.modules)) {
+        // The thin client has no use for the ambiguously licensed crypto-utils
+        // barrel re-export. Fail release builds if a future SDK retains it.
+        if (id.includes("/@trezor/crypto-utils/") && rendered.renderedLength > 0) {
+          this.error("Trezor crypto-utils code entered the background bundle; review its license before distribution.");
+        }
+      }
+      for (const marker of ["new Function(", 'Function("return this', "(void 0, eval)", "https://data.trezor.io/connect/log"]) {
+        if (entry.code.includes(marker)) this.error(`Unsafe SDK code entered the background bundle: ${marker}`);
+      }
+    }
+  },
+});
 
 const privacySdkServiceWorkerBoundary = (): Plugin => ({
   name: "privacy-sdk-service-worker-boundary",
@@ -29,6 +103,22 @@ const privacySdkServiceWorkerBoundary = (): Plugin => ({
         );
       }
     }
+  },
+});
+
+const compactGeneratedBackground = (): Plugin => ({
+  name: "compact-generated-background",
+  enforce: "post",
+  async renderChunk(code, chunk) {
+    if (chunk.fileName !== "background.js") return null;
+    const result = await minifyJavaScript(code, {
+      compress: false,
+      mangle: false,
+      module: !isFirefox,
+      format: { comments: false },
+    });
+    if (!result.code) this.error("Background syntax compaction produced no code");
+    return { code: result.code, map: null };
   },
 });
 
@@ -109,6 +199,9 @@ export default defineConfig(({ mode }) => {
       }),
       ...(mode === "production" ? [compactBackground()] : []),
       privacySdkServiceWorkerBoundary(),
+      trezorServiceWorkerBoundary(),
+      firefoxTrezorBoundary(),
+      compactGeneratedBackground(),
     ],
     build: {
       ...sharedBuildConfig,
@@ -124,6 +217,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           entryFileNames: "background.js",
+          compact: true,
           // Service workers / event pages disallow dynamic import() — inline
           // everything into a single chunk so no code-splitting occurs.
           inlineDynamicImports: true,

@@ -1,7 +1,7 @@
 import type { Account, AccountType } from "../types";
 
-export type SafeOwnerSigningPath = "bankr" | "local" | "ledger";
-export type SafeExecutionSigningPath = "local" | "ledger";
+export type SafeOwnerSigningPath = "bankr" | "local" | "ledger" | "trezor";
+export type SafeExecutionSigningPath = "local" | "ledger" | "trezor";
 
 interface SafeAccountTypePolicy {
   ownerSigningPath: SafeOwnerSigningPath | null;
@@ -33,6 +33,11 @@ export const SAFE_ACCOUNT_TYPE_POLICY = {
   ledger: {
     ownerSigningPath: "ledger",
     executionSigningPath: "ledger",
+    feeTokenExecution: false,
+  },
+  trezor: {
+    ownerSigningPath: "trezor",
+    executionSigningPath: "trezor",
     feeTokenExecution: false,
   },
   impersonator: {

@@ -58,6 +58,10 @@ Migration is incremental. Existing root component imports may remain as small
 compatibility facades while their implementations move into named feature
 folders. Do not churn every caller merely to make the tree look finished.
 
+`UnlockMascotSpotlight.tsx` shares the mascot frame between unlock and biometric
+setup. Callers supply presentation state and may replace its default lock badge
+with a biometric icon; it owns no authentication behavior.
+
 `app/home/` owns the public/private presentation-mode model, persisted-mode
 adapter, private portfolio composition, and shared balance-visibility adapter.
 It may compose feature components but must not own Privacy Pools storage,
@@ -245,10 +249,10 @@ Use the lightest test that protects the moved concern:
   transaction/signature behavior.
 
 Any UI touching transactions, signatures, or authentication must retain Bankr,
-private-key, seed-phrase, and Ledger coverage. Ledger device waits must use the
-shared hardware status treatment and lock mutable review controls without
-moving authority into the renderer. View-only behavior must remain visibly
-non-signing where relevant.
+private-key, seed-phrase, Ledger, and Trezor coverage. Ledger and Trezor device
+waits must use the shared hardware status treatment and lock mutable review
+controls without moving authority into the renderer. View-only behavior must
+remain visibly non-signing where relevant.
 
 Safe owner and executor filtering is a renderer projection of
 `chrome/safe/accountTypePolicy.ts`. UI models must import its guards and derived

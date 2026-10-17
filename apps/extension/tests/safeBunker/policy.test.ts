@@ -75,3 +75,26 @@ test("Bunker journals require the new source/chain identity and reject alpha bac
   assert.throws(() => decodeBunkerState({ ...state, chainId: 0 }));
   assert.throws(() => decodeBunkerState({ ...state, seedGroupId: "" }));
 });
+
+
+test("Bunker capability and payer policies preserve contract-account boundaries", async () => {
+  const { getAccountTypeCapabilities } = await import("../../src/chrome/hardware/accountCapabilities");
+  const { isBunkerPayerAccount } = await import("../../src/chrome/safeBunker/payerPolicy");
+  const capabilities = getAccountTypeCapabilities("safeBunker");
+  assert.equal(capabilities.signingTransport, "none");
+  for (const key of ["personalSign", "typedDataSign", "erc7715", "eip7702", "sponsoredTransfer", "safeOwner", "agentPasswordSigning"] as const) {
+    assert.equal(capabilities[key], false, key);
+  }
+  assert.equal(capabilities.erc5792Batch, true);
+  const { getWalletConnectMethodsForAccount } = await import("../../src/chrome/walletConnect/sessionAccountPolicy");
+  const bunker = { type: "safeBunker" } as import("../../src/chrome/types").Account;
+  const methods = getWalletConnectMethodsForAccount(bunker as never);
+  assert.ok(methods.includes("wallet_sendCalls"));
+  assert.ok(!methods.includes("personal_sign"));
+  assert.ok(!methods.includes("eth_signTypedData_v4"));
+  assert.ok(!methods.includes("wallet_requestExecutionPermissions"));
+  for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr", "safe", "safeBunker", "impersonator"] as const) {
+    assert.equal(isBunkerPayerAccount({ type } as import("../../src/chrome/types").Account),
+      ["privateKey", "seedPhrase", "ledger"].includes(type), type);
+  }
+});

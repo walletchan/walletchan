@@ -560,7 +560,7 @@ export function validatePrivacyRagequitBatchSelections(
     selections.length > MAX_PRIVACY_RAGEQUIT_BATCH_SIZE
   ) throw new PrivacyRagequitPrepareError("invalid-request");
   const [first] = selections;
-  if (first.accountType === "ledger") {
+  if (first.accountType === "ledger" || first.accountType === "trezor") {
     throw new PrivacyRagequitPrepareError("invalid-request");
   }
   const commitmentIds = new Set<string>();

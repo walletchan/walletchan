@@ -9,7 +9,8 @@ export function canPrepareTransactionReplacement(
       /^0x[0-9a-fA-F]{64}$/.test(tx.txHash ?? "") &&
       (tx.accountType === "privateKey" ||
         tx.accountType === "seedPhrase" ||
-        tx.accountType === "ledger") &&
+        tx.accountType === "ledger" ||
+        tx.accountType === "trezor") &&
       !tx.forceInclusionMeta &&
       !tx.userOperationHash &&
       !tx.feePaymentToken &&

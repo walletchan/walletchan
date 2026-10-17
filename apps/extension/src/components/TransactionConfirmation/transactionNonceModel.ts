@@ -6,6 +6,7 @@ export function supportsEditableTransactionNonce(
   return (
     accountType === "privateKey" ||
     accountType === "seedPhrase" ||
-    accountType === "ledger"
+    accountType === "ledger" ||
+    accountType === "trezor"
   );
 }

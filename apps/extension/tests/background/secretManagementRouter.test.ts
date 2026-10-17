@@ -30,6 +30,7 @@ function createDependencies(
     handleConfirmSignatureRequestBankr: async () => ({ success: true }),
     handleConfirmSignatureRequest: async () => ({ success: true }),
     handleConfirmLedgerSignatureRequest: async () => ({ success: true }),
+    handleConfirmTrezorSignatureRequest: async () => ({ success: true }),
     readLocalStorage: async () => ({}),
     writeResultToStorage: async () => {},
     handleConfirmErc7715PermissionRequest: async () => ({ success: true }),
@@ -131,6 +132,7 @@ test("signature confirmation routes only by the pinned account type", async () =
     ["privateKey", "local"],
     ["seedPhrase", "local"],
     ["ledger", "ledger"],
+    ["trezor", "trezor"],
     ["impersonator", "none"],
   ] as const) {
     const calls: string[] = [];
@@ -147,6 +149,10 @@ test("signature confirmation routes only by the pinned account type", async () =
       },
       handleConfirmLedgerSignatureRequest: async () => {
         calls.push("ledger");
+        return { success: true };
+      },
+      handleConfirmTrezorSignatureRequest: async () => {
+        calls.push("trezor");
         return { success: true };
       },
     });

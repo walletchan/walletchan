@@ -1,11 +1,7 @@
+import { BASE_RECONCILIATION_RPCS } from "@/constants/externalUrls";
 import { encodeFunctionData } from "viem";
 import { fetchRpcResult } from "../network/rpcClient";
 import type { SponsoredTransferRelayPayload } from "./intentStorage";
-
-const BASE_RECONCILIATION_RPCS = [
-  "https://mainnet.base.org",
-  "https://base.drpc.org",
-] as const;
 
 const AUTHORIZATION_STATE_ABI = [
   {

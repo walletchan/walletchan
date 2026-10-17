@@ -1,5 +1,6 @@
-import { lazy } from "react";
+import { createElement, lazy } from "react";
 import type { ProviderRequestSurfaceType } from "@/chrome/windowing/providerRequestSurface";
+import { TREZOR_BUILD_ENABLED } from "@/app/buildFeatures";
 
 export const Settings = lazy(() => import("@/components/Settings"));
 export const TransactionConfirmation = lazy(
@@ -25,6 +26,14 @@ export const ChatView = lazy(() => import("@/components/Chat/ChatView"));
 export const AddAccount = lazy(() => import("@/components/AddAccount"));
 export const LedgerSetupScreen = lazy(
   () => import("@/components/Ledger/LedgerSetupScreen"),
+);
+export const TrezorSetupScreen = lazy(
+  () =>
+    TREZOR_BUILD_ENABLED
+      ? import("@/components/Trezor/TrezorSetupScreen")
+      : Promise.resolve({
+          default: () => createElement("div", { hidden: true }),
+        }),
 );
 export const AccountSettings = lazy(
   () => import("@/components/AccountSettings"),
@@ -101,6 +110,9 @@ if (typeof window !== "undefined") {
     void import("@/components/Chat/ChatView");
     void import("@/components/AddAccount");
     void import("@/components/Ledger/LedgerSetupScreen");
+    if (TREZOR_BUILD_ENABLED) {
+      void import("@/components/Trezor/TrezorSetupScreen");
+    }
     void import("@/components/AccountSettings");
     void import("@/components/QRCodeModal");
     void import("@/components/TokenTransfer");

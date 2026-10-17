@@ -17,31 +17,33 @@ smaller explicitly flagged built-in subset.
 
 ## Critical: Test ALL Wallet Types
 
-**IMPORTANT**: WalletChan supports FOUR signing wallet types:
+**IMPORTANT**: WalletChan supports FIVE signing wallet types:
 
 1. **Private Key accounts** (`type: "privateKey"`) - Local signing with imported private keys
 2. **Seed Phrase accounts** (`type: "seedPhrase"`) - Local signing with HD wallet derivation
 3. **Ledger accounts** (`type: "ledger"`) - Hardware signing over Chrome WebHID; private keys never leave the device
-4. **Bankr API accounts** (`type: "bankr"`) - Optional remote signing and transactions via the Bankr API
+4. **Trezor accounts** (`type: "trezor"`) - Hardware signing through the Chromium background Connect adapter and Trezor Suite; private keys never leave the device
+5. **Bankr API accounts** (`type: "bankr"`) - Optional remote signing and transactions via the Bankr API
 
 WalletChan also supports **view-only impersonator accounts**
 (`type: "impersonator"`). They may receive reject-only transaction/signature
 prompts but must never reach a signing or submission path.
 
 Existing **Safe multisig accounts** (`type: "safe"`) are contract accounts, not
-a fifth direct signer type. Safe proposals are approved or executed through a
+another direct signer type. Safe proposals are approved or executed through a
 linked eligible owner account and the owner path must be tested independently.
 
 **When implementing ANY feature that touches transactions, signatures, or authentication:**
 
-- **Test with ALL FOUR signing wallet types** before considering it done. Ledger
-  requires real-device QA in addition to automated no-device coverage.
+- **Test with ALL FIVE signing wallet types** before considering it done.
+  Ledger and Trezor require real-device QA in addition to automated no-device
+  coverage.
 - Different wallet types use different code paths (e.g., `confirmTransactionAsync` vs `confirmTransactionAsyncPK`)
 - Agent password must work for signing transactions/messages for ALL types (not just Bankr API accounts)
 - Private key reveal is blocked for agent password regardless of wallet type
 
 **Common mistake**: Fixing something only for Bankr API accounts and forgetting
-that private key/seed phrase/Ledger accounts have separate handlers.
+that private key/seed phrase/Ledger/Trezor accounts have separate handlers.
 
 ### Adding a future account type
 
@@ -82,6 +84,14 @@ There are no bypass actors, required approvals, or required CI checks.
 
 ## Cross-surface and storage guardrails
 
+- Define extension-owned fixed service URLs, external links, gateway builders,
+  and RPC/explorer defaults in `apps/extension/src/constants/externalUrls.ts`;
+  import them in consumers instead of embedding URLs in feature files. Use the
+  appropriate commented section. See `_docs/IMPLEMENTATION.md` (External service
+  URL ownership) for dynamic-URL exceptions and chain generation. Run
+  `pnpm --filter @walletchan/extension exec tsx --test tests/network/externalUrls.test.ts`
+  when adding or changing external destinations; do not bypass the guard with
+  a new exclusion for a service endpoint.
 - Transaction confirmation behavior must stay consistent across single,
   batch, cross-dapp batch, and swap/bridge surfaces. When adding gas or fee UX,
   audit all four, including `isNonAtomic`, `onGasEstimates`,
@@ -369,6 +379,7 @@ apps/extension/src/
 │   │   └── client.ts       # Viem client and bounded RPC transport
 │   ├── ledger/              # Ledger public metadata, offscreen bridge, and guarded signing
 │   ├── ensBrowsing/        # Untrusted ENS/GNS browsing audit domain (see README.md)
+│   │   ├── recipientHistory.ts # Read-only Send ENS address-update history
 │   │   ├── handlers.ts     # Stable message-entry facade
 │   │   ├── senderAuthorization.ts # Exact page/message/top-frame allowlist
 │   │   ├── messageRoutes.ts # Bounded message dispatch

@@ -18,6 +18,7 @@ type Hooks = {
   events: string[];
   history: any[];
   transactionNonces: number[];
+  trezorOperationIds: string[];
   processing: Set<string>;
   active: Map<string, AbortController>;
 };
@@ -62,12 +63,22 @@ test("Ledger pending requests cross the terminal boundary only after device appr
     events: [],
     history: [],
     transactionNonces: [],
+    trezorOperationIds: [],
     processing: new Set(),
     active: new Map(),
   };
   Object.assign(globalThis, { __walletchanLedgerLifecycle: hooks });
 
-  const reset = () => {
+  const reset = (provider: "ledger" | "trezor" = "ledger") => {
+    hooks.account = {
+      id: `${provider}-account`,
+      type: provider,
+      address,
+      deviceId: address.toLowerCase(),
+      hdPath: "m/44'/60'/0'/0/0",
+      hdIndex: 0,
+      createdAt: 1,
+    };
     hooks.pendingTx = {
       id: "ledger-tx",
       tx: {
@@ -83,7 +94,7 @@ test("Ledger pending requests cross the terminal boundary only after device appr
       timestamp: 1,
       accountId: hooks.account.id,
       accountAddress: address,
-      accountType: "ledger",
+      accountType: provider,
     };
     hooks.pendingSignature = {
       id: "ledger-signature",
@@ -98,13 +109,14 @@ test("Ledger pending requests cross the terminal boundary only after device appr
       timestamp: 1,
       accountId: hooks.account.id,
       accountAddress: address,
-      accountType: "ledger",
+      accountType: provider,
     };
     hooks.deviceGate = deferred();
     hooks.deviceError = null;
     hooks.events = [];
     hooks.history = [];
     hooks.transactionNonces = [];
+    hooks.trezorOperationIds = [];
     hooks.processing.clear();
     hooks.active.clear();
   };
@@ -151,6 +163,10 @@ test("Ledger pending requests cross the terminal boundary only after device appr
                   "./offscreenBridge": "\0ledger-offscreen",
                   "./session": "\0ledger-session",
                   "./signing": "\0ledger-signing",
+                  "../trezor/offscreenBridge": "\0trezor-offscreen",
+                  "../trezor/operationId": "\0trezor-operation-id",
+                  "../trezor/session": "\0trezor-session",
+                  "../trezor/signing": "\0trezor-signing",
                 } as Record<string, string>
               )[source] ?? null;
             }
@@ -164,6 +180,9 @@ test("Ledger pending requests cross the terminal boundary only after device appr
                   "../signatures/confirmationPolicy": "\0ledger-signature-policy",
                   "./session": "\0ledger-session",
                   "./signing": "\0ledger-signing",
+                  "../trezor/operationId": "\0trezor-operation-id",
+                  "../trezor/session": "\0trezor-session",
+                  "../trezor/signing": "\0trezor-signing",
                 } as Record<string, string>
               )[source] ?? null;
             }
@@ -311,6 +330,41 @@ test("Ledger pending requests cross the terminal boundary only after device appr
                   return { txHash: "0xhash" };
                 };
                 export const signLedgerSignatureRequest = async () => {
+                  const hooks = globalThis.__walletchanLedgerLifecycle;
+                  hooks.events.push("device-signature");
+                  await hooks.deviceGate.promise;
+                  if (hooks.deviceError) throw new Error(hooks.deviceError);
+                  return "0xsignature";
+                };`;
+            }
+            if (id === "\0trezor-offscreen") {
+              return "export const cancelTrezorOperation = async () => {};";
+            }
+            if (id === "\0trezor-operation-id") {
+              return `
+                export const createTrezorOperationId = () => {
+                  const hooks = globalThis.__walletchanLedgerLifecycle;
+                  const id = "trezor-operation-" + (hooks.trezorOperationIds.length + 1);
+                  hooks.trezorOperationIds.push(id);
+                  return id;
+                };`;
+            }
+            if (id === "\0trezor-session") {
+              return "export const ensureTrezorSigningSession = async () => globalThis.__walletchanLedgerLifecycle.events.push('session');";
+            }
+            if (id === "\0trezor-signing") {
+              return `
+                export const signAndBroadcastTrezorTransaction = async (input) => {
+                  const hooks = globalThis.__walletchanLedgerLifecycle;
+                  hooks.transactionNonces.push(input.tx.nonce);
+                  hooks.events.push("device-tx");
+                  await hooks.deviceGate.promise;
+                  if (hooks.deviceError) throw new Error(hooks.deviceError);
+                  await input.beforeBroadcast();
+                  hooks.events.push("broadcast");
+                  return { txHash: "0xhash" };
+                };
+                export const signTrezorSignatureRequest = async () => {
                   const hooks = globalThis.__walletchanLedgerLifecycle;
                   hooks.events.push("device-signature");
                   await hooks.deviceGate.promise;
@@ -577,6 +631,94 @@ test("Ledger pending requests cross the terminal boundary only after device appr
         "effect",
         "device-signature",
       ]);
+    });
+
+    await t.test("a rejected Trezor transaction retries with a fresh opaque operation", async () => {
+      reset("trezor");
+      hooks.deviceError = "Rejected on your Trezor.";
+      const rejected = transaction.handleConfirmTransactionAsyncTrezor(
+        "ledger-tx",
+        "",
+      );
+      await waitForEvent(hooks, "device-tx");
+      hooks.deviceGate.resolve();
+      assert.deepEqual(await rejected, {
+        success: false,
+        error: "Rejected on your Trezor.",
+      });
+      assert.ok(hooks.pendingTx);
+
+      hooks.deviceGate = deferred();
+      hooks.deviceError = null;
+      hooks.events = [];
+      const approved = transaction.handleConfirmTransactionAsyncTrezor(
+        "ledger-tx",
+        "",
+      );
+      await waitForEvent(hooks, "device-tx");
+      assert.ok(hooks.pendingTx);
+      hooks.deviceGate.resolve();
+      assert.deepEqual(await approved, { success: true });
+      assert.equal(hooks.pendingTx, null);
+      assert.deepEqual(hooks.trezorOperationIds, [
+        "trezor-operation-1",
+        "trezor-operation-2",
+      ]);
+    });
+
+    await t.test("a Trezor Privacy Pools request begins only after device approval", async () => {
+      reset("trezor");
+      hooks.pendingTx!.privacyShieldMeta = {
+        version: 1,
+        operationId: hooks.pendingTx!.id,
+      };
+      const resultPromise =
+        transaction.handleConfirmTransactionAsyncTrezor("ledger-tx", "");
+      await waitForEvent(hooks, "device-tx");
+      assert.ok(hooks.pendingTx);
+      assert.equal(hooks.events.includes("privacy-begin-shield"), false);
+
+      hooks.deviceGate.resolve();
+      assert.deepEqual(await resultPromise, { success: true });
+      assert.ok(
+        hooks.events.indexOf("privacy-begin-shield") <
+          hooks.events.indexOf("broadcast"),
+      );
+    });
+
+    await t.test("Trezor device/path rebinding during approval fails before release", async () => {
+      reset("trezor");
+      const resultPromise =
+        transaction.handleConfirmTransactionAsyncTrezor("ledger-tx", "");
+      await waitForEvent(hooks, "device-tx");
+      hooks.account = {
+        ...hooks.account,
+        hdPath: "m/44'/60'/0'/0/1",
+      };
+      hooks.deviceGate.resolve();
+      assert.deepEqual(await resultPromise, {
+        success: false,
+        error: "Pending request account is no longer available",
+      });
+      assert.ok(hooks.pendingTx);
+      assert.equal(hooks.events.includes("broadcast"), false);
+    });
+
+    await t.test("a Trezor signature stays pending until final release", async () => {
+      reset("trezor");
+      const resultPromise = signature.handleConfirmTrezorSignatureRequest(
+        "ledger-signature",
+        "",
+      );
+      await waitForEvent(hooks, "device-signature");
+      assert.ok(hooks.pendingSignature);
+      hooks.deviceGate.resolve();
+      assert.deepEqual(await resultPromise, {
+        success: true,
+        signature: "0xsignature",
+      });
+      assert.equal(hooks.pendingSignature, null);
+      assert.deepEqual(hooks.trezorOperationIds, ["trezor-operation-1"]);
     });
   } finally {
     await server?.close();

@@ -46,9 +46,9 @@ export function EstimatedChangesHeading({
   chainName,
 }: EstimatedChangesHeadingProps) {
   return (
-    <Flex as="span" align="center" justify="space-between" gap={2} w="full">
-      <HStack as="span" spacing={1} minW={0}>
-        <Text as="span" fontSize="xl" fontWeight="700" noOfLines={1}>
+    <Flex as="span" align="center" justify="space-between" flexWrap="wrap" gap={2} w="full">
+      <HStack as="span" spacing={1} minW={0} flexShrink={0} maxW="full">
+        <Text as="span" fontSize="xl" fontWeight="700">
           Estimated changes
         </Text>
         <Tooltip
@@ -62,6 +62,7 @@ export function EstimatedChangesHeading({
             type="button"
             aria-label="About estimated changes"
             boxSize="24px"
+            flexShrink={0}
             p={0}
             bg="transparent"
             border={0}
@@ -77,7 +78,9 @@ export function EstimatedChangesHeading({
         </Tooltip>
       </HStack>
 
-      <RequestChainContext chainId={chainId} chainName={chainName} />
+      <Box as="span" ml="auto">
+        <RequestChainContext chainId={chainId} chainName={chainName} />
+      </Box>
     </Flex>
   );
 }

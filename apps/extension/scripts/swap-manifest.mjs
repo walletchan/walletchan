@@ -10,7 +10,14 @@
 // Invoke with the build directory as the only argument:
 //   node scripts/swap-manifest.mjs build-firefox
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cwd, exit } from "node:process";
@@ -37,4 +44,50 @@ if (!existsSync(targetManifest)) {
 }
 
 writeFileSync(targetManifest, readFileSync(firefoxManifest, "utf8"));
+const chromeOnlyTrezorFiles = [
+  "offscreen.html",
+  "trezor-symbol.svg",
+  "trezor-usb-permissions.html",
+  "trezor-wordmark.svg",
+  "vendor/trezor/content-script.js",
+  "vendor/trezor/usb-permissions.js",
+];
+for (const relativePath of chromeOnlyTrezorFiles) {
+  rmSync(resolve(cwd(), buildDir, relativePath), { force: true });
+}
+const trezorVendorDirectory = resolve(cwd(), buildDir, "vendor/trezor");
+rmSync(trezorVendorDirectory, { force: true, recursive: true });
+const vendorDirectory = resolve(cwd(), buildDir, "vendor");
+if (existsSync(vendorDirectory) && readdirSync(vendorDirectory).length === 0) {
+  rmSync(vendorDirectory, { force: true, recursive: true });
+}
+
+const forbiddenTrezorMarkers = [
+  "https://connect.trezor.io",
+  "https://suite.trezor.io",
+  "ws://127.0.0.1:21335",
+  "offscreen:trezor",
+  "walletchan-trezor-connect",
+];
+const pendingDirectories = [resolve(cwd(), buildDir)];
+while (pendingDirectories.length) {
+  const directory = pendingDirectories.pop();
+  for (const name of readdirSync(directory)) {
+    const target = resolve(directory, name);
+    if (statSync(target).isDirectory()) {
+      pendingDirectories.push(target);
+      continue;
+    }
+    if (!target.endsWith(".js")) continue;
+    const source = readFileSync(target, "utf8");
+    for (const marker of forbiddenTrezorMarkers) {
+      if (source.includes(marker)) {
+        console.error(
+          `swap-manifest: Trezor transport marker remained in Firefox: ${marker}`,
+        );
+        exit(1);
+      }
+    }
+  }
+}
 console.log(`swap-manifest: ${buildDir}/manifest.json now = Firefox variant`);

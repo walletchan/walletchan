@@ -1,3 +1,4 @@
+import { CHAINLIST_URL } from "@/constants/externalUrls";
 import { useMemo, useRef, useState } from "react";
 import {
   Button,
@@ -330,7 +331,7 @@ function AddChain({
         onBack={() => back()}
         onApprove={addChain}
         onOpenChainlist={() =>
-          chrome.tabs.create({ url: "https://chainlist.org" })
+          chrome.tabs.create({ url: CHAINLIST_URL })
         }
         onChainNameChange={(event) => {
           setChainName(event.target.value);
@@ -367,7 +368,7 @@ function AddChain({
           variant="ghost"
           size="sm"
           rightIcon={<ExternalLinkIcon boxSize={3.5} />}
-          onClick={() => chrome.tabs.create({ url: "https://chainlist.org" })}
+          onClick={() => chrome.tabs.create({ url: CHAINLIST_URL })}
         >
           Chainlist
         </Button>

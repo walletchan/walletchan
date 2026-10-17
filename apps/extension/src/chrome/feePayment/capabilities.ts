@@ -5,6 +5,7 @@ import {
 } from "@/utils/delegationResolution";
 import { getAccountById } from "../accountStorage";
 import type { Account } from "../types";
+import { getAccountTypeCapabilities } from "../hardware/accountCapabilities";
 import { getPendingTxRequestById } from "../requests/pendingTxStorage";
 import { getPendingBatchTxRequestById } from "../requests/pendingBatchTxStorage";
 import { resolvePinnedAccount } from "../transactions/runtime";
@@ -43,10 +44,18 @@ export function evaluateTokenFeePaymentEligibility(input: {
   if (input.accountType === "impersonator") {
     return { available: false, unavailableReason: "View-only accounts cannot send transactions" };
   }
-  if (input.accountType === "ledger") {
+  if (!getAccountTypeCapabilities(input.accountType).feeTokenExecution) {
+    const accountLabel =
+      input.accountType === "ledger"
+        ? "Ledger"
+        : input.accountType === "trezor"
+          ? "Trezor"
+          : null;
     return {
       available: false,
-      unavailableReason: "Ledger accounts don't support token gas payment",
+      unavailableReason: accountLabel
+        ? `${accountLabel} accounts don't support token gas payment`
+        : "This account doesn't support token gas payment",
     };
   }
   if (input.hasDeployment) {

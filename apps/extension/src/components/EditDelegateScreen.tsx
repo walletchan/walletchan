@@ -1,3 +1,4 @@
+import { etherscanAddressUrl } from "@/constants/externalUrls";
 import { useEffect, useRef } from "react";
 import {
   AlertDialog,
@@ -140,7 +141,7 @@ export function EditDelegateScreen({
     : null;
   const accountExplorerUrl = explorer
     ? `${explorer.replace(/\/+$/, "")}/address/${account.address}`
-    : `https://etherscan.io/address/${account.address}`;
+    : etherscanAddressUrl(account.address);
   const isAlreadySet =
     setDisabledReason?.toLowerCase().includes("already") ?? false;
 

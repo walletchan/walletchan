@@ -1,3 +1,4 @@
+import { TENDERLY_SIMULATOR_URL } from "@/constants/externalUrls";
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import type { PendingBatchTxRequest } from "@/chrome/erc5792Types";
 import { encodeBatchCalls } from "@/chrome/batchTxHandlers";
@@ -117,5 +118,5 @@ export function makeTenderlyUrl(
     network: String(chainId),
     contractAddress: encodedBatch.to,
   });
-  return `https://dashboard.tenderly.co/simulator/new?${params}`;
+  return `${TENDERLY_SIMULATOR_URL}?${params}`;
 }

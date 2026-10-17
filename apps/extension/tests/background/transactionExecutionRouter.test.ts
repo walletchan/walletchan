@@ -18,6 +18,7 @@ function dependencies(
     handleConfirmTransactionAsync: async () => ({ success: true }),
     handleConfirmTransactionAsyncPK: async () => ({ success: true }),
     handleConfirmTransactionAsyncLedger: async () => ({ success: true }),
+    handleConfirmTransactionAsyncTrezor: async () => ({ success: true }),
     handleConfirmImpersonatedTransaction: async () => ({ success: true }),
     handleInitiateTransfer: async () => ({ success: true, txId: "tx-new" }),
     runPendingRequestResolution: async (options: any) => options.resolve(),
@@ -155,6 +156,10 @@ test("all transaction execution paths share the exact transaction claim", async 
       calls.push(["ledger", ...args]);
       return { success: true };
     },
+    handleConfirmTransactionAsyncTrezor: async (...args) => {
+      calls.push(["trezor", ...args]);
+      return { success: true };
+    },
     handleConfirmImpersonatedTransaction: async (...args) => {
       calls.push(["impersonated", ...args]);
       return { success: true };
@@ -203,6 +208,19 @@ test("all transaction execution paths share the exact transaction claim", async 
     },
     { tab: { id: 18 } } as chrome.runtime.MessageSender,
   );
+  const trezor = await dispatch(
+    deps,
+    {
+      type: "confirmTransactionAsyncTrezor",
+      txId: "trezor-1",
+      password: "agent",
+      functionName: "transfer",
+      gasOverrides: { gasLimit: "0x5208" },
+      forceInclusion: false,
+      nonce: 14,
+    },
+    { tab: { id: 19 } } as chrome.runtime.MessageSender,
+  );
   const impersonated = await dispatch(deps, {
     type: "confirmImpersonatedTransaction",
     txId: "impersonated-1",
@@ -210,7 +228,14 @@ test("all transaction execution paths share the exact transaction claim", async 
     gasOverrides: { gasLimit: "0x5208" },
   });
 
-  for (const result of [immediate, background, local, ledger, impersonated]) {
+  for (const result of [
+    immediate,
+    background,
+    local,
+    ledger,
+    trezor,
+    impersonated,
+  ]) {
     assert.deepEqual(result.response, { success: true });
     assert.deepEqual(result.route, { handled: true, keepChannelOpen: true });
   }
@@ -225,6 +250,7 @@ test("all transaction execution paths share the exact transaction claim", async 
       { family: "transaction", requestId: "bankr-2", action: "confirm" },
       { family: "transaction", requestId: "local-1", action: "confirm" },
       { family: "transaction", requestId: "ledger-1", action: "confirm" },
+      { family: "transaction", requestId: "trezor-1", action: "confirm" },
       { family: "transaction", requestId: "impersonated-1", action: "confirm" },
     ],
   );
@@ -253,6 +279,16 @@ test("all transaction execution paths share the exact transaction claim", async 
       { gasLimit: "0x5208" },
       false,
       13,
+    ],
+    [
+      "trezor",
+      "trezor-1",
+      "agent",
+      19,
+      "transfer",
+      { gasLimit: "0x5208" },
+      false,
+      14,
     ],
     [
       "impersonated",

@@ -109,3 +109,16 @@ network reveals Pay for deployment using and Deploy, plus automatic payer-bound
 fees; there is no separate deployment/review screen. Pending deployment management
 remains in settings. Add existing is verification/account-add only, with no fee
 payer, transaction or forced recovery rotation.
+## RPC review retry
+
+Single transaction requests place Retry beside footer errors and unavailable
+asset previews for every account type. Retry checks the request is still pending,
+refreshes review data, and requires a fresh Confirm click after loading. It never
+recreates or broadcasts a consumed request. View-only accounts retain their
+existing reject-only policy outside explicitly enabled developer RPC mode.
+
+The shared single and multi-transaction gas controls also expose read-only Retry
+on gas-estimation errors across single, batch, cross-dapp, swap/bridge, and Safe
+execution reviews. Loading reports invalid gas until estimation completes;
+read-only/submitting surfaces disable Retry. Existing fee-token quote Retry
+continues through the quote owner.

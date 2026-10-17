@@ -1262,7 +1262,7 @@ standard and cross-dapp batch until the standard batch pattern is merged.
 | P6-05 | done | Security and data settings groups | P3-06 | Settings leaf screens | Form fields vs navigation items separated; destructive actions isolated; save model clear. `L,T,P,E,V,A,W` | Wave A across disjoint files |
 | P6-06 | done | Network connections screens | P3-06, P2-09 | Chain/RPC settings and pickers | Plain-language hierarchy; add/edit validation and existing storage behavior unchanged. `L,T,P,E,V,A` | Wave A |
 | P6-07 | done | About screen | P3-06 | New settings leaf | Version, author, ecosystem links, theme info live here; no new storage. `L,T,P,E,V,A` | Wave A |
-| P6-GATE | active | Auth/account/settings runtime gate | P6-01 through P6-07 | Full extension | Packaged master/agent/manual-lock/reveal-restriction coverage passes for all four signing wallet types and passkey/session tests pass 8/8; genuine biometric ceremony, Ledger device approval, timed auto-lock and browser-restart smoke remain manual. `L,T,P,E,V,A,W,R` | Gate |
+| P6-GATE | active | Auth/account/settings runtime gate | P6-01 through P6-07 | Full extension | Packaged master/agent/manual-lock/reveal-restriction coverage passes for all five signing wallet types and passkey/session tests pass 8/8; genuine biometric ceremony, Ledger/Trezor device approval, timed auto-lock and browser-restart smoke remain manual. `L,T,P,E,V,A,W,R` | Gate |
 
 ### 11.11 Phase 7 task backlog: remaining surfaces and release QA
 
@@ -1408,7 +1408,7 @@ The redesign is complete when:
 - One primary action exists per screen or sticky action region.
 - All component states are specified and visually consistent.
 - Both themes remain functional at every preview size.
-- All transaction/signature/auth flows pass with all four signing wallet types.
+- All transaction/signature/auth flows pass with all five signing wallet types.
 - No storage, message, signing, or crypto behavior changes as part of the UI
   work.
 
@@ -1833,7 +1833,8 @@ fail-closed guards rather than blanket suppression; signing authorization,
 storage shapes, message types, and valid-request behavior remain unchanged.
 
 Packaged Chrome QA loads the complete production manifest into fresh profiles.
-It passes transaction rejection for all four signing wallet types; six personal/
+The pre-Trezor baseline passes transaction rejection for its four signing
+wallet types; six personal/
 typed-data signature scenarios; view-only transaction/signature rejection;
 three ERC-5792 batch rejection scenarios; daily-use navigation with external
 portfolio/RPC traffic blocked; and 30 master/agent/account-protection assertions

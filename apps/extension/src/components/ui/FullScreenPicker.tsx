@@ -74,6 +74,7 @@ export const FullScreenPicker = forwardRef<HTMLDivElement, FullScreenPickerProps
 export interface FullScreenPickerSearchProps
   extends Omit<InputProps, "size"> {
   label: string;
+  hideLabel?: boolean;
   labelTrailing?: ReactNode;
   formControlProps?: Omit<FormControlProps, "children">;
 }
@@ -82,13 +83,13 @@ export const FullScreenPickerSearch = forwardRef<
   HTMLInputElement,
   FullScreenPickerSearchProps
 >(function FullScreenPickerSearch(
-  { label, labelTrailing, formControlProps, ...inputProps },
+  { label, hideLabel = false, labelTrailing, formControlProps, ...inputProps },
   ref,
 ) {
   return (
     <FormControl {...formControlProps}>
-      <HStack mb={1.5} minW={0} justify="space-between" spacing={2}>
-        <FormLabel mb={0} minW={0} fontSize="sm">
+      <HStack mb={hideLabel ? 0 : 1.5} minW={0} justify="space-between" spacing={2}>
+        <FormLabel mb={0} minW={0} fontSize="sm" srOnly={hideLabel || undefined}>
           {label}
         </FormLabel>
         {labelTrailing && <Box minW={0}>{labelTrailing}</Box>}
@@ -142,19 +143,21 @@ export const FullScreenPickerGroup = forwardRef<
 ) {
   return (
     <Box ref={ref} as="section" _notFirst={{ mt: 5 }} {...rest}>
-      <HStack mb={2} px={1} align="flex-start" justify="space-between" spacing={3}>
-        <Box minW={0}>
-          <Text as="h2" fontSize="sm" fontWeight="600" color="fg.secondary">
-            {label}
-          </Text>
-          {description && (
-            <Text mt={0.5} fontSize="xs" color="fg.muted">
-              {description}
+      {(label || description || trailing) && (
+        <HStack mb={2} px={1} align={description ? "flex-start" : "center"} justify="space-between" spacing={3}>
+          <Box minW={0}>
+            <Text as="h2" fontSize="sm" fontWeight="600" color="fg.secondary">
+              {label}
             </Text>
-          )}
-        </Box>
-        {trailing && <Box flexShrink={0}>{trailing}</Box>}
-      </HStack>
+            {description && (
+              <Text mt={0.5} fontSize="xs" color="fg.muted">
+                {description}
+              </Text>
+            )}
+          </Box>
+          {trailing && <Box flexShrink={0}>{trailing}</Box>}
+        </HStack>
+      )}
       <ListSurface>{children}</ListSurface>
     </Box>
   );

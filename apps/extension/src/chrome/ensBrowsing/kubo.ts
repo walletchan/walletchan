@@ -1,3 +1,4 @@
+import { KUBO_API_BASE } from "@/constants/externalUrls";
 // Kubo (IPFS) gateway probe + HTTP API client.
 //
 // The local-gateway path only needs the gateway probe — uses the no-CORS
@@ -88,7 +89,6 @@ export function invalidateKuboGatewayProbe(): void {
 // them through it with the exact command pre-filled with `chrome.runtime.id`.
 // ────────────────────────────────────────────────────────────────────────────
 
-const KUBO_API_BASE = "http://127.0.0.1:5001";
 const KUBO_API_TIMEOUT_MS = 10_000;
 const MAX_KUBO_API_RESPONSE_BYTES = 65_536;
 

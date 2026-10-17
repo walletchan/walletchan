@@ -33,7 +33,7 @@ export interface PublicWithdrawalOffer {
   readonly amountWei: bigint;
   readonly accountId: string;
   readonly accountAddress: string;
-  readonly accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger";
+  readonly accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor";
   readonly activeAccountMatches: boolean;
   readonly sourceOperationId: string | null;
 }
@@ -53,7 +53,8 @@ function isRecoverableAccountType(
 ): type is PublicWithdrawalOffer["accountType"] {
   return (type === "bankr" &&
       PRIVACY_POOLS_RELEASE_POLICY.bankrMutations === "enabled") ||
-    type === "privateKey" || type === "seedPhrase" || type === "ledger";
+    type === "privateKey" || type === "seedPhrase" || type === "ledger" ||
+    type === "trezor";
 }
 
 function accountMatches(
@@ -151,7 +152,7 @@ export interface PublicRecoveryPreview {
   readonly createdAt: number;
   readonly accountId: string;
   readonly accountAddress: string;
-  readonly accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger";
+  readonly accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor";
   readonly amountWei: bigint;
   readonly originalAmountWei: bigint;
   readonly withdrawnAmountWei: bigint;
@@ -176,7 +177,8 @@ function parsePublicRecoveryPreview(
     typeof value.accountId !== "string" || value.accountId.length === 0 ||
     typeof value.accountAddress !== "string" || !ADDRESS.test(value.accountAddress) ||
     (value.accountType !== "bankr" && value.accountType !== "privateKey" &&
-      value.accountType !== "seedPhrase" && value.accountType !== "ledger") ||
+      value.accountType !== "seedPhrase" && value.accountType !== "ledger" &&
+      value.accountType !== "trezor") ||
     typeof value.amountWei !== "string" || !UINT.test(value.amountWei) ||
     BigInt(value.amountWei) <= 0n ||
     typeof value.originalAmountWei !== "string" || !UINT.test(value.originalAmountWei) ||

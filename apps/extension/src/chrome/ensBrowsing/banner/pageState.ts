@@ -1,3 +1,4 @@
+import { web3GatewayUrl } from "@/constants/externalUrls";
 export interface PageMetadata {
   title?: string;
   favicon?: string;
@@ -55,7 +56,7 @@ export function parseEnsAddressInput(raw: string): string | null {
       ? rest
       : `/${rest}`;
   if (/^0x[a-f0-9]{40}$/.test(host)) {
-    return `https://${host}.w3eth.io${path}`;
+    return `${web3GatewayUrl(host)}${path}`;
   }
   if (!/^(?:[a-z0-9-]+\.)+(?:eth|gwei|wei)$/.test(host)) return null;
   return `http://${host}${path}`;

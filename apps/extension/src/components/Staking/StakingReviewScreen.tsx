@@ -1,3 +1,4 @@
+import { BASESCAN_URL } from "@/constants/externalUrls";
 import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react";
 import { useState } from "react";
 import { formatUnits } from "viem";
@@ -67,7 +68,7 @@ export function StakingReviewScreen(props: {
             <SmartAccountSetupBanner
               delegate={props.plan.delegation.delegate}
               onchainDelegate={props.plan.delegation.onchainDelegate}
-              explorerUrl="https://basescan.org"
+              explorerUrl={BASESCAN_URL}
             />
           )}
 

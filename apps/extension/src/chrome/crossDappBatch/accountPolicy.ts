@@ -5,6 +5,7 @@ import { getAccountById } from "../accountStorage";
 import type { TransactionParams } from "../bankr/submission";
 import type { ERC5792Call } from "../erc5792Types";
 import type { Account } from "../types";
+import { hasAccountTypeCapability } from "../hardware/accountCapabilities";
 
 export function hasConcreteRecipientAddress(
   to: TransactionParams["to"] | ERC5792Call["to"] | undefined,
@@ -19,6 +20,9 @@ export async function eligibilityErrorForCrossDappBatch(
 ): Promise<string | null> {
   if (!account || account.type === "impersonator") {
     return "View-only accounts cannot use cross-dapp batching";
+  }
+  if (!hasAccountTypeCapability(account.type, "crossDappBatch")) {
+    return "This account type cannot use cross-dapp batching";
   }
   if (account.type === "bankr") {
     return BANKR_SUPPORTED_CHAIN_IDS.has(chainId)

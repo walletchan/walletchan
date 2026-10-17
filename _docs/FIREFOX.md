@@ -179,7 +179,8 @@ Load the unpacked Firefox extension:
 
 `web-ext run` is also wired up (`firefox:run` script in `apps/extension/package.json`) and launches a clean Firefox profile with the extension auto-loaded — useful for the standard test pass below.
 
-**Test all four wallet types in Firefox before releasing**:
+**Test all four Firefox-supported signing wallet types before releasing**
+(the initial Trezor integration is Chromium-only):
 
 1. Onboarding wizard completes end-to-end
 2. Bankr account: create, view balances, send a tx

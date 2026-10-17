@@ -1,3 +1,4 @@
+import { ensLimoUrl, gnsGatewayUrl, web3GatewayUrl } from "@/constants/externalUrls";
 /**
  * EnsError — themed error page surfaced when an ENS navigation can't be
  * resolved (no contenthash, RPC failure, unsupported codec, etc.). Always
@@ -53,21 +54,21 @@ function hostedFallback(
   if (/^0x[a-f0-9]{40}\.eth$/.test(lower)) {
     const addr = lower.slice(0, -4);
     return {
-      url: `https://${addr}.w3eth.io${normalizedPath}${search}${hash}`,
+      url: `${web3GatewayUrl(addr)}${normalizedPath}${search}${hash}`,
       label: "Try on w3eth.io",
       gateway: "w3eth.io",
     };
   }
   if (/^(?:[a-z0-9-]+\.)+gwei$/.test(lower)) {
     return {
-      url: `https://${lower}.domains${normalizedPath}${search}${hash}`,
+      url: `${gnsGatewayUrl(lower)}${normalizedPath}${search}${hash}`,
       label: "Try on gwei.domains",
       gateway: "gwei.domains",
     };
   }
   if (/^(?:[a-z0-9-]+\.)+wei$/.test(lower)) {
     return {
-      url: `https://${lower}.limo${normalizedPath}${search}${hash}`,
+      url: `${ensLimoUrl(lower)}${normalizedPath}${search}${hash}`,
       label: "Try on wei.limo",
       gateway: "wei.limo",
     };
@@ -75,7 +76,7 @@ function hostedFallback(
   if (!/^(?:[a-z0-9-]+\.)+eth$/.test(lower)) return null;
   const trimmed = lower.slice(0, -4);
   return {
-    url: `https://${trimmed}.eth.limo${normalizedPath}${search}${hash}`,
+    url: `${ensLimoUrl(`${trimmed}.eth`)}${normalizedPath}${search}${hash}`,
     label: "Try on eth.limo",
     gateway: "eth.limo",
   };

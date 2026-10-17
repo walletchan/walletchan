@@ -1,10 +1,11 @@
 import type { Account, AccountType } from "../../types";
 import { PRIVACY_POOLS_RELEASE_POLICY } from "./manifest";
 import type { PrivacyPoolsReleasePolicy } from "./types";
+import { getAccountTypeCapabilities } from "../../hardware/accountCapabilities";
 
 export type PrivacyPoolsMutationAccountType = Extract<
   AccountType,
-  "bankr" | "privateKey" | "seedPhrase" | "ledger"
+  "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor"
 >;
 
 export type PrivacyPoolsMutationAccount = Extract<
@@ -15,12 +16,8 @@ export type PrivacyPoolsMutationAccount = Extract<
 export function isPrivacyPoolsCustodyAccountType(
   accountType: AccountType,
 ): accountType is PrivacyPoolsMutationAccountType {
-  return (
-    accountType === "bankr" ||
-    accountType === "privateKey" ||
-    accountType === "seedPhrase" ||
-    accountType === "ledger"
-  );
+  return getAccountTypeCapabilities(accountType)
+    .privacyPoolsSingleTransaction;
 }
 
 export function isPrivacyPoolsMutationAccountType(

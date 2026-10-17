@@ -46,7 +46,7 @@ export type PreviewWalletType =
 
 export interface PreviewWallet {
   accountId: string;
-  accountType: Exclude<Account["type"], "ledger" | "safe" | "safeBunker">;
+  accountType: Exclude<Account["type"], "ledger" | "trezor" | "safe" | "safeBunker">;
   address: `0x${string}`;
   displayName: string;
   createdAt: number;

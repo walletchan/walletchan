@@ -5,6 +5,10 @@ device: derivation-path validation, trusted background routing, Chrome-only
 offscreen exposure, exact service-worker authorization, public-only storage,
 signing-policy wiring, commit-safe account selection, and deferred
 pending-request terminalization across both transaction and message signing.
+Renderer architecture coverage also proves that Ledger's public adapters keep
+their local official marks, released copy, WebHID operation boundary, and
+hardware-wait treatment while delegating provider-independent presentation and
+add-account state to `components/HardwareWallet/`.
 The no-device transaction lifecycle also freezes exact reviewed-nonce use,
 including the nonce reservation boundary used by pending replacements.
 Safe coverage additionally verifies that a real SafeTx EIP-712 payload passes

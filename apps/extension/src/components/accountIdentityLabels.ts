@@ -20,6 +20,7 @@ export function getWalletTypeLabel(
   }
   if (account.type === "ledger") return `Ledger · Account ${account.hdIndex + 1}`;
   if (account.type === "safeBunker") return `${seedGroupMap.get(account.seedGroupId) || "Seed phrase"} · Bunker`;
+  if (account.type === "trezor") return `Trezor · Account ${account.hdIndex + 1}`;
   if (account.type === "safe") return "Safe multisig";
   return "View only";
 }
@@ -34,6 +35,8 @@ export function getAccountSettingsTypeLabel(account: Account): string {
       return `Seed · #${account.derivationIndex}`;
     case "ledger":
       return "Ledger";
+    case "trezor":
+      return "Trezor";
     case "impersonator":
       return "View-Only";
     case "safeBunker": return "Safe Bunker";

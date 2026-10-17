@@ -68,8 +68,10 @@ export default function PublicRecoveryReviewScreen({
   const selectedOptions = options.filter((option) =>
     selectedIds.has(option.preview.commitmentId)
   );
-  const hasLedgerOptions = options.some(
-    (option) => option.preview.accountType === "ledger",
+  const hasHardwareOptions = options.some(
+    (option) =>
+      option.preview.accountType === "ledger" ||
+      option.preview.accountType === "trezor",
   );
   const activeGroupKey = groups.find((group) =>
     group.options.some((option) => selectedIds.has(option.preview.commitmentId))
@@ -86,7 +88,10 @@ export default function PublicRecoveryReviewScreen({
     if (activeGroupKey && activeGroupKey !== groupKey) return;
     const group = groups.find((candidate) => candidate.key === groupKey);
     const selectionLimit =
-      group?.options[0]?.preview.accountType === "ledger" ? 1 : 8;
+      group?.options[0]?.preview.accountType === "ledger" ||
+      group?.options[0]?.preview.accountType === "trezor"
+        ? 1
+        : 8;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (checked) {
@@ -105,7 +110,10 @@ export default function PublicRecoveryReviewScreen({
     checked: boolean,
   ) => {
     if (activeGroupKey && activeGroupKey !== group.key) return;
-    if (group.options[0]?.preview.accountType === "ledger") return;
+    if (
+      group.options[0]?.preview.accountType === "ledger" ||
+      group.options[0]?.preview.accountType === "trezor"
+    ) return;
     setSelectedIds(checked
       ? new Set(group.options.slice(0, 8).map((option) => option.preview.commitmentId))
       : new Set());
@@ -127,8 +135,8 @@ export default function PublicRecoveryReviewScreen({
             </Text>
             <Text mt={0.5} fontSize="xs" color="fg.muted" lineHeight="1.45">
               Select whole deposits from one account.{" "}
-              {hasLedgerOptions
-                ? "Ledger deposits exit one at a time; other accounts can group up to 8."
+              {hasHardwareOptions
+                ? "Hardware-wallet deposits exit one at a time; other accounts can group up to 8."
                 : "They’ll exit in one public transaction (up to 8 at a time)."}
             </Text>
           </Box>
@@ -140,8 +148,10 @@ export default function PublicRecoveryReviewScreen({
                 selectedIds.has(option.preview.commitmentId)
               ).length;
               const groupDisabled = activeGroupKey !== null && activeGroupKey !== group.key;
-              const isLedgerGroup = first.preview.accountType === "ledger";
-              const selectionLimit = isLedgerGroup ? 1 : 8;
+              const isHardwareGroup =
+                first.preview.accountType === "ledger" ||
+                first.preview.accountType === "trezor";
+              const selectionLimit = isHardwareGroup ? 1 : 8;
               const allSelected =
                 groupSelectedCount === Math.min(group.options.length, selectionLimit);
               return (
@@ -163,7 +173,7 @@ export default function PublicRecoveryReviewScreen({
                         secondaryIdentity={first.secondaryIdentity}
                         size={32}
                       />
-                      {group.options.length > 1 && !isLedgerGroup ? (
+                      {group.options.length > 1 && !isHardwareGroup ? (
                         <Checkbox
                           flexShrink={0}
                           variant="commitment"
@@ -180,8 +190,12 @@ export default function PublicRecoveryReviewScreen({
                     </HStack>
                     <Text mt={1.5} fontSize="2xs" color="fg.muted">
                       {group.options.length} {group.options.length === 1 ? "deposit" : "deposits"}
-                      {isLedgerGroup && group.options.length > 1
-                        ? " · One per Ledger transaction"
+                      {isHardwareGroup && group.options.length > 1
+                        ? ` · One per ${
+                            first.preview.accountType === "trezor"
+                              ? "Trezor"
+                              : "Ledger"
+                          } transaction`
                         : group.options.length > 8
                           ? " · Up to 8 per transaction"
                           : ""}

@@ -4,7 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createServer, type ViteDevServer } from "vite";
 
-test("nonce review reads only the exact pinned PK, seed, or Ledger account", async () => {
+test("nonce review reads only the exact pinned PK, seed, Ledger, or Trezor account", async () => {
   let server: ViteDevServer | null = null;
   const address = "0x1111111111111111111111111111111111111111";
   const hooks = {
@@ -70,7 +70,7 @@ test("nonce review reads only the exact pinned PK, seed, or Ledger account", asy
       hooks.reads = [];
     };
 
-    for (const type of ["privateKey", "seedPhrase", "ledger"]) {
+    for (const type of ["privateKey", "seedPhrase", "ledger", "trezor"]) {
       setRequest(type);
       assert.deepEqual(
         await review.getTransactionNonceForReview(`${type}-tx`),

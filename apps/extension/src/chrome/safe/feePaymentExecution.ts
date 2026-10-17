@@ -179,6 +179,9 @@ export async function executeSafeProposalWithFeeToken(input: {
   if (!canExecuteSafeWithFeeToken(account)) {
     throw new Error("Selected Safe executor supports native gas only");
   }
+  if (account.type !== "privateKey" && account.type !== "seedPhrase") {
+    throw new Error("Selected Safe executor cannot sign token-funded gas");
+  }
   const calls = feePaymentSafeExecutionCalls({
     safeAddress: proposal.safeAddress,
     executionData: buildSafeExecutionData(proposal),

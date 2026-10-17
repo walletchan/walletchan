@@ -1,6 +1,7 @@
 import { peekNextNonce } from "../forceInclusion/nonceManager";
 import { getPendingTxRequestById } from "../requests/pendingTxStorage";
 import { resolvePinnedAccount } from "./runtime";
+import { getAccountTypeCapabilities } from "../hardware/accountCapabilities";
 
 export type TransactionNonceResult =
   | { success: true; nonce: number }
@@ -20,11 +21,7 @@ export async function getTransactionNonceForReview(
   }
   const pinned = await resolvePinnedAccount(pending);
   if (!pinned.ok) return { success: false, error: pinned.error };
-  if (
-    pinned.account.type !== "privateKey" &&
-    pinned.account.type !== "seedPhrase" &&
-    pinned.account.type !== "ledger"
-  ) {
+  if (!getAccountTypeCapabilities(pinned.account.type).customNonce) {
     return {
       success: false,
       error: "This account does not support custom transaction nonces",

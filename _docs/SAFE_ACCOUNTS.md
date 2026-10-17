@@ -1009,17 +1009,17 @@ replayed without a background recheck.
 
 Every signing and execution flow must cover:
 
-| Scenario | PK owner | Seed owner | Ledger owner | View-only | Bankr owner |
-| --- | --- | --- | --- | --- | --- |
-| Discover Safe by owner | Yes | Yes | Yes | Optional lookup only | Yes |
-| Import and link | Yes | Yes | Yes | Observe only | Yes |
-| Propose first signature | Required | Required | Automated + device QA | Blocked | Required before ship |
-| Add confirmation | Required | Required | Automated + device QA | Blocked | Required before ship |
-| Execute with owner EOA | Required | Required | Automated + device QA | Blocked | Approval only |
-| Execute with unrelated local EOA | Required | Required | Automated + device QA | Blocked | Approval only |
-| Safe message approval | Compatibility-gated | Compatibility-gated | Compatibility-gated | Blocked | Compatibility-gated |
-| Owner/module/settings change | Master-only | Master-only | Master-only | Blocked | Master-only if supported |
-| Agent password ordinary approval | Explicit policy test | Explicit policy test | Explicit policy + device QA | Blocked | Explicit policy test |
+| Scenario | PK owner | Seed owner | Ledger owner | Trezor owner | View-only | Bankr owner |
+| --- | --- | --- | --- | --- | --- | --- |
+| Discover Safe by owner | Yes | Yes | Yes | Yes | Optional lookup only | Yes |
+| Import and link | Yes | Yes | Yes | Yes | Observe only | Yes |
+| Propose first signature | Required | Required | Automated + device QA | Automated + device QA | Blocked | Required before ship |
+| Add confirmation | Required | Required | Automated + device QA | Automated + device QA | Blocked | Required before ship |
+| Execute with owner EOA | Required | Required | Automated + device QA | Automated + device QA | Blocked | Approval only |
+| Execute with unrelated local EOA | Required | Required | Automated + device QA | Automated + device QA | Blocked | Approval only |
+| Safe message approval | Compatibility-gated | Compatibility-gated | Compatibility-gated | Compatibility-gated | Blocked | Compatibility-gated |
+| Owner/module/settings change | Master-only | Master-only | Master-only | Master-only | Blocked | Master-only if supported |
+| Agent password ordinary approval | Explicit policy test | Explicit policy test | Explicit policy + device QA | Explicit policy + device QA | Blocked | Explicit policy test |
 
 Also test one Safe linked to multiple WalletChan owner types and prove that the
 wrong cached password/API key/private key can never approve for another owner.
@@ -1032,7 +1032,7 @@ wrong cached password/API key/private key can never approve for another owner.
 - EOA owners, unsupported contract owner, and nested Safe owner;
 - no modules, canonical module, unknown module, guard, and custom fallback;
 - normal single call, canonical MultiSend, and arbitrary delegatecall;
-- nonce zero, queued future-nonce approval across all four signing wallet
+- nonce zero, queued future-nonce approval across all five signing wallet
   types, execution gating until that nonce becomes current, two proposals at
   one nonce, and stale nonce;
 - service proposal whose fields/hash/signatures are malformed;

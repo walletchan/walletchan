@@ -10,7 +10,10 @@ export interface ListSurfaceProps extends BoxProps {}
  * keep `role="list"` so list semantics survive the visual style reset.
  */
 export const ListSurface = forwardRef<HTMLElement, ListSurfaceProps>(
-  function ListSurface({ as = "ul", role, children, ...rest }, ref) {
+  function ListSurface(
+    { as = "ul", role, children, borderColor = "border.default", ...rest },
+    ref,
+  ) {
     const hasNativeListSemantics = as === "ul" || as === "ol";
 
     return (
@@ -27,7 +30,7 @@ export const ListSurface = forwardRef<HTMLElement, ListSurfaceProps>(
         bg="surface.raised"
         borderWidth="1px"
         borderStyle="solid"
-        borderColor="border.default"
+        borderColor={borderColor}
         borderRadius="lg"
       >
         {children}

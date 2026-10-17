@@ -19,12 +19,18 @@
  *   3. skip + warn (chain in MM's list but we can't source metadata)
  */
 
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { DELEGATOR_CONTRACTS } from "@metamask/delegation-deployments";
 import * as viemChains from "viem/chains";
 import type { Chain } from "viem";
+import {
+  BASESCAN_URL,
+  ETHERSCAN_URL,
+  KNOWN_CHAIN_URLS,
+  SEPOLIA_ETHERSCAN_URL,
+} from "../src/constants/externalUrls";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -63,7 +69,7 @@ interface ManualOverride {
 
 // Preferred explorers override upstream metadata during regeneration.
 const EXPLORER_OVERRIDES: Record<number, string> = {
-  143: "https://monadscan.com", // Monad
+  143: KNOWN_CHAIN_URLS[143].explorer, // Monad
 };
 
 /**
@@ -76,18 +82,18 @@ const EXPLORER_OVERRIDES: Record<number, string> = {
  */
 const RPC_OVERRIDES: Record<number, string> = {
   // Mainnets — verified via eth_chainId round-trip
-  100: "https://gnosis.drpc.org",
-  143: "https://monad.drpc.org",
-  146: "https://sonic.drpc.org",
-  1329: "https://sei.drpc.org",
-  2020: "https://ronin.drpc.org",
-  5000: "https://mantle.drpc.org",
-  42170: "https://arbitrum-nova.drpc.org",
-  42220: "https://celo.drpc.org",
-  57073: "https://ink.drpc.org",
-  59144: "https://linea.drpc.org",
-  80094: "https://berachain.drpc.org",
-  747474: "https://katana.drpc.org",
+  100: KNOWN_CHAIN_URLS[100].rpc,
+  143: KNOWN_CHAIN_URLS[143].rpc,
+  146: KNOWN_CHAIN_URLS[146].rpc,
+  1329: KNOWN_CHAIN_URLS[1329].rpc,
+  2020: KNOWN_CHAIN_URLS[2020].rpc,
+  5000: KNOWN_CHAIN_URLS[5000].rpc,
+  42170: KNOWN_CHAIN_URLS[42170].rpc,
+  42220: KNOWN_CHAIN_URLS[42220].rpc,
+  57073: KNOWN_CHAIN_URLS[57073].rpc,
+  59144: KNOWN_CHAIN_URLS[59144].rpc,
+  80094: KNOWN_CHAIN_URLS[80094].rpc,
+  747474: KNOWN_CHAIN_URLS[747474].rpc,
 };
 
 /**
@@ -136,8 +142,8 @@ const MANUAL_OVERRIDES: Record<number, ManualOverride> = {
   42431: {
     name: "Tempo Testnet (Moderato)",
     nativeCurrency: { name: "USD", symbol: "USD", decimals: 6 },
-    rpc: "https://rpc.moderato.tempo.xyz",
-    explorer: "https://explore.moderato.tempo.xyz",
+    rpc: KNOWN_CHAIN_URLS[42431].rpc,
+    explorer: KNOWN_CHAIN_URLS[42431].explorer,
     isTestnet: true,
   },
   // Sonic Testnet — MM's delegator is deployed on chainId 14601 (0x3909),
@@ -146,8 +152,8 @@ const MANUAL_OVERRIDES: Record<number, ManualOverride> = {
   14601: {
     name: "Sonic Testnet",
     nativeCurrency: { name: "Sonic", symbol: "S", decimals: 18 },
-    rpc: "https://rpc.testnet.soniclabs.com",
-    explorer: "https://testnet.sonicscan.org",
+    rpc: KNOWN_CHAIN_URLS[14601].rpc,
+    explorer: KNOWN_CHAIN_URLS[14601].explorer,
     isTestnet: true,
   },
   // Ronin Saigon — MM's delegator is at 202601 (0x31769); viem's `saigon`
@@ -155,48 +161,48 @@ const MANUAL_OVERRIDES: Record<number, ManualOverride> = {
   202601: {
     name: "Ronin Saigon",
     nativeCurrency: { name: "RON", symbol: "RON", decimals: 18 },
-    rpc: "https://saigon-testnet.roninchain.com/rpc",
-    explorer: "https://saigon-explorer.roninchain.com",
+    rpc: KNOWN_CHAIN_URLS[202601].rpc,
+    explorer: KNOWN_CHAIN_URLS[202601].explorer,
     isTestnet: true,
   },
   // Intuition (TRUST L1) — mainnet
   1155: {
     name: "Intuition",
     nativeCurrency: { name: "TRUST", symbol: "TRUST", decimals: 18 },
-    rpc: "https://rpc.intuition.systems",
-    explorer: "https://explorer.intuition.systems",
+    rpc: KNOWN_CHAIN_URLS[1155].rpc,
+    explorer: KNOWN_CHAIN_URLS[1155].explorer,
     isTestnet: false,
   },
   // Intuition testnet
   13579: {
     name: "Intuition Testnet",
     nativeCurrency: { name: "TRUST", symbol: "TRUST", decimals: 18 },
-    rpc: "https://testnet.rpc.intuition.systems",
-    explorer: "https://testnet.explorer.intuition.systems",
+    rpc: KNOWN_CHAIN_URLS[13579].rpc,
+    explorer: KNOWN_CHAIN_URLS[13579].explorer,
     isTestnet: true,
   },
   // Citrea (Bitcoin zkrollup) — mainnet
   4114: {
     name: "Citrea",
     nativeCurrency: { name: "cBTC", symbol: "cBTC", decimals: 18 },
-    rpc: "https://rpc.citrea.xyz",
-    explorer: "https://explorer.citrea.xyz",
+    rpc: KNOWN_CHAIN_URLS[4114].rpc,
+    explorer: KNOWN_CHAIN_URLS[4114].explorer,
     isTestnet: false,
   },
   // Hoodi testnet (Ethereum staking devnet)
   560048: {
     name: "Hoodi",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-    rpc: "https://rpc.hoodi.ethpandaops.io",
-    explorer: "https://hoodi.etherscan.io",
+    rpc: KNOWN_CHAIN_URLS[560048].rpc,
+    explorer: KNOWN_CHAIN_URLS[560048].explorer,
     isTestnet: true,
   },
   // Katana Bokuto (testnet)
   737373: {
     name: "Katana Bokuto",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-    rpc: "https://rpc.bokuto.katanarpc.com",
-    explorer: "https://bokuto.katanascan.com",
+    rpc: KNOWN_CHAIN_URLS[737373].rpc,
+    explorer: KNOWN_CHAIN_URLS[737373].explorer,
     isTestnet: true,
   },
 };
@@ -297,8 +303,8 @@ function formatEntry(e: Entry, indent: string): string {
     `${indent}  chainId: ${e.chainId},`,
     `${indent}  name: ${JSON.stringify(e.name)},`,
     `${indent}  nativeCurrency: { name: ${JSON.stringify(nc.name)}, symbol: ${JSON.stringify(nc.symbol)}, decimals: ${nc.decimals} },`,
-    `${indent}  defaultRpc: ${JSON.stringify(e.defaultRpc)},`,
-    `${indent}  explorer: ${JSON.stringify(e.explorer)},`,
+    `${indent}  defaultRpc: KNOWN_CHAIN_URLS[${e.chainId}].rpc,`,
+    `${indent}  explorer: KNOWN_CHAIN_URLS[${e.chainId}].explorer,`,
     `${indent}  isTestnet: ${e.isTestnet},`,
   ];
   if (e.icon) lines.push(`${indent}  icon: ${JSON.stringify(e.icon)},`);
@@ -317,6 +323,8 @@ const body = [
   "// EIP_7702_DEFAULT_DELEGATE — so custom-chain users whose chainId matches",
   "// an entry below get atomic 7702 batching by default (no manual delegate",
   "// configuration required).",
+  "",
+  'import { KNOWN_CHAIN_URLS } from "./externalUrls";',
   "",
   "export interface KnownChainMetadata {",
   "  chainId: number;",
@@ -351,6 +359,29 @@ const body = [
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const outPath = resolve(__dirname, "../src/constants/knownChains.generated.ts");
+// Replace only the generated URL section; retain all manually reviewed services.
+const urlsPath = resolve(__dirname, "../src/constants/externalUrls.ts");
+const urlsSource = readFileSync(urlsPath, "utf8");
+const startMarker = "// BEGIN GENERATED KNOWN CHAIN URLS (pnpm regen-chains)";
+const endMarker = "// END GENERATED KNOWN CHAIN URLS";
+const start = urlsSource.indexOf(startMarker);
+const end = urlsSource.indexOf(endMarker);
+if (start < 0 || end < start) throw new Error("Missing generated URL section markers");
+const explorerReferences = new Map([
+  [ETHERSCAN_URL, "ETHERSCAN_URL"],
+  [SEPOLIA_ETHERSCAN_URL, "SEPOLIA_ETHERSCAN_URL"],
+  [BASESCAN_URL, "BASESCAN_URL"],
+]);
+const urlSection = [
+  startMarker,
+  "export const KNOWN_CHAIN_URLS = {",
+  ...entries.map((entry) =>
+    `  ${entry.chainId}: { rpc: ${JSON.stringify(entry.defaultRpc)}, explorer: ${explorerReferences.get(entry.explorer) ?? JSON.stringify(entry.explorer)} },`,
+  ),
+  "} as const;",
+  endMarker,
+].join("\n");
+writeFileSync(urlsPath, urlsSource.slice(0, start) + urlSection + urlsSource.slice(end + endMarker.length), "utf8");
 writeFileSync(outPath, body, "utf8");
 
 console.log(

@@ -13,12 +13,15 @@ import {
   SafeIcon,
 } from "@/components/shared/AccountTypeIcons";
 import { LedgerLogo } from "@/components/Ledger/LedgerLogo";
+import { TrezorLogo } from "@/components/Trezor/TrezorLogo";
+import { TREZOR_BUILD_ENABLED } from "@/app/buildFeatures";
 
 export type AccountType =
   | "bankr"
   | "privateKey"
   | "seedPhrase"
   | "ledger"
+  | "trezor"
   | "impersonator"
   | "safe"
   | "safeBunker";
@@ -32,7 +35,6 @@ const accountTypes = [
   {
     type: "seedPhrase" as const,
     title: "Seed phrase",
-    description: "Import or create",
     icon: SeedIcon,
     iconBg: "status.info.bg",
     iconColor: "status.info.fg",
@@ -40,7 +42,6 @@ const accountTypes = [
   {
     type: "privateKey" as const,
     title: "Private key",
-    description: "Import a local signer",
     icon: KeyIcon,
     iconBg: "status.warning.bg",
     iconColor: "status.warning.fg",
@@ -48,7 +49,6 @@ const accountTypes = [
   {
     type: "impersonator" as const,
     title: "View-only",
-    description: "Watch an address",
     icon: EyeIcon,
     iconBg: "status.success.bg",
     iconColor: "status.success.fg",
@@ -56,7 +56,13 @@ const accountTypes = [
   {
     type: "ledger" as const,
     title: "Ledger",
-    description: "Connect a hardware wallet",
+    icon: null,
+    iconBg: "surface.sunken",
+    iconColor: "fg.primary",
+  },
+  {
+    type: "trezor" as const,
+    title: "Trezor",
     icon: null,
     iconBg: "surface.sunken",
     iconColor: "fg.primary",
@@ -64,7 +70,6 @@ const accountTypes = [
   {
     type: "safe" as const,
     title: "Safe",
-    description: "Use an existing multisig",
     icon: SafeIcon,
     iconBg: "status.success.bg",
     iconColor: "status.success.fg",
@@ -80,7 +85,6 @@ const accountTypes = [
   {
     type: "bankr" as const,
     title: "Bankr API",
-    description: "Connect your account",
     icon: null,
     iconBg: "transparent",
     iconColor: "fg.primary",
@@ -93,26 +97,32 @@ export function AddAccountTypeGrid({
 }: AddAccountTypeGridProps) {
   const ledgerUnavailable =
     typeof navigator === "undefined" || !("hid" in navigator);
+  const trezorUnavailable =
+    typeof chrome === "undefined" ||
+    !chrome.offscreen ||
+    !chrome.runtime?.getContexts;
   return (
     <SimpleGrid columns={2} spacing={3}>
-      {accountTypes.map(
+      {accountTypes
+        .filter(({ type }) => type !== "trezor" || TREZOR_BUILD_ENABLED)
+        .map(
         ({
           type,
           title,
-          description,
           icon: TypeIcon,
           iconBg,
           iconColor,
         }) => {
         const isDisabled =
           (type === "bankr" && hasBankrAccount) ||
-          (type === "ledger" && ledgerUnavailable);
+          (type === "ledger" && ledgerUnavailable) ||
+          (type === "trezor" && trezorUnavailable);
 
         return (
           <Button
             key={type}
             variant="secondary"
-            minH="132px"
+            minH={0}
             h="auto"
             p={4}
             alignItems="stretch"
@@ -137,6 +147,8 @@ export function AddAccountTypeGrid({
               >
                 {type === "ledger" ? (
                   <LedgerLogo variant="lettermark" w="20px" />
+                ) : type === "trezor" ? (
+                  <TrezorLogo variant="lettermark" h="22px" />
                 ) : TypeIcon ? (
                   <TypeIcon boxSize="19px" />
                 ) : (
@@ -152,13 +164,11 @@ export function AddAccountTypeGrid({
                 <Text color="fg.primary" fontSize="md" fontWeight="600">
                   {title}
                 </Text>
-                <Text color="fg.secondary" fontSize="sm" fontWeight="400">
-                  {type === "bankr" && isDisabled
-                    ? "Already connected"
-                    : type === "ledger" && isDisabled
-                      ? "Chrome 124+ required"
-                      : description}
-                </Text>
+                {isDisabled && (
+                  <Text color="fg.secondary" fontSize="sm" fontWeight="400">
+                    {type === "bankr" ? "Already connected" : "Chrome 124+ required"}
+                  </Text>
+                )}
               </VStack>
             </VStack>
           </Button>

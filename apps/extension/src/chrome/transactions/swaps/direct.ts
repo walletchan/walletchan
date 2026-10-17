@@ -32,6 +32,7 @@ import type {
   SwapGasOverride,
   SwapTxEntry,
 } from "./types";
+import { getAccountTypeCapabilities } from "../../hardware/accountCapabilities";
 
 /** Execute a reviewed swap sequence against its pinned account and chain. */
 export async function handleExecuteSwapDirect(
@@ -91,6 +92,13 @@ export async function handleExecuteSwapDirect(
 
   if (account.type === "ledger") {
     return executeLedgerSwap(transactions, chainName, account, gasEstimates);
+  }
+  if (!getAccountTypeCapabilities(account.type).directSwap) {
+    return {
+      success: false,
+      error:
+        "Built-in swaps are not supported for this account. Use a swap dapp instead.",
+    };
   }
 
   if (account.type !== "privateKey" && account.type !== "seedPhrase") {

@@ -18,4 +18,7 @@ This directory audits the web-accessible ENS browsing subsystem:
   Vite/manifest entrypoint and separates page parsing, runtime transport,
   bookmark/gateway actions, rendering, and SPA state wiring.
 
+- `recipientHistory.test.ts` covers bounded address-only history queries,
+  chain coin types, timestamp lookup, short-lived caching, and invalid responses.
+
 The manifest exposure of the packaged ENS pages is covered in `../manifest/`.

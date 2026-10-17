@@ -1,3 +1,4 @@
+import { safeAppAccountUrl } from "@/constants/externalUrls";
 import { ExternalLinkIcon } from "@chakra-ui/icons";
 import {
   Accordion,
@@ -178,7 +179,7 @@ function SafeChainHeader({
       </Box>
       <IconButton
         as="a"
-        href={`https://app.safe.global/home?safe=${snapshot.chainId}:${safeAddress}`}
+        href={safeAppAccountUrl(snapshot.chainId, safeAddress)}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Open ${chainName} Safe in Safe Wallet`}
@@ -225,7 +226,7 @@ export function SafeChainSettingsAccordion({
   accounts: Account[];
 }) {
   return (
-    <ScreenSection title="Safe networks" description={`${snapshots.length} deployments`}>
+    <ScreenSection title="Safe networks" headerAction={<Text fontSize="sm" color="fg.secondary">{snapshots.length} deployments</Text>}>
       <Accordion allowToggle border="1px solid" borderColor="border.default" borderRadius="lg" overflow="hidden">
         {snapshots.map((snapshot) => {
           const chain = chains.find((item) => item.chainId === snapshot.chainId);

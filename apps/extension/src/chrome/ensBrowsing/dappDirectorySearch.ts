@@ -1,8 +1,7 @@
+import { DEFILLAMA_SEARCH_URL } from "@/constants/externalUrls";
 import { sanitizeUntrustedImageUrl } from "@/lib/remoteImagePolicy";
 import { fetchJsonBounded } from "../network/boundedHttp";
 
-const DEFILLAMA_SEARCH_URL =
-  "https://search-core.defillama.com/multi-search";
 const MAX_DIRECTORY_RESULTS = 8;
 const MAX_QUERY_CHARS = 120;
 const MAX_NAME_CHARS = 120;

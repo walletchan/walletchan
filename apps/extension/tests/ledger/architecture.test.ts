@@ -8,21 +8,32 @@ async function source(path: string): Promise<string> {
   return readFile(new URL(path, extensionRoot), "utf8");
 }
 
-test("Ledger transport is Chrome-only and isolated in an offscreen document", async () => {
-  const [chromeManifest, firefoxManifest, bridge, offscreen, authorization] = await Promise.all([
-    source("public/manifest.json"),
-    source("manifest.firefox.json"),
-    source("src/chrome/ledger/offscreenBridge.ts"),
-    source("src/offscreen/offscreen.ts"),
-    source("src/offscreen/messageAuthorization.ts"),
-  ]);
+test("Ledger transport is Chrome-only and isolated in the shared hardware offscreen document", async () => {
+  const [
+    chromeManifest,
+    firefoxManifest,
+    bridge,
+    manager,
+    offscreen,
+    handler,
+    authorization,
+  ] = await Promise.all([
+      source("public/manifest.json"),
+      source("manifest.firefox.json"),
+      source("src/chrome/ledger/offscreenBridge.ts"),
+      source("src/chrome/hardware/offscreenManager.ts"),
+      source("src/offscreen/offscreen.ts"),
+      source("src/offscreen/ledgerMessageHandler.ts"),
+      source("src/offscreen/messageAuthorization.ts"),
+    ]);
   assert.match(chromeManifest, /"offscreen"/);
   assert.doesNotMatch(firefoxManifest, /"offscreen"/);
-  assert.match(bridge, /chrome\.offscreen\.createDocument/);
-  assert.match(bridge, /contextTypes: \[chrome\.runtime\.ContextType\.OFFSCREEN_DOCUMENT\]/);
+  assert.match(bridge, /withHardwareOffscreenRequest/);
+  assert.match(manager, /chrome\.offscreen\.createDocument/);
+  assert.match(manager, /contextTypes: \[chrome\.runtime\.ContextType\.OFFSCREEN_DOCUMENT\]/);
   assert.match(offscreen, /walletchan-ledger-offscreen/);
-  assert.match(offscreen, /isTrustedLedgerBackgroundSender\(sender\)/);
-  assert.match(offscreen, /activeOperationId === opId/);
+  assert.match(offscreen, /isTrustedHardwareBackgroundSender\(sender\)/);
+  assert.match(handler, /activeOperationId === opId/);
   assert.match(authorization, /senderUrl\.pathname === "\/static\/js\/background\.js"/);
   assert.match(authorization, /sender\.id !== extensionId \|\| sender\.tab/);
 });
@@ -33,44 +44,68 @@ test("Ledger approval allows ten minutes without relaxing device discovery", asy
   assert.match(signer, /const ACTION_TIMEOUT_MS = 10 \* 60_000/);
 });
 
-test("Ledger setup launches in a dedicated extension tab", async () => {
-  const [addAccount, app, route, screen] = await Promise.all([
+test("Ledger setup launches through the shared hardware route", async () => {
+  const [addAccount, app, route, sharedRoute, screen] = await Promise.all([
     source("src/components/AddAccount.tsx"),
     source("src/App.tsx"),
     source("src/app/ledgerSetupRoute.ts"),
+    source("src/app/hardwareSetupRoute.ts"),
     source("src/components/Ledger/LedgerSetupScreen.tsx"),
   ]);
-  assert.match(addAccount, /type === "ledger"[\s\S]+openLedgerSetupTab\(\)/);
+  assert.match(
+    addAccount,
+    /type === "ledger" \|\| type === "trezor"[\s\S]+openHardwareSetupTab\(type\)/,
+  );
   assert.doesNotMatch(addAccount, /<AddLedgerFlow/);
-  assert.match(route, /chrome\.tabs\.create/);
-  assert.match(route, /closeSidePanelForWindow/);
-  assert.match(route, /sourceView !== "sidepanel"/);
-  assert.match(route, /LEDGER_SETUP_ROUTE = "add-ledger"/);
-  assert.match(route, /searchParams\.set\("route", LEDGER_SETUP_ROUTE\)/);
-  assert.match(app, /isLedgerSetupRoute\(window\.location\.search\)/);
+  assert.match(route, /openHardwareSetupTab\("ledger"\)/);
+  assert.match(sharedRoute, /chrome\.tabs\.create/);
+  assert.match(sharedRoute, /closeSidePanelForWindow/);
+  assert.match(sharedRoute, /sourceView !== "sidepanel"/);
+  assert.match(sharedRoute, /route === "add-ledger"/);
+  assert.match(sharedRoute, /`add-\$\{provider\}`/);
+  assert.match(app, /getHardwareSetupProvider\(window\.location\.search\)/);
   assert.match(
     app,
-    /view === "addAccount" && ledgerSetupRequestedRef\.current/,
+    /view === "addAccount" && hardwareSetupProviderRef\.current/,
   );
-  assert.match(app, /<LedgerSetupScreen/);
+  assert.match(
+    app,
+    /hardwareSetupProviderRef\.current === "trezor"[\s\S]+TrezorSetupScreen[\s\S]+LedgerSetupScreen/,
+  );
+  assert.match(app, /<HardwareSetupScreen/);
   assert.match(screen, /<AddLedgerFlow/);
 });
 
 test("Ledger identity uses local official SVG assets instead of an invented glyph", async () => {
-  const [wordmark, lettermark, logo, avatar, panel, accountTypes] = await Promise.all([
+  const [
+    wordmark,
+    lettermark,
+    logo,
+    brand,
+    sharedLogo,
+    avatar,
+    panel,
+    accountTypes,
+  ] = await Promise.all([
     source("public/ledger-wordmark.svg"),
     source("public/ledger-lettermark.svg"),
     source("src/components/Ledger/LedgerLogo.tsx"),
+    source("src/components/Ledger/ledgerBrand.ts"),
+    source("src/components/HardwareWallet/HardwareWalletLogo.tsx"),
     source("src/components/Ledger/LedgerAvatar.tsx"),
     source("src/components/Ledger/LedgerDevicePanel.tsx"),
     source("src/components/AddAccountTypeGrid.tsx"),
   ]);
   assert.match(wordmark, /viewBox="0 0 2000\.58 669\.35"/);
   assert.match(lettermark, /viewBox="0 0 768\.91 669\.35"/);
-  assert.match(logo, /ledger-wordmark\.svg/);
-  assert.match(logo, /ledger-lettermark\.svg/);
+  assert.match(brand, /ledger-wordmark\.svg/);
+  assert.match(brand, /ledger-lettermark\.svg/);
+  assert.match(logo, /HardwareWalletLogo/);
+  assert.match(logo, /LEDGER_HARDWARE_WALLET_BRAND/);
+  assert.match(sharedLogo, /maskImage/);
+  assert.match(sharedLogo, /brand\.logoAssets\[variant\]/);
   assert.doesNotMatch(avatar, /<svg/);
-  assert.match(panel, /<LedgerLogo/);
+  assert.match(panel, /<HardwareWalletDevicePanel/);
   assert.match(accountTypes, /<LedgerLogo variant="lettermark"/);
   assert.doesNotMatch(accountTypes, /HardwareWalletIcon/);
 
@@ -127,6 +162,7 @@ test("Ledger requests remain reviewable and immutable until hardware approval", 
     signatureUi,
     signatureScreen,
     status,
+    sharedStatus,
   ] = await Promise.all([
       source("src/chrome/ledger/transactionExecution.ts"),
       source("src/chrome/ledger/signatureConfirmation.ts"),
@@ -141,11 +177,12 @@ test("Ledger requests remain reviewable and immutable until hardware approval", 
         "src/components/SignatureConfirmation/SignatureConfirmationScreen.tsx",
       ),
       source("src/components/Ledger/LedgerSigningStatus.tsx"),
+      source(
+        "src/components/HardwareWallet/HardwareWalletSigningStatus.tsx",
+      ),
     ]);
 
-  const txSigning = transaction.indexOf(
-    "result = await signAndBroadcastLedgerTransaction",
-  );
+  const txSigning = transaction.indexOf("const signerInput =");
   const txRemoval = transaction.indexOf("await removePendingTxRequest(txId)");
   const signatureSigning = signature.indexOf(
     "signature = await signLedgerSignatureRequest",
@@ -169,7 +206,10 @@ test("Ledger requests remain reviewable and immutable until hardware approval", 
     txUi,
     /requestState=\{isLedgerWaiting \? "ready" : actions\.state\}/,
   );
-  assert.match(txUi, /actions\.state === "error" && accountType !== "ledger"/);
+  assert.match(
+    txUi,
+    /actions\.state === "error" &&[\s\S]+accountType !== "ledger" &&[\s\S]+accountType !== "trezor"/,
+  );
   assert.match(signatureUi, /loadingText=\{isLedgerWaiting \? "Waiting"/);
   assert.match(
     signatureUi,
@@ -181,19 +221,23 @@ test("Ledger requests remain reviewable and immutable until hardware approval", 
     /isBackDisabled=\{isInteractionLocked\}/,
   );
   assert.match(status, /Sign the request in your Ledger/);
-  assert.match(status, /LedgerLogo/);
-  assert.match(status, /bg="black"/);
-  assert.match(status, /color="accentFg\.highlight"/);
+  assert.match(status, /HardwareWalletSigningStatus/);
+  assert.match(status, /LEDGER_HARDWARE_WALLET_BRAND/);
+  assert.match(sharedStatus, /HardwareWalletLogo/);
+  assert.match(sharedStatus, /bg="black"/);
+  assert.match(sharedStatus, /color="accentFg\.highlight"/);
 });
 
 test("unsupported Ledger execution modes fail closed", async () => {
-  const [batch, swap, transaction] = await Promise.all([
+  const [batch, swap, swapModel, transaction] = await Promise.all([
     source("src/components/BatchConfirmation/BatchTransactionConfirmation.tsx"),
     source("src/components/Swap/usePreparedSwap.ts"),
+    source("src/components/Swap/swapSubmissionModel.ts"),
     source("src/chrome/ledger/transactionExecution.ts"),
   ]);
-  assert.match(batch, /accountType !== "ledger"/);
-  assert.match(swap, /accountType === "ledger"/);
+  assert.match(batch, /accountType === "ledger" \|\| accountType === "trezor"/);
+  assert.match(swap, /getSwapSubmissionKind\(/);
+  assert.match(swapModel, /hasAccountTypeCapability\(accountType, "directSwap"\)/);
   assert.match(transaction, /isForceInclusionSupportedForAccount/);
   assert.match(transaction, /processLedgerForceInclusion/);
   assert.match(transaction, /EIP-7702 delegation is not supported for Ledger accounts/);
@@ -218,6 +262,6 @@ test("Safe approvals and native execution reuse centralized Ledger signing", asy
   assert.match(ownerAuthorization, /signLedgerTypedDataForAccount\(/);
   assert.match(safeExecution, /signAndBroadcastLedgerTransaction\(/);
   assert.match(safeExecution, /canExecuteSafeWithFeeToken\(/);
-  assert.match(safeUi, /LedgerSigningStatus/);
+  assert.match(safeUi, /HardwareAccountSigningStatus/);
   assert.match(safeUi, /isLedgerWaiting/);
 });

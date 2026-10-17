@@ -1,3 +1,9 @@
+import {
+  ETHERSCAN_URL,
+  PRIVACY_POOLS_MAINNET_ASP_URL,
+  PRIVACY_POOLS_FAST_RELAYER_URL,
+  PRIVACY_POOLS_CLOAKED_RELAYER_URL,
+} from "../../../constants/externalUrls";
 import type { Address, Hex } from "viem";
 
 import {
@@ -14,7 +20,7 @@ export const PRIVACY_POOLS_MAINNET_DEPLOYMENT = Object.freeze({
   version: 1 as const,
   profile: "mainnet" as const,
   chainName: "Ethereum" as const,
-  explorerBaseUrl: "https://etherscan.io" as const,
+  explorerBaseUrl: ETHERSCAN_URL,
   source: Object.freeze({
     repository: "0xbow-io/privacy-pools-website" as const,
     commit: "461867adb439f25f1cc809ee0187357916b90ef6",
@@ -40,16 +46,16 @@ export const PRIVACY_POOLS_MAINNET_DEPLOYMENT = Object.freeze({
     maxRelayFeeBPS: 1_000n,
   }),
   services: Object.freeze({
-    aspBaseUrl: "https://api.0xbow.io" as const,
+    aspBaseUrl: PRIVACY_POOLS_MAINNET_ASP_URL,
     relayers: Object.freeze([
       Object.freeze({
         name: "Fast Relay",
-        url: "https://fastrelay.xyz" as const,
+        url: PRIVACY_POOLS_FAST_RELAYER_URL,
         signerPolicy: "fee-recipient" as const,
       }),
       Object.freeze({
         name: "Cloaked Relay",
-        url: "https://api.clkd.xyz" as const,
+        url: PRIVACY_POOLS_CLOAKED_RELAYER_URL,
         signerPolicy: "pinned" as const,
         signerAddress: "0x3A27cfd1BB78Ff6Fd356Eaa59c2f6232FfC6554a" as Address,
       }),

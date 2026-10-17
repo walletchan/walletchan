@@ -9,7 +9,7 @@ import type { Account, SafeAccount } from "@/chrome/types";
 import type { GasOverrides } from "@/chrome/txHandlers";
 import { SafeTransactionWarnings } from "@/components/SafeReview/SafeTransactionWarnings";
 import { CopyButton } from "@/components/CopyButton";
-import { LedgerSigningStatus } from "@/components/Ledger/LedgerSigningStatus";
+import { HardwareAccountSigningStatus } from "@/components/HardwareWallet/HardwareAccountSigningStatus";
 import { EstimatedChangesHeading } from "@/components/RequestConfirmation/EstimatedChangesHeading";
 import { RequestIdentity } from "@/components/RequestConfirmation/RequestIdentity";
 import { SafeProposalPrimaryAction } from "./SafeProposalPrimaryAction";
@@ -182,7 +182,7 @@ export function SafeProposalConfirmation({
       ? ownerAccounts.find((account) => account.id === ownerAccountId) ?? null
       : selectedOwner;
   const isLedgerWaiting =
-    selectedAccount?.type === "ledger" &&
+    (selectedAccount?.type === "ledger" || selectedAccount?.type === "trezor") &&
     (operation === "approve" || operation === "execute" || operation === "signAndExecute");
   const actionAccounts = primaryActionKind === "execute"
     ? executors
@@ -327,7 +327,7 @@ export function SafeProposalConfirmation({
             simulationReverted={simulationReverted}
             showRequestLifecycle={displayRequestView}
           />
-          <LedgerSigningStatus active={isLedgerWaiting} />
+          <HardwareAccountSigningStatus accountType={selectedAccount?.type} active={isLedgerWaiting} />
         </SafeTransactionWarnings>
       )}
       contextTitle={displayRequestView ? "Request details" : "Safe transaction"}

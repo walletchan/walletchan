@@ -5,6 +5,9 @@ import { getLocalPrivateKeyForAccount } from "../accounts/localKeyResolver";
 import { signTypedData } from "../localSigner";
 import { ensureLedgerSigningSession } from "../ledger/session";
 import { signLedgerTypedDataForAccount } from "../ledger/signing";
+import { ensureTrezorSigningSession } from "../trezor/session";
+import { createTrezorOperationId } from "../trezor/operationId";
+import { signTrezorTypedDataForAccount } from "../trezor/signing";
 import { getPasswordType } from "../sessionCache";
 import { getUnlockedBankrApiKey } from "../transactions/bankrSession";
 import { getSafeAccountRecord } from "./accountRepository";
@@ -113,6 +116,14 @@ async function signForOwner(input: {
       chainId: input.proposal.chainId,
     });
   }
+  if (input.account.type === "trezor") {
+    return signTrezorTypedDataForAccount({
+      opId: createTrezorOperationId(),
+      account: input.account,
+      typedData,
+      chainId: input.proposal.chainId,
+    });
+  }
   const privateKey = await getLocalPrivateKeyForAccount(input.account.id, "");
   if (!privateKey) throw new Error("Wallet is locked; unlock it and try again");
   return signTypedData(privateKey, typedData, input.proposal.chainId);
@@ -124,6 +135,10 @@ async function ensureSafeSigningSession(
   const signingPath = getSafeOwnerSigningPath(account);
   if (signingPath === "ledger") {
     await ensureLedgerSigningSession("");
+    return;
+  }
+  if (signingPath === "trezor") {
+    await ensureTrezorSigningSession("");
     return;
   }
   const material = signingPath === "bankr"
@@ -163,14 +178,11 @@ export async function approveSafeProposalWithOwner(input: {
     if (
       refreshedAuthority.ownerAddress !== authority.ownerAddress ||
       refreshedAuthority.account.type !== authority.account.type ||
-      (
-        authority.account.type === "ledger" &&
-        (
-          refreshedAuthority.account.type !== "ledger" ||
+      ((authority.account.type === "ledger" ||
+        authority.account.type === "trezor") &&
+        (refreshedAuthority.account.type !== authority.account.type ||
           refreshedAuthority.account.deviceId !== authority.account.deviceId ||
-          refreshedAuthority.account.hdPath !== authority.account.hdPath
-        )
-      )
+          refreshedAuthority.account.hdPath !== authority.account.hdPath))
     ) {
       throw new Error("Selected owner account changed");
     }

@@ -17,6 +17,7 @@ export type ChainAccountType =
   | "privateKey"
   | "seedPhrase"
   | "ledger"
+  | "trezor"
   | "impersonator"
   | "safe"
   | "safeBunker";

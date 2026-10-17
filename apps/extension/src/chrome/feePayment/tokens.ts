@@ -1,3 +1,10 @@
+import {
+  USDC_LOGO_URL,
+  USDT_LOGO_URL,
+  WETH_LOGO_URL,
+  STETH_LOGO_URL,
+  WSTETH_LOGO_URL,
+} from "@/constants/externalUrls";
 import { CHAIN_REGISTRY } from "@/constants/chainRegistry";
 import { NATIVE_FEE_TOKEN_ID } from "./constants";
 
@@ -23,17 +30,6 @@ export interface PimlicoFeeToken {
   maximumGasCost: bigint;
   logoUrl?: string;
 }
-
-const USDC_LOGO =
-  "https://coin-images.coingecko.com/coins/images/6319/small/usdc.png";
-const USDT_LOGO =
-  "https://coin-images.coingecko.com/coins/images/325/small/Tether.png";
-const WETH_LOGO =
-  "https://coin-images.coingecko.com/coins/images/2518/small/weth.png";
-const STETH_LOGO =
-  "https://coin-images.coingecko.com/coins/images/13442/small/steth_logo.png";
-const WSTETH_LOGO =
-  "https://coin-images.coingecko.com/coins/images/18834/small/wstETH.png";
 
 function token(
   address: `0x${string}`,
@@ -61,9 +57,9 @@ function token(
 }
 
 const usdc = (address: `0x${string}`) =>
-  token(address, "USDC", 6, { stablecoin: true, logoUrl: USDC_LOGO });
+  token(address, "USDC", 6, { stablecoin: true, logoUrl: USDC_LOGO_URL });
 const usdt = (address: `0x${string}`, decimals = 6) =>
-  token(address, "USDT", decimals, { stablecoin: true, logoUrl: USDT_LOGO });
+  token(address, "USDT", decimals, { stablecoin: true, logoUrl: USDT_LOGO_URL });
 
 /**
  * Exact chain/token pairs accepted by WalletChan and Pimlico's ERC-20
@@ -74,16 +70,16 @@ export const PIMLICO_FEE_TOKENS_BY_CHAIN_ID = Object.freeze({
   1: [
     usdc("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // Ethereum USDC
     usdt("0xdAC17F958D2ee523a2206206994597C13D831ec7"), // Ethereum USDT
-    token("0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84", "stETH", 18, { logoUrl: STETH_LOGO }), // Ethereum stETH
-    token("0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", "wstETH", 18, { logoUrl: WSTETH_LOGO }), // Ethereum wstETH
-    token("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "WETH", 18, { logoUrl: WETH_LOGO }), // Ethereum WETH
+    token("0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84", "stETH", 18, { logoUrl: STETH_LOGO_URL }), // Ethereum stETH
+    token("0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", "wstETH", 18, { logoUrl: WSTETH_LOGO_URL }), // Ethereum wstETH
+    token("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "WETH", 18, { logoUrl: WETH_LOGO_URL }), // Ethereum WETH
   ],
   10: [
     usdc("0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85"), // Optimism USDC
-    token("0x7F5c764cBc14f9669B88837ca1490cCa17c31607", "USDC.e", 6, { stablecoin: true, logoUrl: USDC_LOGO }), // Optimism bridged USDC
+    token("0x7F5c764cBc14f9669B88837ca1490cCa17c31607", "USDC.e", 6, { stablecoin: true, logoUrl: USDC_LOGO_URL }), // Optimism bridged USDC
     usdt("0x94b008aA00579c1307B0EF2c499aD98a8ce58e58"), // Optimism USDT
-    token("0x76A50b8c7349cCDDb7578c6627e79b5d99D24138", "stETH", 18, { logoUrl: STETH_LOGO }), // Optimism stETH
-    token("0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb", "wstETH", 18, { logoUrl: WSTETH_LOGO }), // Optimism wstETH
+    token("0x76A50b8c7349cCDDb7578c6627e79b5d99D24138", "stETH", 18, { logoUrl: STETH_LOGO_URL }), // Optimism stETH
+    token("0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb", "wstETH", 18, { logoUrl: WSTETH_LOGO_URL }), // Optimism wstETH
   ],
   56: [usdt("0x55d398326f99059fF775485246999027B3197955", 18)], // BNB Chain USDT
   137: [
@@ -96,7 +92,7 @@ export const PIMLICO_FEE_TOKENS_BY_CHAIN_ID = Object.freeze({
   ],
   4326: [
     token("0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7", "USDm", 18, { stablecoin: true }), // MegaETH USDm
-    token("0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", "USDT0", 6, { stablecoin: true, logoUrl: USDT_LOGO }), // MegaETH USDT0
+    token("0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", "USDT0", 6, { stablecoin: true, logoUrl: USDT_LOGO_URL }), // MegaETH USDT0
   ],
   8453: [
     usdc("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"), // Base USDC

@@ -40,6 +40,7 @@ interface Props {
 
 function RevealSeedPhrase({ account, seedGroupIdOverride, onBack }: Props) {
   const backup = useSeedBackupState(seedGroupIdOverride ?? (account?.type === "safeBunker" ? account.seedGroupId : account?.type === "seedPhrase" ? account.seedGroupId : undefined));
+  const seedGroupName = backup.groups.find((group) => group.id === (seedGroupIdOverride ?? (account?.type === "seedPhrase" || account?.type === "safeBunker" ? account.seedGroupId : undefined)))?.name;
   const mountedRef = useRef(true);
   const revealRevision = useRef(0);
   const [password, setPassword] = useState("");
@@ -226,7 +227,14 @@ function RevealSeedPhrase({ account, seedGroupIdOverride, onBack }: Props) {
               </Text>
             </HStack>
 
-            <ScreenSection title="Recovery phrase">
+            <ScreenSection
+              title="Recovery phrase"
+              headerAction={seedGroupName ? (
+                <Text fontSize="sm" color="fg.muted" maxW="min(36vw, 160px)" isTruncated title={seedGroupName}>
+                  {seedGroupName}
+                </Text>
+              ) : undefined}
+            >
               <Box
                 w="full"
                 p={3}

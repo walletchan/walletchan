@@ -46,6 +46,7 @@ export default function StakingScreen(props: StakingScreenProps) {
     onTransactionInitiated: props.onTransactionInitiated,
   });
   const isImpersonator = props.accountType === "impersonator";
+  const isTrezor = props.accountType === "trezor";
 
   if (controller.plan) {
     return (
@@ -88,7 +89,8 @@ export default function StakingScreen(props: StakingScreenProps) {
     parsedAmount > 0n &&
     parsedAmount <= balance &&
     staking.state &&
-    !isImpersonator,
+    !isImpersonator &&
+    !isTrezor,
   );
   const needsApproval = Boolean(
     mode === "stake" &&
@@ -162,7 +164,7 @@ export default function StakingScreen(props: StakingScreenProps) {
             previewAmount={staking.state?.previewAmount ?? null}
             sliderValue={sliderValue}
             insufficient={insufficient}
-            disabled={controller.submitting || isImpersonator}
+            disabled={controller.submitting || isImpersonator || isTrezor}
             onAmountChange={(value) => {
               setIsMaxMode(false);
               setAmount(value);
@@ -181,6 +183,8 @@ export default function StakingScreen(props: StakingScreenProps) {
                   ? "Approval and staking will be submitted in batch."
                   : props.accountType === "ledger"
                     ? "Approval and staking will be reviewed on your Ledger and broadcast in order."
+                    : props.accountType === "trezor"
+                      ? "Built-in staking is unavailable for Trezor accounts."
                     : "Approval and staking will be broadcast sequentially."}
               </Text>
             </HStack>
@@ -196,6 +200,13 @@ export default function StakingScreen(props: StakingScreenProps) {
             <Box px={3} py={2.5} bg="status.info.bg" color="status.info.fg" border="1px solid" borderColor="status.info.border" borderRadius="lg">
               <Text fontSize="xs" fontWeight="600">
                 View-only accounts can inspect staking balances but cannot stake, unstake, or claim.
+              </Text>
+            </Box>
+          )}
+          {isTrezor && (
+            <Box px={3} py={2.5} bg="status.info.bg" color="status.info.fg" border="1px solid" borderColor="status.info.border" borderRadius="lg">
+              <Text fontSize="xs" fontWeight="600">
+                Built-in staking is not supported for Trezor accounts. Use the staking dapp and approve its normal transaction request.
               </Text>
             </Box>
           )}

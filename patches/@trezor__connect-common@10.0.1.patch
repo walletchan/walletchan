@@ -1,0 +1,44 @@
+diff --git a/lib/messageChannel/serviceworker-window-ext-connectable.js b/lib/messageChannel/serviceworker-window-ext-connectable.js
+index 3eed15dab4024e5c49d1035d6018e3d6cf4e4b38..e2b70334f0055b39a4b8302212029244eb4a20c1 100644
+--- a/lib/messageChannel/serviceworker-window-ext-connectable.js
++++ b/lib/messageChannel/serviceworker-window-ext-connectable.js
+@@ -47,6 +47,11 @@ export class ServiceWorkerWindowExtConnectableChannel extends AbstractMessageCha
+         throw new Error('Trezor suite tab URL not available, the manifest must declare host_permissions matching the popup origin');
+       }
+       const currentUrl = new URL(tab.url);
++      if (currentUrl.origin !== new URL(this.allowedOrigin).origin ||
++          !/^\/web\/connect-popup\/?$/.test(currentUrl.pathname) ||
++          currentUrl.username || currentUrl.password) {
++        throw new Error('Suite approval tab navigated away from its authorized URL');
++      }
+       const encodedMessage = encodeURIComponent(JSON.stringify(message));
+       currentUrl.hash = `#extension-id=${chrome.runtime.id}&message=${encodedMessage}`;
+       chrome.tabs.update(tabId, {
+@@ -67,6 +72,7 @@ export class ServiceWorkerWindowExtConnectableChannel extends AbstractMessageCha
+     }
+     this.logger?.debug('CHANNEL: connect called, setting up onMessageExternal listener');
+     this.messageListener = (message, sender, sendResponse) => {
++      if (!message || typeof message !== 'object' || Array.isArray(message)) return false;
+       this.logger?.debug('CHANNEL: onMessageExternal fired:', {
+         message,
+         sender
+@@ -102,7 +108,18 @@ export class ServiceWorkerWindowExtConnectableChannel extends AbstractMessageCha
+         return false;
+       }
+       this.logger?.debug('CHANNEL: Processing message through onMessage');
+-      this.onMessage(message);
++      // WalletChan: bind the SDK reply to the exact top-level approval tab.
++      // The upstream origin-only check also accepted another Suite tab/frame.
++      if (sender.frameId !== 0 || sender.origin !== this.allowedOrigin || !sender.url) return false;
++      try {
++        const source = new URL(sender.url);
++        if (source.origin !== this.allowedOrigin || source.username || source.password ||
++            !/^\/web\/connect-popup\/?$/.test(source.pathname) ||
++            JSON.stringify(message).length > 2100000) return false;
++      } catch { return false; }
++      void Promise.resolve(this.currentId?.()).then(tabId => {
++        if (tabId === sender.tab.id && this.isConnected) this.onMessage(message);
++      }).catch(() => {});
+     };
+     chrome.runtime.onMessageExternal.addListener(this.messageListener);
+     this.isConnected = true;

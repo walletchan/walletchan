@@ -155,7 +155,8 @@ export function isValidPrivacyRagequitSummary(value: unknown): value is PrivacyR
     typeof value.accountId === "string" && value.accountId.length > 0 && value.accountId.length <= 128 &&
     address(value.accountAddress) &&
     (value.accountType === "bankr" || value.accountType === "privateKey" ||
-      value.accountType === "seedPhrase" || value.accountType === "ledger") &&
+      value.accountType === "seedPhrase" || value.accountType === "ledger" ||
+      value.accountType === "trezor") &&
     amount !== null && amount > 0n &&
     address(value.poolAddress) &&
     value.poolAddress.toLowerCase() ===

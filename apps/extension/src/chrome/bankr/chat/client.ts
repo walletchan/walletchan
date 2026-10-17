@@ -1,10 +1,10 @@
+import { BANKR_BOT_API_KEYS_PAGE, BANKR_API_BASE } from "@/constants/externalUrls";
 /**
  * Chat API client for submitting prompts to the Bankr agent
  */
 
 import { BankrApiError, type JobStatus } from "../response";
 import { getJobStatus, pollJobUntilComplete } from "../jobs";
-import { BANKR_API_BASE } from "@/constants/externalUrls";
 import { fetchTextBounded } from "../../network/boundedHttp";
 
 const API_BASE_URL = BANKR_API_BASE;
@@ -14,7 +14,7 @@ const MAX_PROMPT_LENGTH = 10000;
 const CHAT_SUBMIT_TIMEOUT_MS = 30_000;
 const CHAT_RESPONSE_MAX_BYTES = 64 * 1024;
 const AGENT_ACCESS_WARNING =
-  "Bankr chat requires Agent API access. Open https://bankr.bot/api-keys, enable Agent API access for the API key you use in WalletChan, then send your message again.";
+  `Bankr chat requires Agent API access. Open ${BANKR_BOT_API_KEYS_PAGE}, enable Agent API access for the API key you use in WalletChan, then send your message again.`;
 
 export interface SubmitChatPromptResponse {
   jobId: string;
@@ -250,7 +250,7 @@ export async function pollChatJobUntilComplete(
         success: false,
         response: "",
         error: remoteError || response ||
-          "Bankr returned no chat response. Check that Agent API access is enabled for your key at https://bankr.bot/api-keys, then try again.",
+          `Bankr returned no chat response. Check that Agent API access is enabled for your key at ${BANKR_BOT_API_KEYS_PAGE}, then try again.`,
       };
     } else {
       return {

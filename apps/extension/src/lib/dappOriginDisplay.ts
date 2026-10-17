@@ -1,10 +1,15 @@
+import {
+  ensLimoUrl,
+  gnsGatewayUrl,
+  web3GatewayUrl,
+  googleFaviconUrl,
+} from "@/constants/externalUrls";
 import type { CachedResolve } from "@/chrome/ensBrowsing/cache";
 import {
   encodeIpnsLabel,
   parseGatewayHost,
   type GatewayLocation,
 } from "@/chrome/ensBrowsing/gateway";
-import { googleFaviconUrl } from "@/constants/externalUrls";
 import {
   isAllowedRemoteImageUrl,
   sanitizeTrustedRendererImageSrc,
@@ -55,13 +60,13 @@ function cachedSiteForGatewayLabel(
 
 function hostedGatewayOrigin(site: CachedResolve): string | null {
   const name = site.ensName.toLowerCase();
-  if (name.endsWith(".wei")) return `https://${name}.limo`;
-  if (name.endsWith(".gwei")) return `https://${name}.domains`;
+  if (name.endsWith(".wei")) return ensLimoUrl(name);
+  if (name.endsWith(".gwei")) return gnsGatewayUrl(name);
   if (site.kind === "web3" || /^0x[a-f0-9]{40}$/.test(name)) {
     const label = name.endsWith(".eth") ? name.slice(0, -4) : name;
-    return `https://${label}.w3eth.io`;
+    return web3GatewayUrl(label);
   }
-  if (name.endsWith(".eth")) return `https://${name}.limo`;
+  if (name.endsWith(".eth")) return ensLimoUrl(name);
   return null;
 }
 

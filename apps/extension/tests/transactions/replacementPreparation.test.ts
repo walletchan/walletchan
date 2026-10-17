@@ -4,7 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createServer, type ViteDevServer } from "vite";
 
-test("replacement preparation supports PK, seed, and Ledger but rejects Bankr and impersonator", async () => {
+test("replacement preparation supports PK, seed, Ledger, and Trezor but rejects Bankr and impersonator", async () => {
   let server: ViteDevServer | null = null;
   const originalChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   const from = "0x1111111111111111111111111111111111111111";
@@ -89,7 +89,9 @@ test("replacement preparation supports PK, seed, and Ledger but rejects Bankr an
       hooks.account = {
         id: `${type}-account`, type, address: from, createdAt: 1,
         ...(type === "seedPhrase" ? { seedGroupId: "seed", derivationIndex: 0 } : {}),
-        ...(type === "ledger" ? { deviceId: "ledger", hdPath: "m/44'/60'/0'/0/0", hdIndex: 0 } : {}),
+        ...(type === "ledger" || type === "trezor"
+          ? { deviceId: type, hdPath: "m/44'/60'/0'/0/0", hdIndex: 0 }
+          : {}),
       };
       hooks.history = {
         id: `${type}-history`, status: "pending", txHash,
@@ -104,7 +106,7 @@ test("replacement preparation supports PK, seed, and Ledger but rejects Bankr an
       hooks.latestNonce = "0x7";
     };
 
-    for (const type of ["privateKey", "seedPhrase", "ledger"]) {
+    for (const type of ["privateKey", "seedPhrase", "ledger", "trezor"]) {
       reset(type);
       const result = await module.prepareTransactionReplacement(
         hooks.history.id,
@@ -156,7 +158,7 @@ test("replacement preparation supports PK, seed, and Ledger but rejects Bankr an
         "speedUp",
       );
       assert.equal(result.success, false);
-      assert.match(result.error, /local or Ledger/i);
+      assert.match(result.error, /local or hardware/i);
       assert.equal(hooks.pending.length, 0);
     }
 

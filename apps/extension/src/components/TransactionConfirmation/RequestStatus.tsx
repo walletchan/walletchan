@@ -1,9 +1,8 @@
-import { Box, HStack, Spinner, Text, VStack } from "@chakra-ui/react";
+import { HStack, Spinner, Text, VStack } from "@chakra-ui/react";
 import type { ConfirmationState } from "./types";
 import type { SplitPriorTxState } from "./useSplitPriorTxState";
 
 interface RequestStatusProps {
-  error: string;
   gasValid: boolean;
   splitState: SplitPriorTxState;
   state: ConfirmationState;
@@ -11,7 +10,6 @@ interface RequestStatusProps {
 }
 
 export function RequestStatus({
-  error,
   gasValid,
   splitState,
   state,
@@ -19,20 +17,6 @@ export function RequestStatus({
 }: RequestStatusProps) {
   return (
     <VStack spacing={2} align="stretch">
-      {error && state === "error" && (
-        <Box
-          bg="status.error.bg"
-          border="1px solid"
-          borderColor="status.error.border"
-          borderRadius="lg"
-          p={3}
-        >
-          <Text color="status.error.fg" fontSize="sm" fontWeight="700">
-            {error}
-          </Text>
-        </Box>
-      )}
-
       {state === "submitting" && (
         <HStack
           justify="center"

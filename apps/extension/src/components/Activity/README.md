@@ -11,7 +11,7 @@ public `components/TxStatusList.tsx` import remains a policy-free facade.
 | `ActivityDateHeader.tsx` | Shared Warm Midnight date separator for transaction and Safe proposal ledgers. | Presentation only. |
 | `UnshieldActivityItem.tsx` | Renders one Shielded ETH withdrawal inside the normal dated timeline with live account/contact recipient identity and an explorer action once submitted. | Opens the configured explorer link. |
 | `ActivityItem.tsx` | Composes one accessible transaction row and the pending Shield compliance indicator. | Theme selection, click delegation, interaction sound, and the shared renderer-only elapsed-time timer. |
-| `ActivityMedia.tsx` | Renders website, token, chain, paired asset, bridge, and shared Shield identities. | Safe image and cached-logo paths. |
+| `ActivityMedia.tsx` | Renders website, token, chain, paired asset, bridge, and shared Shield identities. Testnet rows place the chain logo at the lower-left and its label beside it at the lower-right. | Safe image and cached-logo paths. |
 | `ActivityStatus.tsx` | Renders transaction, Shield lifecycle, force-inclusion, and bridge status language and exports the shared compact semantic status label. | Presentation only. |
 | `ActivityExplorerActions.tsx` | Renders first-line source/L1/destination explorer controls. | Presentation only; delegates effects to the explorer hook. |
 | `useActivityExplorers.ts` | Resolves exact source, L1, and destination explorer URLs. | Network context and `chrome.tabs.create`. |

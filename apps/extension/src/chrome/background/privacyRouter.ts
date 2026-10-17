@@ -252,7 +252,7 @@ interface PrivacyPrepareDirectUnshieldMessage {
   recipient: string;
   accountId: string;
   accountAddress: string;
-  accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger";
+  accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor";
 }
 
 interface PrivacyPrepareRagequitMessage {
@@ -260,7 +260,7 @@ interface PrivacyPrepareRagequitMessage {
   requestId: string;
   accountId: string;
   accountAddress: string;
-  accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger";
+  accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor";
   commitmentId: string;
   sourceOperationId: string | null;
   expectedAmountWei: string;
@@ -310,7 +310,8 @@ function isPrivacyPrepareDirectUnshieldMessage(
     typeof value.recipient === "string" && typeof value.accountId === "string" &&
     typeof value.accountAddress === "string" &&
     (value.accountType === "bankr" || value.accountType === "privateKey" ||
-      value.accountType === "seedPhrase" || value.accountType === "ledger");
+      value.accountType === "seedPhrase" || value.accountType === "ledger" ||
+      value.accountType === "trezor");
 }
 
 function isPrivacyPrepareRagequitMessage(
@@ -324,7 +325,8 @@ function isPrivacyPrepareRagequitMessage(
     typeof value.accountId === "string" &&
     typeof value.accountAddress === "string" &&
     (value.accountType === "bankr" || value.accountType === "privateKey" ||
-      value.accountType === "seedPhrase" || value.accountType === "ledger") &&
+      value.accountType === "seedPhrase" || value.accountType === "ledger" ||
+      value.accountType === "trezor") &&
     typeof value.commitmentId === "string" &&
     (value.sourceOperationId === null || typeof value.sourceOperationId === "string") &&
     typeof value.expectedAmountWei === "string";
@@ -388,6 +390,7 @@ function isPrivacyAmountMessage(
       value.accountType === "privateKey" ||
       value.accountType === "seedPhrase" ||
       value.accountType === "ledger" ||
+      value.accountType === "trezor" ||
       value.accountType === "impersonator") &&
     typeof value.amount === "string" &&
     (isReview
@@ -413,6 +416,7 @@ function isPrivacyPrepareOperationMessage(
       value.accountType === "privateKey" ||
       value.accountType === "seedPhrase" ||
       value.accountType === "ledger" ||
+      value.accountType === "trezor" ||
       value.accountType === "impersonator") &&
     typeof value.amount === "string" &&
     typeof value.grossAmountWei === "string"

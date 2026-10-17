@@ -24,7 +24,7 @@ interface BatchDecisionSummaryProps {
   fromAddress: string;
   chainId: number;
   chainName: string;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "impersonator";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator";
   decodedFunctionNames: Record<number, string>;
   isNonAtomic: boolean;
   isLocalSigningAccount: boolean;
@@ -128,6 +128,7 @@ export function BatchDecisionSummary({
       )}
 
       {feePaymentToken === "native" && <MultiTxGasEstimateDisplay
+        isReadOnly={disabled}
         transactions={calls.map((call, index) => ({
           tx: {
             from: fromAddress,

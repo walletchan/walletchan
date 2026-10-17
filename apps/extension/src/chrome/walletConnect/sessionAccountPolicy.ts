@@ -1,5 +1,6 @@
 import { getAccounts } from "../accountStorage";
 import type { Account } from "../types";
+import { getAccountTypeCapabilities } from "../hardware/accountCapabilities";
 import {
   WALLETCONNECT_SUPPORTED_METHODS,
   getSessionAccounts,
@@ -10,36 +11,37 @@ import {
 
 export type SessionAccount = SigningAccount | Extract<Account, { type: "safe" | "safeBunker" }>;
 
-const SAFE_UNSUPPORTED_SESSION_METHODS = new Set([
-  "personal_sign",
-  "eth_signTypedData_v3",
-  "eth_signTypedData_v4",
-  "wallet_getSupportedExecutionPermissions",
-  "wallet_requestExecutionPermissions",
-  "wallet_getGrantedExecutionPermissions",
-]);
-
-const LEDGER_UNSUPPORTED_SESSION_METHODS = new Set([
+const ERC5792_SESSION_METHODS = new Set([
   "wallet_getCapabilities",
   "wallet_sendCalls",
   "wallet_getCallsStatus",
   "wallet_showCallsStatus",
+]);
+
+const ERC7715_SESSION_METHODS = new Set([
   "wallet_getSupportedExecutionPermissions",
   "wallet_requestExecutionPermissions",
   "wallet_getGrantedExecutionPermissions",
 ]);
 
 export function getWalletConnectMethodsForAccount(account: SessionAccount): string[] {
-  const unsupported = (account.type === "safe" || account.type === "safeBunker")
-    ? SAFE_UNSUPPORTED_SESSION_METHODS
-    : account.type === "ledger"
-      ? LEDGER_UNSUPPORTED_SESSION_METHODS
-      : null;
-  return unsupported
-    ? WALLETCONNECT_SUPPORTED_METHODS.filter(
-        (method) => !unsupported.has(method),
-      )
-    : [...WALLETCONNECT_SUPPORTED_METHODS];
+  const capabilities = getAccountTypeCapabilities(account.type);
+  return WALLETCONNECT_SUPPORTED_METHODS.filter((method) => {
+    if (ERC5792_SESSION_METHODS.has(method)) {
+      return capabilities.erc5792Batch;
+    }
+    if (ERC7715_SESSION_METHODS.has(method)) {
+      return capabilities.erc7715;
+    }
+    if (method === "personal_sign") return capabilities.personalSign;
+    if (
+      method === "eth_signTypedData_v3" ||
+      method === "eth_signTypedData_v4"
+    ) {
+      return capabilities.typedDataSign;
+    }
+    return true;
+  });
 }
 
 export function isSessionAccount(account: Account | null): account is SessionAccount {

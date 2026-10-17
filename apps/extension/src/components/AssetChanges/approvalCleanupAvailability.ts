@@ -1,10 +1,12 @@
 import type { BatchStrategy } from "@/hooks/useBatchPlan";
+import { hasAccountTypeCapability } from "@/chrome/hardware/accountCapabilities";
 
 export type ApprovalCleanupAccountType =
   | "bankr"
   | "privateKey"
   | "seedPhrase"
   | "ledger"
+  | "trezor"
   | "impersonator";
 
 export function getApprovalCleanupDisabledReason(input: {
@@ -21,8 +23,14 @@ export function getApprovalCleanupDisabledReason(input: {
       ? null
       : "This network does not support atomic cleanup for this account.";
   }
-  if (input.accountType === "ledger") {
-    return "Ledger requests cannot add an atomic cleanup call yet.";
+  if (
+    !hasAccountTypeCapability(
+      input.accountType,
+      "approvalCleanupMutation",
+    ) &&
+    (input.accountType === "ledger" || input.accountType === "trezor")
+  ) {
+    return "Hardware-wallet requests cannot add an atomic cleanup call yet.";
   }
   if (input.accountType === "impersonator") {
     return "View-only accounts cannot add calls.";

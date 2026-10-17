@@ -1,5 +1,5 @@
-/** Restricts the Ledger offscreen bridge to the MV3 service worker. */
-export function isTrustedLedgerBackgroundSender(
+/** Restricts hardware offscreen bridges to the exact MV3 service worker. */
+export function isTrustedHardwareBackgroundSender(
   sender: chrome.runtime.MessageSender,
   extensionRoot = chrome.runtime.getURL("/"),
   extensionId = chrome.runtime.id,
@@ -20,3 +20,7 @@ export function isTrustedLedgerBackgroundSender(
     return false;
   }
 }
+
+/** Compatibility name retained for focused Ledger tests and imports. */
+export const isTrustedLedgerBackgroundSender =
+  isTrustedHardwareBackgroundSender;

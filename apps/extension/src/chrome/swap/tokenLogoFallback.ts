@@ -1,3 +1,4 @@
+import { metamaskTokenIconUrl } from "@/constants/externalUrls";
 import {
   SWAP_API_BASE,
   SWAP_REQUEST_TIMEOUT_MS,
@@ -18,6 +19,6 @@ export async function fetchFallbackTokenLogo(
     },
   );
   if (!response.ok || typeof data.logoUrl !== "string") return null;
-  const expected = `https://static.cx.metamask.io/api/v2/tokenIcons/assets/eip155/${chainId}/erc20/${address.toLowerCase()}.png`;
+  const expected = metamaskTokenIconUrl(chainId, address);
   return data.logoUrl === expected ? expected : null;
 }

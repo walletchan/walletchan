@@ -1,7 +1,7 @@
+import { SAFE_TRANSACTION_SERVICE_HOST, SAFE_CONFIG_URL } from "@/constants/externalUrls";
 import { classifyPrivateNetworkHostname } from "@/lib/privateNetworkPolicy";
 import { fetchTextBounded, parseJsonObjectBounded } from "../network/boundedHttp";
 
-const SAFE_CONFIG_URL = "https://safe-config.safe.global/api/v1/chains/?limit=100";
 const SAFE_CONFIG_TTL_MS = 15 * 60_000;
 const SAFE_CONFIG_TIMEOUT_MS = 12_000;
 const MAX_CONFIG_BYTES = 2 * 1024 * 1024;
@@ -41,7 +41,7 @@ function parseTransactionService(value: unknown): string {
   }
   if (
     url.protocol !== "https:" ||
-    url.hostname !== "api.safe.global" ||
+    url.hostname !== SAFE_TRANSACTION_SERVICE_HOST ||
     url.username ||
     url.password ||
     url.search ||

@@ -1,4 +1,11 @@
-const ETHERSCAN_URL = "https://etherscan.io";
+import {
+  ETHERSCAN_URL,
+  DEBANK_URL,
+  NANSEN_URL,
+  OCTAV_URL,
+  ZERION_URL,
+  BLOCKSCAN_URL,
+} from "@/constants/externalUrls";
 
 export interface AccountDashboardLink {
   name: string;
@@ -19,27 +26,27 @@ export function getAccountDashboardLinks(
     {
       name: "DeBank",
       iconSrc: "/debank-icon.ico",
-      href: `https://debank.com/profile/${encodedAddress}`,
+      href: `${DEBANK_URL}/profile/${encodedAddress}`,
     },
     {
       name: "Nansen",
       iconSrc: "/nansen-icon.png",
-      href: `https://app.nansen.ai/address/${encodedAddress}`,
+      href: `${NANSEN_URL}/address/${encodedAddress}`,
     },
     {
       name: "Octav",
       iconSrc: "/octav-icon.png",
-      href: `https://pro.octav.fi/?addresses=${encodedAddress}`,
+      href: `${OCTAV_URL}/?addresses=${encodedAddress}`,
     },
     {
       name: "Zerion",
       iconSrc: "/zerion-icon.png",
-      href: `https://app.zerion.io/${encodedAddress}/overview`,
+      href: `${ZERION_URL}/${encodedAddress}/overview`,
     },
     {
       name: "Blockscan",
       iconSrc: "/blockscan-icon.png",
-      href: `https://blockscan.com/address/${encodedAddress}`,
+      href: `${BLOCKSCAN_URL}/address/${encodedAddress}`,
     },
   ];
 }

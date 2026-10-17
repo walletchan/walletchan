@@ -23,3 +23,7 @@
   icons and the compact selected-tier badge.
 - Estimation, validation, tier persistence, and gas-override behavior remain in
   the existing `GasEstimateDisplay.tsx` coordinator.
+
+- `RevertWarning.tsx` presents the revert warning, full-error copy, and an explicit
+  read-only estimate retry. Both gas coordinators expose Retry on estimate errors;
+  loading invalidates confirmation until the new estimate completes.

@@ -3,7 +3,6 @@ import { Badge, HStack, Text, VStack } from "@chakra-ui/react";
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import {
   SimulationRevertedBanner,
-  SimulationUnavailableBanner,
 } from "@/components/AssetChangesDisplay";
 import { ClearSigningView } from "@/components/ClearSigning/ClearSigningView";
 import Erc7715PermissionRevokeSummary from "@/components/Erc7715PermissionRevokeSummary";
@@ -34,9 +33,7 @@ interface TransactionContextProps {
   calldataValidation: ReturnType<typeof detectAbiEncodingError>;
   clearSigningEligible: boolean;
   simulationReverted: boolean;
-  simulationUnavailable: boolean;
   requestState: ConfirmationState;
-  requestError: string;
   gasValid: boolean;
   splitState: SplitPriorTxState;
   isReadOnly?: boolean;
@@ -58,9 +55,7 @@ export function TransactionContext({
   calldataValidation,
   clearSigningEligible,
   simulationReverted,
-  simulationUnavailable,
   requestState,
-  requestError,
   gasValid,
   splitState,
   isReadOnly = false,
@@ -161,9 +156,6 @@ export function TransactionContext({
       )}
 
       {simulationReverted && <SimulationRevertedBanner borders={tokens.borders} />}
-      {simulationUnavailable && !simulationReverted && (
-        <SimulationUnavailableBanner borders={tokens.borders} />
-      )}
 
       {is7702Revoke && <DelegationRevokeNotice chainName={chainName} />}
       {is7702SetDelegate && delegation && (
@@ -210,7 +202,6 @@ export function TransactionContext({
       />
 
       <RequestStatus
-        error={requestError}
         gasValid={gasValid}
         splitState={splitState}
         state={requestState}

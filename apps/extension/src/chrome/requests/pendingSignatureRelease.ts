@@ -20,7 +20,8 @@ type PendingSignatureReleaseContext = PendingRequestLifecycleContext & {
 /** Discard a completed signature if account/transport/credential authority moved while signing. */
 export async function revalidatePendingSignatureBeforeRelease(
   pending: PendingSignatureReleaseContext,
-  expectedType: "bankr" | "privateKey" | "seedPhrase" | "ledger",
+  expectedType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor",
+  expectedHardwareBinding?: { deviceId: string; hdPath: string },
 ): Promise<{ authorized: true } | { authorized: false; error: string }> {
   return withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     if (!pending.accountId || !pending.accountAddress) {
@@ -30,7 +31,11 @@ export async function revalidatePendingSignatureBeforeRelease(
     if (
       !account ||
       account.type !== expectedType ||
-      account.address.toLowerCase() !== pending.accountAddress.toLowerCase()
+      account.address.toLowerCase() !== pending.accountAddress.toLowerCase() ||
+      (expectedHardwareBinding !== undefined &&
+        (account.type !== "ledger" && account.type !== "trezor" ||
+          account.deviceId !== expectedHardwareBinding.deviceId ||
+          account.hdPath !== expectedHardwareBinding.hdPath))
     ) {
       return { authorized: false, error: "Pending request is no longer valid" };
     }

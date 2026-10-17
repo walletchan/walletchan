@@ -1,5 +1,6 @@
 import { accountTypeTitles } from "./AddAccount/model/accountTypeTitles";
 import { SafeBunkerDraftScreen } from "./SafeBunker/SafeBunkerDraftScreen";
+import { etherscanAddressUrl } from "@/constants/externalUrls";
 import { useState, useEffect, memo, useMemo, useCallback } from "react";
 import {
   Box,
@@ -32,7 +33,7 @@ import { LocalAccountBiometricGateStatus } from "@/components/AddAccount/LegacyB
 import { AddAccountTypeSelectionScreen } from "@/components/AddAccount/AddAccountTypeSelectionScreen";
 import { AddAccountActionBar } from "@/components/AddAccount/AddAccountActionBar";
 import { PrivateKeyAccountSection } from "@/components/AddAccount/PrivateKeyAccountSection";
-import { SeedPhraseAccountSection } from "@/components/AddAccount/SeedPhraseAccountSection";
+import type { SeedGroupSummary } from "@/components/AddAccount/SeedPhraseAccountSection";
 import { useLocalAccountBiometricGate } from "@/components/AddAccount/useLocalAccountBiometricGate";
 import type { AccountType } from "@/components/AddAccountTypeGrid";
 import { SafeEntryScreen } from "@/components/SafeAccount/SafeEntryScreen";
@@ -46,12 +47,7 @@ import {
   ScreenSection,
 } from "@/components/ui";
 import type { Account } from "@/chrome/types";
-import { openLedgerSetupTab } from "@/app/ledgerSetupRoute";
-interface SeedGroup {
-  id: string;
-  name: string;
-  accountCount: number;
-}
+import { openHardwareSetupTab } from "@/app/hardwareSetupRoute";
 
 interface AddAccountProps {
   onBack: () => void;
@@ -78,7 +74,7 @@ function AddAccount({
   const [showBankrApiKey, setShowBankrApiKey] = useState(false);
   const [impersonatorAddress, setImpersonatorAddress] = useState("");
   const [hasBankrAccount, setHasBankrAccount] = useState(false);
-  const [seedGroups, setSeedGroups] = useState<SeedGroup[]>([]);
+  const [seedGroups, setSeedGroups] = useState<SeedGroupSummary[]>([]);
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
   const [showSeedSetup, setShowSeedSetup] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,7 +116,7 @@ function AddAccount({
     );
     chrome.runtime.sendMessage(
       { type: "getSeedGroups" },
-      (groups: SeedGroup[]) => {
+      (groups: SeedGroupSummary[]) => {
         setSeedGroups(groups || []);
       },
     );
@@ -147,35 +143,38 @@ function AddAccount({
 
   const openSeedSetup = useCallback(async () => {
     const access = await ensureMnemonicAccess();
-    if (access.ready) setShowSeedSetup(true);
+    if (access.ready) {
+      setAccountType("seedPhrase");
+      setShowSeedSetup(true);
+    } else if (access.reason === "legacy-upgrade-required") {
+      setAccountType("seedPhrase");
+    }
   }, [ensureMnemonicAccess]);
 
   const openSeedPicker = useCallback(
     async (seedGroupId: string) => {
       const access = await ensureMnemonicAccess();
       if (access.ready) setPickingGroupId(seedGroupId);
+      else if (access.reason === "legacy-upgrade-required") {
+        setAccountType("seedPhrase");
+      }
     },
     [ensureMnemonicAccess],
   );
 
   const handleAccountTypeSelect = useCallback(
     async (type: AccountType) => {
-      if (type === "ledger") {
-        await openLedgerSetupTab();
+      if (type === "ledger" || type === "trezor") {
+        await openHardwareSetupTab(type);
         return;
       }
       if (type === "seedPhrase") {
-        const access = await ensureMnemonicAccess();
-        if (!access.ready && access.reason !== "legacy-upgrade-required") {
-          return;
-        }
-        setAccountType(type);
-        if (access.ready && seedGroups.length === 0) setShowSeedSetup(true);
+        await openSeedSetup();
         return;
       }
       setAccountType(type);
     },
-    [ensureMnemonicAccess, seedGroups.length],
+    [openSeedSetup],
   );
 
   // Derive address when private key changes
@@ -395,12 +394,12 @@ function AddAccount({
 
       if (!response.success || !response.account) {
         setIsSubmitting(false);
-        throw new Error(response.error || "Failed to derive accounts");
+        throw new Error(response.error || "Failed to add accounts");
       }
 
       const count = response.accounts?.length ?? indices.length;
       toast({
-        title: count === 1 ? "Account derived" : "Accounts derived",
+        title: count === 1 ? "Account added" : "Accounts added",
         description:
           count === 1
             ? "New address added from seed phrase"
@@ -422,7 +421,7 @@ function AddAccount({
       <SeedPhraseSetup
         onBack={() => {
           setShowSeedSetup(false);
-          if (seedGroups.length === 0) setAccountType(null);
+          setAccountType(null);
         }}
         onComplete={onAccountAdded}
         ensureMnemonicAccess={ensureMnemonicAccess}
@@ -436,7 +435,7 @@ function AddAccount({
     const groupTitle = group?.name || "Seed Phrase";
     return (
       <SeedAddressPicker
-        title={`Derive · ${groupTitle}`}
+        title={`Add accounts · ${groupTitle}`}
         source={{
           kind: "existingGroup",
           seedGroupId: pickingGroupId,
@@ -447,21 +446,7 @@ function AddAccount({
         onBack={() => setPickingGroupId(null)}
         onSubmit={handlePickerDerive}
         submitLabel={(count) =>
-          count === 1 ? "Derive 1 Address" : `Derive ${count} Addresses`
-        }
-        intro={
-          <Box
-            bg="surface.raised"
-            border="1px solid"
-            borderColor="border.subtle"
-            borderRadius="md"
-            p={3}
-          >
-            <Text fontSize="xs" color="text.secondary" fontWeight="500">
-              Existing accounts from this seed are shown for context. Tick the
-              new addresses you want to derive.
-            </Text>
-          </Box>
+          count === 1 ? "Add 1 account" : `Add ${count} accounts`
         }
       />
     );
@@ -470,6 +455,9 @@ function AddAccount({
     return (
       <AddAccountTypeSelectionScreen
         hasBankrAccount={hasBankrAccount}
+        seedGroups={seedGroups}
+        isAuthenticating={isMnemonicAuthenticating}
+        onDerive={(groupId) => void openSeedPicker(groupId)}
         onBack={onBack}
         onSelect={(type) => void handleAccountTypeSelect(type)}
       />
@@ -517,14 +505,6 @@ function AddAccount({
               backup={privateKeyBackup}
               onBackupChange={(isConfirmed) => setPrivateKeyBackup((current) => ({ ...current, isConfirmed }))}
               onBackupStateChange={handleGeneratedBackupStateChange}
-            />
-          )}
-
-          {accountType === "seedPhrase" && needsBiometricUpgrade === false && (
-            <SeedPhraseAccountSection
-              groups={seedGroups}
-              isAuthenticating={isMnemonicAuthenticating}
-              onDerive={(groupId) => void openSeedPicker(groupId)}
             />
           )}
 
@@ -611,7 +591,7 @@ function AddAccount({
                         color="text.tertiary"
                         onClick={() =>
                           window.open(
-                            `https://etherscan.io/address/${impersonatorResolvedAddress}`,
+                            etherscanAddressUrl(impersonatorResolvedAddress),
                             "_blank",
                             "noopener,noreferrer",
                           )
@@ -798,9 +778,7 @@ function AddAccount({
         }
         canAddBankr={!!bankrAddress.trim() && !!bankrApiKey.trim()}
         canAddImpersonator={impersonatorIsValid && !impersonatorIsResolving}
-        seedGroupCount={seedGroups.length}
         onAddAccount={handleSubmit}
-        onSetupSeedPhrase={() => void openSeedSetup()}
       />
     </AppScreen>
   );

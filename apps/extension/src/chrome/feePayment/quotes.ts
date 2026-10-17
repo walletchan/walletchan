@@ -278,7 +278,12 @@ export async function prepareFeePaymentQuote(
       accountId ? getAccountById(accountId) : null,
       Promise.resolve().then(() => parseInternalSwapFeePaymentPayload(requestPayload)),
     ]);
-    if (!account || account.type === "impersonator" || account.type === "ledger") {
+    if (
+      !account ||
+      account.type === "impersonator" ||
+      account.type === "ledger" ||
+      account.type === "trezor"
+    ) {
       throw new Error("Swap account cannot pay gas with a token");
     }
     return prepareQuote({

@@ -1,53 +1,27 @@
-import { closeSidePanelForWindow } from "@/lib/sidePanelControls";
 import {
-  getCurrentExtensionViewKind,
-  type ExtensionViewKind,
-} from "@/app/extensionSurface";
-
-const LEDGER_SETUP_ROUTE = "add-ledger";
-
-interface LedgerSetupTabDependencies {
-  getRuntimeUrl(path: string): string;
-  createTab(options: { url: string; active: boolean }): Promise<{
-    windowId?: number;
-  }>;
-  getViewKind(): ExtensionViewKind;
-  closeSidePanel(windowId: number | undefined): Promise<boolean>;
-  closeWindow(): void;
-}
+  getHardwareSetupProvider,
+  getHardwareSetupUrl,
+  openHardwareSetupTab,
+  openHardwareSetupTabWith,
+  type HardwareSetupTabDependencies,
+} from "./hardwareSetupRoute";
 
 export function isLedgerSetupRoute(search: string): boolean {
-  return new URLSearchParams(search).get("route") === LEDGER_SETUP_ROUTE;
+  return getHardwareSetupProvider(search) === "ledger";
 }
 
 export function getLedgerSetupUrl(
   getRuntimeUrl: (path: string) => string,
 ): string {
-  const url = new URL(getRuntimeUrl("index.html"));
-  url.searchParams.set("route", LEDGER_SETUP_ROUTE);
-  return url.href;
+  return getHardwareSetupUrl("ledger", getRuntimeUrl);
 }
 
 export async function openLedgerSetupTabWith(
-  dependencies: LedgerSetupTabDependencies,
+  dependencies: HardwareSetupTabDependencies,
 ): Promise<void> {
-  const sourceView = dependencies.getViewKind();
-  const tab = await dependencies.createTab({
-    url: getLedgerSetupUrl(dependencies.getRuntimeUrl),
-    active: true,
-  });
-  if (sourceView !== "sidepanel") return;
-
-  const closed = await dependencies.closeSidePanel(tab.windowId);
-  if (!closed) dependencies.closeWindow();
+  return openHardwareSetupTabWith("ledger", dependencies);
 }
 
 export async function openLedgerSetupTab(): Promise<void> {
-  return openLedgerSetupTabWith({
-    getRuntimeUrl: (path) => chrome.runtime.getURL(path),
-    createTab: (options) => chrome.tabs.create(options),
-    getViewKind: getCurrentExtensionViewKind,
-    closeSidePanel: closeSidePanelForWindow,
-    closeWindow: () => window.close(),
-  });
+  return openHardwareSetupTab("ledger");
 }

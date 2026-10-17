@@ -1,4 +1,5 @@
-import { Badge, Box, Button, HStack, Text } from "@chakra-ui/react";
+import { Button, Flex } from "@chakra-ui/react";
+import { AddIcon } from "@chakra-ui/icons";
 import { SeedIcon } from "@/components/shared/AccountTypeIcons";
 import {
   ListItem,
@@ -11,7 +12,7 @@ import {
   ScreenSection,
 } from "@/components/ui";
 
-interface SeedGroupSummary {
+export interface SeedGroupSummary {
   id: string;
   name: string;
   accountCount: number;
@@ -30,56 +31,49 @@ export function SeedPhraseAccountSection({
 }: SeedPhraseAccountSectionProps) {
   return (
     <ScreenSection
-      title={groups.length > 0 ? "Saved seed phrases" : "Set up a seed phrase"}
-      description={
-        groups.length > 0
-          ? "Derive another address or set up a new phrase."
-          : "Import a 12-word phrase or create a new one."
-      }
+      title="Saved seed phrases"
+      headingProps={{ fontSize: "sm", fontWeight: 600, color: "fg.secondary" }}
     >
-      {groups.length > 0 ? (
-        <ListSurface>
-          {groups.map((group) => (
-            <ListItem key={group.id}>
-              <ListItemMedia>
-                <SeedIcon boxSize="18px" color="accent.primary" />
-              </ListItemMedia>
-              <ListItemContent>
-                <HStack spacing={2}>
-                  <ListItemTitle>{group.name}</ListItemTitle>
-                  <Badge variant="subtle" fontSize="xs">
-                    {group.accountCount}{" "}
-                    {group.accountCount === 1 ? "account" : "accounts"}
-                  </Badge>
-                </HStack>
-                <ListItemDescription>Stored seed phrase</ListItemDescription>
-              </ListItemContent>
-              <ListItemActions>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  isDisabled={isAuthenticating}
-                  onClick={() => onDerive(group.id)}
-                >
-                  Derive
-                </Button>
-              </ListItemActions>
-            </ListItem>
-          ))}
-        </ListSurface>
-      ) : (
-        <Box
-          p={4}
-          bg="surface.raised"
-          border="1px solid"
-          borderColor="border.subtle"
-          borderRadius="lg"
-        >
-          <Text color="fg.secondary" fontSize="sm">
-            Your phrase will be encrypted before it is stored on this device.
-          </Text>
-        </Box>
-      )}
+      <ListSurface borderColor="border.subtle">
+        {groups.map((group) => (
+          <ListItem key={group.id}>
+            <ListItemMedia>
+              <Flex
+                boxSize="36px"
+                align="center"
+                justify="center"
+                borderRadius="md"
+                bg="status.info.bg"
+                color="status.info.fg"
+              >
+                <SeedIcon boxSize="19px" />
+              </Flex>
+            </ListItemMedia>
+            <ListItemContent>
+              <ListItemTitle noOfLines={1}>{group.name}</ListItemTitle>
+              <ListItemDescription>
+                {group.accountCount}{" "}
+                {group.accountCount === 1 ? "account" : "accounts"}
+              </ListItemDescription>
+            </ListItemContent>
+            <ListItemActions>
+              <Button
+                size="sm"
+                variant="ghost"
+                color="accent.secondary"
+                minH="44px"
+                px={3}
+                _hover={{ bg: "surface.raisedHover" }}
+                leftIcon={<AddIcon boxSize={3} />}
+                isDisabled={isAuthenticating}
+                onClick={() => onDerive(group.id)}
+              >
+                Add
+              </Button>
+            </ListItemActions>
+          </ListItem>
+        ))}
+      </ListSurface>
     </ScreenSection>
   );
 }

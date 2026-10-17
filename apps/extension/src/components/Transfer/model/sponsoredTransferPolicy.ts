@@ -1,4 +1,5 @@
 import type { TransferAccountType } from "../types";
+import { hasAccountTypeCapability } from "@/chrome/hardware/accountCapabilities";
 
 const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
@@ -40,8 +41,6 @@ export function shouldUseSponsoredTransfer({
     isCandidate &&
       premiumStatus?.isPremium &&
       premiumStatus.sponsoredTransfersEnabled &&
-      accountType !== "impersonator" &&
-      accountType !== "ledger" &&
-      accountType !== "safe" && accountType !== "safeBunker",
+      hasAccountTypeCapability(accountType, "sponsoredTransfer"),
   );
 }

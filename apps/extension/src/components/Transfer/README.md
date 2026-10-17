@@ -32,6 +32,9 @@ existing direct and lazy imports retain the same default-export contract.
   remain selection/edit/delete only until the filter is cleared.
   Send enables the shared group's Add action and keeps the group visible when
   empty, making the name-service-aware contact editor reachable from the picker.
+  Wallet names span the full content width; wallet-type labels share the address
+  line. Both this picker and inline recipient suggestions omit secondary text
+  when it duplicates the main label.
 - `AdaptiveBalance.tsx` owns responsive balance measurement and formatting.
 - `formatting.ts` contains pure display formatting/account labels; `types.ts`
   contains the public component contract.
@@ -44,8 +47,9 @@ existing direct and lazy imports retain the same default-export contract.
   cached-public-name matching, relevance ranking, and stored-order tie breaking
   for the recipient combobox. Focusing an empty recipient input exposes every
   eligible wallet and contact in group order; typed queries keep the bounded
-  relevance-ranked results. Suggestion rows reuse the shared safe avatar and
-  blockie fallback used by the full contact picker.
+  relevance-ranked results. Wallet suggestion rows reuse the canonical
+  `AccountAvatar` and the full picker's Safe mark priority; contact suggestions
+  retain the shared contact avatar and blockie fallback.
 
 ## Hooks and effects
 
@@ -118,3 +122,19 @@ Pure amount/account-label behavior is covered by
 `tests/sponsoredTransfers/sponsoredTransferReconciliation.test.ts`. Normal
 private-key/seed-phrase/Bankr signing continues through the transaction suites
 and `qa:extension:signing`.
+
+## ENS recipient history
+
+`EnsRecipientHistoryNotice.tsx` renders Send-only advisory notices beneath the
+recipient field, using existing semantic warning tokens. Its hook
+`hooks/useEnsRecipientHistory.ts` owns the trusted-UI request, deadline, and exact
+name/destination/chain stale-response guard. `model/ensRecipientHistory.ts` owns
+normalization, response validation, and the 30-day address-update recency window.
+The compact notice pairs a short heading with a trailing update age and places
+the verification reminder beneath;
+ownership and resolver-change events do not trigger it. Raw address
+and reverse-name decoration do not trigger queries. Loading shows “Checking ENS history…”; failed history renders no notice.
+Neither alters existing submission gates. Tests live in
+`tests/ui/ensRecipientHistory.test.ts`; `scripts/ens-recipient-history-qa.mjs`
+checks the production Send composition with synthetic resolution/history across
+four signer props, both themes, 320px layout, unavailable data and stale responses.

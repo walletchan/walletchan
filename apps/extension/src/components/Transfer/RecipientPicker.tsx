@@ -1,5 +1,5 @@
 import { AddIcon, CheckIcon } from "@chakra-ui/icons";
-import { IconButton, usePrefersReducedMotion } from "@chakra-ui/react";
+import { HStack, IconButton, usePrefersReducedMotion } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import type { AddressContact } from "@/chrome/contactBook/repository";
 import type { Account } from "@/chrome/types";
@@ -92,6 +92,7 @@ export function RecipientPicker({
       controls={(
         <FullScreenPickerSearch
           label="Search wallets and contacts"
+          hideLabel
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Name or address"
@@ -101,10 +102,11 @@ export function RecipientPicker({
       {accounts.length > 0 && (
         <FullScreenPickerGroup
           label="My wallets"
-          description="Choose another WalletChan account as the recipient."
         >
           {accounts.map((account) => {
             const ensAvatar = getAccountEnsAvatar(account);
+            const displayName = getAccountDisplayName(account);
+            const addressLabel = truncateAddress(account.address);
             const isSelected =
               recipient.toLowerCase() === account.address.toLowerCase();
             const isRevealTarget =
@@ -125,20 +127,22 @@ export function RecipientPicker({
                   />
                 </ListItemMedia>
                 <ListItemContent>
-                  <ListItemTitle>{getAccountDisplayName(account)}</ListItemTitle>
-                  <ListItemDescription fontFamily="mono">
-                    {truncateAddress(account.address)}
-                  </ListItemDescription>
+                  <ListItemTitle>{displayName}</ListItemTitle>
+                  <HStack justify="space-between" spacing={2} minW={0}>
+                    {displayName.toLowerCase() !== addressLabel.toLowerCase() && (
+                      <ListItemDescription fontFamily="mono" minW={0} noOfLines={1}>
+                        {addressLabel}
+                      </ListItemDescription>
+                    )}
+                    <ListItemMeta
+                      ml="auto"
+                      whiteSpace="nowrap"
+                      color={isSelected ? "accent.secondary" : "fg.secondary"}
+                    >
+                      {isSelected ? <CheckIcon aria-label="Selected" /> : getAccountTypeLabel(account)}
+                    </ListItemMeta>
+                  </HStack>
                 </ListItemContent>
-                <ListItemMeta
-                  color={isSelected ? "accent.secondary" : "fg.secondary"}
-                >
-                  {isSelected ? (
-                    <CheckIcon aria-label="Selected" />
-                  ) : (
-                    getAccountTypeLabel(account)
-                  )}
-                </ListItemMeta>
               </ListItem>
             );
           })}
@@ -147,7 +151,7 @@ export function RecipientPicker({
       <AddressContactList
         contacts={contacts}
         allContacts={allContacts}
-        description={search.trim() ? `${contacts.length} matching contacts` : "Select, edit, delete, or drag to reorder."}
+        description={search.trim() ? `${contacts.length} matching contacts` : ""}
         canAddContact
         emptyTitle={search.trim() ? "No matching contacts" : "No saved contacts"}
         emptyDescription={search.trim() ? `No contact matches “${search.trim()}”.` : "Add a frequently used EVM address."}

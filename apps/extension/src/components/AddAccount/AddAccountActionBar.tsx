@@ -13,9 +13,7 @@ interface AddAccountActionBarProps {
   onPrivateKeyBackupChange: (isConfirmed: boolean) => void;
   canAddBankr: boolean;
   canAddImpersonator: boolean;
-  seedGroupCount: number;
   onAddAccount: () => void;
-  onSetupSeedPhrase: () => void;
 }
 
 export function AddAccountActionBar({
@@ -28,13 +26,12 @@ export function AddAccountActionBar({
   onPrivateKeyBackupChange,
   canAddBankr,
   canAddImpersonator,
-  seedGroupCount,
   onAddAccount,
-  onSetupSeedPhrase,
 }: AddAccountActionBarProps) {
   const isLocalAccount =
     accountType === "privateKey" || accountType === "seedPhrase";
   if (
+    accountType === "seedPhrase" ||
     needsBiometricUpgrade === null ||
     (needsBiometricUpgrade && isLocalAccount)
   ) {
@@ -56,9 +53,7 @@ export function AddAccountActionBar({
       primaryAction={
         <Button
           variant="brand"
-          onClick={
-            accountType === "seedPhrase" ? onSetupSeedPhrase : onAddAccount
-          }
+          onClick={onAddAccount}
           isLoading={isSubmitting || isAuthenticating}
           loadingText={isAuthenticating ? "Authenticating…" : "Adding…"}
           isDisabled={
@@ -67,11 +62,7 @@ export function AddAccountActionBar({
             (accountType === "impersonator" && !canAddImpersonator)
           }
         >
-          {accountType === "seedPhrase"
-            ? seedGroupCount > 0
-              ? "Add another seed phrase"
-              : "Set up seed phrase"
-            : "Add account"}
+          Add account
         </Button>
       }
     />

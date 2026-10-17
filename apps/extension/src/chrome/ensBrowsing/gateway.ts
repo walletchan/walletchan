@@ -10,12 +10,10 @@
 //
 // Ported from dapp3 `src/lib/gateway.ts`; the hosted-gateway builder is new.
 
+import { gnsGatewayUrl, web3GatewayUrl, ensLimoUrl } from "@/constants/externalUrls";
+
 import type { ResolveKind } from "./types";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from "./settingsStorage";
-
-const ETH_LIMO_HOST = "eth.limo";
-const GWEI_DOMAINS_HOST = "domains";
-const W3ETH_IO_HOST = "w3eth.io";
 
 export type GatewayLocation = { host: string; port: number };
 
@@ -55,22 +53,22 @@ export function buildHostedGatewayUrl(
   const lower = ensName.toLowerCase();
   if (lower.endsWith(".wei")) {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    return `https://${lower}.limo${normalizedPath}${search}${hash}`;
+    return `${ensLimoUrl(lower)}${normalizedPath}${search}${hash}`;
   }
   if (lower.endsWith(".gwei")) {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    return `https://${lower}.${GWEI_DOMAINS_HOST}${normalizedPath}${search}${hash}`;
+    return `${gnsGatewayUrl(lower)}${normalizedPath}${search}${hash}`;
   }
 
   // ENS subdomains like `app.uniswap.eth` are passed through verbatim — both
   // eth.limo and w3eth.io route on the full label chain in front of `.eth`.
   const trimmed = lower.endsWith(".eth") ? lower.slice(0, -4) : lower;
-  const host =
+  const origin =
     kind === "web3"
-      ? `${trimmed}.${W3ETH_IO_HOST}`
-      : `${trimmed}.${ETH_LIMO_HOST}`;
+      ? web3GatewayUrl(trimmed)
+      : ensLimoUrl(`${trimmed}.eth`);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `https://${host}${normalizedPath}${search}${hash}`;
+  return `${origin}${normalizedPath}${search}${hash}`;
 }
 
 export function encodeIpnsLabel(label: string): string {

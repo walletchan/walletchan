@@ -19,6 +19,8 @@ import { useAddressContact } from "@/hooks/useAddressContacts";
 import { truncateAddress } from "@/lib/addressUtils";
 import { SafeIcon } from "@/components/shared/AccountTypeIcons";
 
+export { default as HardwareAccountDetails } from "./HardwareWallet/HardwareAccountDetails";
+
 interface AccountSettingsIdentityProps {
   account: Account;
   resolvedName: string | null;

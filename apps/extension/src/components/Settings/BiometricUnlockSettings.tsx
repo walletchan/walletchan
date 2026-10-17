@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Badge,
-  Box,
   Button,
-  Divider,
   HStack,
   Text,
   VStack,
@@ -230,21 +228,6 @@ function BiometricUnlockSettings({
           </VStack>
         </HStack>
 
-        <Divider />
-
-        <Box>
-          <Text fontSize="xs" fontWeight="600" color="fg.muted" mb={1}>
-            Access level
-          </Text>
-          <Text fontSize="md" fontWeight="600" mb={1}>
-            {needsSeedAccessUpgrade ? "Signing access only" : "Full master session"}
-          </Text>
-          <Text fontSize="sm" color="fg.secondary" lineHeight="1.5">
-            {needsSeedAccessUpgrade
-              ? "Upgrade to enable master-protected seed phrase actions."
-              : "Same access as unlocking with your master password."}
-          </Text>
-        </Box>
       </VStack>
     </SettingsScreenFrame>
   );

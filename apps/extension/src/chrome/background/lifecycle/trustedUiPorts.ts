@@ -9,6 +9,7 @@ export type TrustedUiPortLifecycleDependencies =
   TrustedUiPortProtocolDependencies & {
   connectEvent: { addListener: (listener: (port: any) => void) => void };
   isTrustedWalletUiSender: (sender: chrome.runtime.MessageSender) => boolean;
+  isAllowedNonUiPort?: (port: any) => boolean;
   log: (message: string) => void;
 };
 
@@ -17,6 +18,7 @@ export function registerTrustedUiPortLifecycle(
 ): void {
   dependencies.connectEvent.addListener((port) => {
     if (!dependencies.isTrustedWalletUiSender(port.sender || {})) {
+      if (dependencies.isAllowedNonUiPort?.(port)) return;
       port.disconnect();
       return;
     }

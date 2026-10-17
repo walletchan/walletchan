@@ -17,7 +17,7 @@ callers and lazy imports. It stays policy-free and preserves the default export.
 | `transactionNonceModel.ts` | Pure wallet-type eligibility for editable transaction nonces. |
 | `useImpersonatedTransactionCapability.ts` | Renderer-only developer-RPC capability check for view-only transaction submission. |
 | `useTransactionBatchEligibility.ts` | Cross-dapp batch eligibility for every wallet type. |
-| `useTransactionActions.ts` | Bankr/local submission routing, rejection, batch-add, and completion transitions. |
+| `useTransactionActions.ts` | Wallet-specific submission routing, read-only pending-request retry, rejection, batch-add, and completion transitions. |
 | `approvalCleanupAdapter.ts` | Projects request/wallet/chain availability, sends one canonical single-to-batch cleanup mutation for an individual or complete residual set, and follows established batch navigation. |
 | `TransactionSummary.tsx` | Centered dapp identity, chain-qualified simulation heading, financial impact, and callback-driven residual-approval cleanup. |
 | `TransactionDecisionSummary.tsx` | Sticky signer identity and network-fee control. |
@@ -29,7 +29,9 @@ callers and lazy imports. It stays policy-free and preserves the default export.
 | `ReplacementNotice.tsx` | Explain Speed Up nonce and fee semantics without replacing the original review content. |
 | `DelegationNotices.tsx` | EIP-7702 consequences. |
 | `QueueNavigation.tsx` | Pending-request navigation. |
-| `RequestStatus.tsx` | Async, error, and split feedback. |
+| `RequestStatus.tsx` | Async and split feedback. |
+| `TransactionActionNotice.tsx` | Footer error/retry, unavailable-preview warning, and account signing status. |
+| `TransactionPrimaryAction.tsx` | Confirm labels, simulation warning gate, and reject-only view-only projection. |
 | `ConfirmationActions.tsx` | Confirm/reject arrangement and single-transaction simulation-warning projection. |
 | `StateScreens.tsx` | Force-inclusion progress and success animation. |
 | `CopyButton.tsx` | Inline clipboard feedback. |
@@ -64,3 +66,17 @@ Pure value projection is covered by `tests/ui/transactionValue.test.ts`.
 Transaction intake, confirmation, first-action-wins, and all wallet-type paths
 remain covered under `tests/transactions/`, `tests/requests/`, and packaged
 extension signing QA.
+
+## Read-only retry
+
+The footer places Retry to the right of submission errors and unavailable asset
+previews for every account type. `useTransactionActions` first reads
+`getPendingTransaction`; a missing request stays blocked and directs the user to
+Activity. A retained request refreshes gas, simulation, fee-token quotes, and the
+editable nonce. Confirm stays loading until review completes and requires a new
+click. Retry never signs, submits, or recreates a consumed request. Concurrent
+retry clicks and callbacks for an unmounted or different request are ignored.
+
+Run `node scripts/transaction-retry-qa.mjs` against the preview server for synthetic
+Private Key, Seed Phrase, Ledger, Trezor, Bankr, and reject-only view-only coverage.
+This does not replace real-device signing QA.

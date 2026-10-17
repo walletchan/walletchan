@@ -192,9 +192,11 @@ export async function handleWalletConnectSessionRequest(
         chainId,
         requestedErc7715Account(method, requestParams),
       );
-      if (account.type === "ledger") {
+      if (account.type === "ledger" || account.type === "trezor") {
         throw new Error(
-          "Delegated permissions are not supported for Ledger accounts",
+          `Delegated permissions are not supported for ${
+            account.type === "trezor" ? "Trezor" : "Ledger"
+          } accounts`,
         );
       }
       const peer = getSessionMetadata(session);

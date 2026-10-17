@@ -1,3 +1,4 @@
+import { BASE_RECONCILIATION_RPCS } from "../../src/constants/externalUrls";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
@@ -96,8 +97,11 @@ test("ambiguous responses and finalized reconciliation stay fail-closed", async 
     submission,
     /catch \(error\)[\s\S]*state: "ambiguous"[\s\S]*broadcastUncertain: true[\s\S]*outcomeUncertain: true/,
   );
-  assert.match(reconciliation, /https:\/\/mainnet\.base\.org/);
-  assert.match(reconciliation, /https:\/\/base\.drpc\.org/);
+  assert.match(reconciliation, /import \{ BASE_RECONCILIATION_RPCS \} from "@\/constants\/externalUrls"/);
+  assert.deepEqual(BASE_RECONCILIATION_RPCS, [
+    "https://mainnet.base.org",
+    "https://base.drpc.org",
+  ]);
   assert.match(reconciliation, /\["finalized", false\]/);
   assert.match(reconciliation, /observations\.length !== BASE_RECONCILIATION_RPCS\.length/);
   assert.match(

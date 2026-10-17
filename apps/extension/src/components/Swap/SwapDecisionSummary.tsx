@@ -102,6 +102,7 @@ export function SwapDecisionSummary({
 
       {feePaymentToken === "native" && (
         <MultiTxGasEstimateDisplay
+          isReadOnly={disabled}
           transactions={transactions}
           accountType={accountType}
           batchedTx={batchedTx ? {

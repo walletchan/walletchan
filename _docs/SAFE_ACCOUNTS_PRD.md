@@ -680,7 +680,7 @@ discovery.ts                manual probing and opt-in owner discovery
 transactionBuilder.ts       calls -> Safe transaction fields and local hash
 multiSend.ts                strict canonical batch encode/decode
 signatureValidation.ts      EOA recovery, owner checks, sorting/packing
-ownerAuthorization.ts       PK/seed/Ledger/Bankr signer routing and final rechecks
+ownerAuthorization.ts       PK/seed/Ledger/Trezor/Bankr signer routing and final rechecks
 serviceClient.ts            bounded direct official Safe service client
 serviceValidation.ts        schema, hash, and confirmation validation
 proposalLifecycle.ts        propose/approve/publish/reconcile orchestration
@@ -1059,10 +1059,11 @@ runs for:
 - Bankr owner;
 - private-key owner;
 - seed-phrase owner;
-- Ledger owner with automated no-device coverage plus real-device QA; and
+- Ledger owner with automated no-device coverage plus real-device QA;
+- Trezor owner with automated no-device coverage plus real-device QA; and
 - impersonator/view-only negative path.
 
-Also test one Safe linked to all four signing types and prove that each
+Also test one Safe linked to all five signing types and prove that each
 approval requires the intended account's current credential.
 
 ### 15.2 Safe configurations

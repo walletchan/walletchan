@@ -1,4 +1,5 @@
 import type { LedgerAccountSelection } from "@/components/Ledger/AddLedgerFlow";
+import type { TrezorAccountSelection } from "@/components/Trezor/AddTrezorFlow";
 import { validateAndDeriveAddress } from "@/utils/privateKeyUtils";
 import { ONBOARDING_OWNER_SESSION_KEY } from "./onboardingEnvironment";
 import { CHAIN_REGISTRY } from "@/constants/chainRegistry";
@@ -22,6 +23,7 @@ interface OnboardingSubmissionInput {
   seedGroupName: string;
   seedAccountDisplayName: string;
   ledgerSelection: LedgerAccountSelection | null;
+  trezorSelection: TrezorAccountSelection | null;
   safeSelection?: SafeOnboardingSelection | null;
   resolveAddress(input: string): Promise<string | null>;
 }
@@ -65,8 +67,10 @@ export async function submitOnboardingAccount(
       if (!resolvedViewOnlyAddress) throw new Error("Invalid address or name");
     } else if (input.accountType === "safe") {
       if (!input.safeSelection?.snapshots.length) throw new Error("Go back and verify your Safe first");
-    } else if (!input.ledgerSelection) {
+    } else if (input.accountType === "ledger" && !input.ledgerSelection) {
       throw new Error("Connect your Ledger and select at least one account");
+    } else if (input.accountType === "trezor" && !input.trezorSelection) {
+      throw new Error("Connect your Trezor and select at least one account");
     }
 
     const initialization = await requireSuccess<{
@@ -183,7 +187,7 @@ export async function submitOnboardingAccount(
       finalDisplayAddress = response.account.displayName || finalAddress;
       const network = CHAIN_REGISTRY.find((chain) => verified.snapshots.some((snapshot) => snapshot.chainId === chain.chainId));
       finalChainName = network?.name || "Base";
-    } else {
+    } else if (input.accountType === "ledger") {
       await initializeCredential("pk-only-mode");
       const response = await requireSuccess<{
         success: boolean;
@@ -195,6 +199,21 @@ export async function submitOnboardingAccount(
       );
       if (!response.account?.address) {
         throw new Error("Ledger account was not committed safely");
+      }
+      finalAddress = response.account.address;
+      finalDisplayAddress = response.account.displayName || finalAddress;
+    } else {
+      await initializeCredential("pk-only-mode");
+      const response = await requireSuccess<{
+        success: boolean;
+        error?: string;
+        account?: { address?: string; displayName?: string };
+      }>(
+        { type: "addTrezorAccounts", ...input.trezorSelection! },
+        "Failed to add Trezor account",
+      );
+      if (!response.account?.address) {
+        throw new Error("Trezor account was not committed safely");
       }
       finalAddress = response.account.address;
       finalDisplayAddress = response.account.displayName || finalAddress;

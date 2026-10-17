@@ -18,6 +18,7 @@ export const WALLET_LOCAL_STORAGE_KEYS = [
   "privacyRecoveryBackup",
   "accounts",
   "ledgerDevices",
+  "trezorDevices",
   "safeAccounts",
   "safeProposals",
   "safeSyncState",

@@ -1,5 +1,10 @@
+import {
+  ensLimoUrl,
+  gnsGatewayUrl,
+  web3GatewayUrl,
+  googleFaviconUrl,
+} from "@/constants/externalUrls";
 import type { CachedResolve } from "@/chrome/ensBrowsing/cache";
-import { googleFaviconUrl } from "@/constants/externalUrls";
 import { buildBrowserFaviconUrl } from "@/lib/browserFavicon";
 
 export const DAPP3_EXAMPLES = [
@@ -22,15 +27,15 @@ export function formatCachedDappKind(kind: CachedResolve["kind"]): string {
 
 export function cachedFaviconUrl(site: CachedResolve): string {
   if (site.ensName.endsWith(".wei"))
-    return `https://${site.ensName}.limo/favicon.ico`;
-  if (site.ensName.endsWith(".gwei")) return `https://${site.ensName}.domains/favicon.ico`;
+    return `${ensLimoUrl(site.ensName)}/favicon.ico`;
+  if (site.ensName.endsWith(".gwei")) return `${gnsGatewayUrl(site.ensName)}/favicon.ico`;
   if (site.kind === "web3" || /^0x[a-f0-9]{40}$/.test(site.ensName)) {
     const label = site.ensName.endsWith(".eth")
       ? site.ensName.slice(0, -4)
       : site.ensName;
-    return `https://${label}.w3eth.io/favicon.ico`;
+    return `${web3GatewayUrl(label)}/favicon.ico`;
   }
-  return `https://${site.ensName}.limo/favicon.ico`;
+  return `${ensLimoUrl(site.ensName)}/favicon.ico`;
 }
 
 export function cachedFaviconFallbackUrl(site: CachedResolve): string {

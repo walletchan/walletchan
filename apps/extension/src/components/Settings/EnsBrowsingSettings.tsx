@@ -1,3 +1,4 @@
+import { IPFS_DESKTOP_INSTALL_URL } from "@/constants/externalUrls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
@@ -331,7 +332,7 @@ export default function EnsBrowsingSettings({ onBack }: EnsBrowsingSettingsProps
             <Text fontSize="xs" color="fg.muted">
               Install{" "}
               <Link
-                href="https://docs.ipfs.tech/install/ipfs-desktop/"
+                href={IPFS_DESKTOP_INSTALL_URL}
                 isExternal
                 color="accent.primary"
                 textDecoration="underline"

@@ -165,9 +165,9 @@ export function useTransferRecipient({
       const publicName = contactIdentity?.publicName || suggestion.publicName;
       return {
         ...suggestion,
+        account,
         publicName,
         avatar: contactIdentity?.avatar || identities.get(key)?.avatar || null,
-        fallbackAvatar: account?.type === "bankr" ? "/bankr-icon.png" : undefined,
         secondaryText: publicName && publicName.toLowerCase() !== suggestion.label.toLowerCase()
           ? publicName
           : contactIdentity?.secondaryText || truncateAddress(suggestion.address),

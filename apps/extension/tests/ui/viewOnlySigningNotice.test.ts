@@ -16,6 +16,7 @@ test("view-only signing prompts place one shared notice in the action bar", asyn
     permission,
     transactionStatus,
     batchContext,
+    transactionNotice,
   ] = await Promise.all([
     source("shared/ViewOnlySigningNotice.tsx"),
     source("ui/StickyActionBar.tsx"),
@@ -28,6 +29,7 @@ test("view-only signing prompts place one shared notice in the action bar", asyn
     ),
     source("TransactionConfirmation/RequestStatus.tsx"),
     source("BatchConfirmation/RequestContext.tsx"),
+    source("TransactionConfirmation/TransactionActionNotice.tsx"),
   ]);
 
   assert.match(notice, /View-only accounts can't sign/u);
@@ -42,9 +44,10 @@ test("view-only signing prompts place one shared notice in the action bar", asyn
   }
   assert.match(
     transaction,
-    /actionNotice=\{[\s\S]*?accountType === "impersonator"[\s\S]*?<ViewOnlySigningNotice/u,
+    /actionNotice=\{[\s\S]*?<TransactionActionNotice/u,
   );
-  assert.match(transaction, /Developer RPC will send this transaction without a signature/u);
+  assert.match(transactionNotice, /accountType === "impersonator"[\s\S]*?<ViewOnlySigningNotice/u);
+  assert.match(transactionNotice, /Developer RPC will send this transaction without a signature/u);
 
   assert.doesNotMatch(transactionStatus, /impersonated account|Signing is disabled/u);
   assert.doesNotMatch(batchContext, /impersonated account|Signing is disabled/u);

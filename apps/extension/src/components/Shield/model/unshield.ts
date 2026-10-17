@@ -67,7 +67,7 @@ export interface UnshieldOperation {
   readonly errorCode: string | null;
   readonly accountId: string | null;
   readonly accountAddress: string | null;
-  readonly accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | null;
+  readonly accountType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | null;
   readonly gasLimit: bigint | null;
   readonly maxFeePerGas: bigint | null;
   readonly gasFeeEstimateWei: bigint | null;
@@ -158,7 +158,8 @@ export function parseUnshieldOperation(value: unknown): UnshieldOperation | null
       typeof value.accountAddress !== "string" || !ADDRESS.test(value.accountAddress) ||
       value.accountAddress.toLowerCase() !== value.recipient.toLowerCase() ||
       (value.accountType !== "bankr" && value.accountType !== "privateKey" &&
-        value.accountType !== "seedPhrase" && value.accountType !== "ledger") ||
+        value.accountType !== "seedPhrase" && value.accountType !== "ledger" &&
+        value.accountType !== "trezor") ||
       gasLimit === null || gasLimit <= 0n || maxFeePerGas === null || maxFeePerGas <= 0n ||
       gasFeeEstimateWei === null || gasFeeEstimateWei !== gasLimit * maxFeePerGas ||
       netRecipientAmountWei !== amountWei || relayFeeWei !== 0n || feeBPS !== 0n
@@ -186,7 +187,7 @@ export function parseUnshieldOperation(value: unknown): UnshieldOperation | null
     accountId: isDirect ? value.accountId as string : null,
     accountAddress: isDirect ? value.accountAddress as string : null,
     accountType: isDirect
-      ? value.accountType as "bankr" | "privateKey" | "seedPhrase" | "ledger"
+      ? value.accountType as "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor"
       : null,
     gasLimit,
     maxFeePerGas,

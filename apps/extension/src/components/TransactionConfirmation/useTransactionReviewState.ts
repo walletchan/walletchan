@@ -45,6 +45,8 @@ export function useTransactionReviewState(
   const [clearSigningStatus, setClearSigningStatus] = useState<
     "loading" | "matched" | "absent"
   >(clearSigningEligible ? "loading" : "absent");
+  const [gasLoading, setGasLoading] = useState(true);
+  const [simulationLoading, setSimulationLoading] = useState(false);
   const [simulationReverted, setSimulationReverted] = useState(false);
   const [simulationUnavailable, setSimulationUnavailable] = useState(false);
   const [gasOverrides, setGasOverrides] = useState<GasOverrides | null>(null);
@@ -125,6 +127,10 @@ export function useTransactionReviewState(
     forceInclusionInfo,
     gasEstimateKey,
     gasOverrides,
+    gasLoading,
+    setGasLoading,
+    simulationLoading,
+    setSimulationLoading,
     gasValid,
     isCalldataMalformed: calldataValidation.malformed,
     isValueMalformed,

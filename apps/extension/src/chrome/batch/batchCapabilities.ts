@@ -12,6 +12,7 @@ import {
 import { getActiveAccount } from "../accountStorage";
 import { getAllDelegatesForAccount } from "../delegationStorage";
 import type { Account } from "../types";
+import { getAccountTypeCapabilities } from "../hardware/accountCapabilities";
 import { getSafeAccountRecord } from "../safe/accountRepository";
 import { isSafeFeatureEnabled } from "../safe/featurePolicy";
 
@@ -31,6 +32,13 @@ export async function handleWalletGetCapabilities(
     address &&
     account?.address &&
     address.toLowerCase() !== account.address.toLowerCase()
+  ) {
+    return {};
+  }
+  if (
+    account &&
+    account.type !== "impersonator" &&
+    !getAccountTypeCapabilities(account.type).erc5792Batch
   ) {
     return {};
   }

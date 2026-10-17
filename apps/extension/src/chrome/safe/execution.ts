@@ -7,6 +7,9 @@ import { resolveSafeExecutionTime } from "./executionTime";
 import { getNextNonce, resetNonce } from "../forceInclusion/nonceManager";
 import { ensureLedgerSigningSession } from "../ledger/session";
 import { signAndBroadcastLedgerTransaction } from "../ledger/signing";
+import { ensureTrezorSigningSession } from "../trezor/session";
+import { createTrezorOperationId } from "../trezor/operationId";
+import { signAndBroadcastTrezorTransaction } from "../trezor/signing";
 import { getStoredRpcUrl } from "@/lib/chains";
 import { secureHttpTransport } from "../network/rpcClient";
 import { getPasswordType } from "../sessionCache";
@@ -82,7 +85,7 @@ export async function executionContext(proposalId: string, executorAccountId: st
   }
   if (proposal.state !== "readyToExecute") throw new Error("Safe proposal is not ready to execute");
   if (!account || !isSafeExecutorAccount(account)) {
-    throw new Error("Choose a private-key, seed-phrase, or Ledger executor");
+    throw new Error("Choose a private-key, seed-phrase, Ledger, or Trezor executor");
   }
   return { proposal, account };
 }
@@ -137,13 +140,15 @@ export async function executeSafeProposal(input: {
   const { proposal, account } = await executionContext(input.proposalId, input.executorAccountId);
   const claim = await claimSafeProposalEffect(proposal.id, { kind: "execute" });
   const claimId = claim.effectClaim!.claimId;
-  let ledgerNonceReserved = false;
+  let hardwareNonceReserved = false;
   try {
-    const key = account.type === "ledger"
+    const key = account.type === "ledger" || account.type === "trezor"
       ? null
       : await getLocalPrivateKeyForAccount(account.id, "");
     if (account.type === "ledger") {
       await ensureLedgerSigningSession("");
+    } else if (account.type === "trezor") {
+      await ensureTrezorSigningSession("");
     } else if (!key || !getPasswordType()) {
       throw new Error("Wallet is locked; unlock it and try again");
     }
@@ -173,14 +178,10 @@ export async function executeSafeProposal(input: {
         !currentAccount ||
         currentAccount.type !== account.type ||
         currentAccount.address.toLowerCase() !== account.address.toLowerCase() ||
-        (
-          account.type === "ledger" &&
-          (
-            currentAccount.type !== "ledger" ||
+        ((account.type === "ledger" || account.type === "trezor") &&
+          (currentAccount.type !== account.type ||
             currentAccount.deviceId !== account.deviceId ||
-            currentAccount.hdPath !== account.hdPath
-          )
-        )
+            currentAccount.hdPath !== account.hdPath))
       ) {
         throw new Error("Executor account changed");
       }
@@ -217,7 +218,7 @@ export async function executeSafeProposal(input: {
     const result = account.type === "ledger"
       ? await (async () => {
           const nonce = await getNextNonce(account.address, proposal.chainId);
-          ledgerNonceReserved = true;
+          hardwareNonceReserved = true;
           return signAndBroadcastLedgerTransaction({
             opId: `safe-execution:${proposal.id}`,
             account,
@@ -235,6 +236,27 @@ export async function executeSafeProposal(input: {
             beforeBroadcast,
           });
         })()
+      : account.type === "trezor"
+        ? await (async () => {
+            const nonce = await getNextNonce(account.address, proposal.chainId);
+            hardwareNonceReserved = true;
+            return signAndBroadcastTrezorTransaction({
+              opId: createTrezorOperationId(),
+              account,
+              tx: {
+                ...transaction,
+                nonce,
+              },
+              gasOverrides: gas
+                ? {
+                    gasLimit: gas.gas,
+                    maxFeePerGas: gas.maxFeePerGas,
+                    maxPriorityFeePerGas: gas.maxPriorityFeePerGas,
+                  }
+                : undefined,
+              beforeBroadcast,
+            });
+          })()
       : await signAndBroadcastTransaction(
           key!,
           transaction,
@@ -263,7 +285,7 @@ export async function executeSafeProposal(input: {
     return updated;
   } catch (error) {
     const current = await getSafeProposal(proposal.id).catch(() => null);
-    if (ledgerNonceReserved && !current?.serializedExecution) {
+    if (hardwareNonceReserved && !current?.serializedExecution) {
       resetNonce(account.address, proposal.chainId);
     }
     const recovered = await releaseSafeProposalEffect(proposal.id, claimId, current?.serializedExecution

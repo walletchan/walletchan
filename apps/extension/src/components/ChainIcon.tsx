@@ -21,11 +21,13 @@ export default function ChainIcon({
   chainName,
   size = "18px",
   withChip = false,
+  testnetLabelPlacement = "overlay",
 }: {
   chainId: number;
   chainName?: string;
   size?: string;
   withChip?: boolean;
+  testnetLabelPlacement?: "overlay" | "beside";
 }) {
   // Subscribe to the Bungee-chains cache version so chains resolved via
   // that fallback path (Abstract, Plume, Sonic, Tempo, …) re-render when
@@ -116,8 +118,9 @@ export default function ChainIcon({
       {meta.overlayLabel && (
         <Box
           position="absolute"
-          right="-3px"
-          bottom="-3px"
+          right={testnetLabelPlacement === "beside" ? undefined : "-3px"}
+          left={testnetLabelPlacement === "beside" ? "calc(100% + 2px)" : undefined}
+          bottom={testnetLabelPlacement === "beside" ? 0 : "-3px"}
           px="2px"
           minW="10px"
           h="10px"

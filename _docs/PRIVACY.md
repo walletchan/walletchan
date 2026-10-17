@@ -732,11 +732,12 @@ from an SDK; decode and compare the resulting call to the approved intent.
 
 Shield deposits and direct emergency exits are public EVM transactions. Route
 them through WalletChan's existing pending transaction and confirmation system
-so all four signing wallet types retain their normal signing path:
+so all five signing wallet types retain their normal signing path:
 
 - imported private key;
-- seed phrase / derived local account.
-- Ledger hardware account; and
+- seed phrase / derived local account;
+- Ledger hardware account;
+- Trezor hardware account; and
 - optional Bankr API account.
 
 The adapter prepares intent-bound calls. The existing transaction handler
@@ -859,20 +860,20 @@ unavailable status must never be treated as approval for a private withdrawal.
 ## Testing matrix
 
 Any implementation touches transactions, authentication, and new secrets, so
-it is incomplete until all four signing wallet types pass.
+it is incomplete until all five signing wallet types pass.
 
-| Scenario | Private key | Seed phrase | Ledger | Bankr API |
-| --- | ---: | ---: | ---: | ---: |
-| Create privacy recovery root with master session | Required | Required | Required | Required |
-| Block setup/export under agent password | Required | Required | Required | Required |
-| Restore root after service-worker restart | Required | Required | Required | Required |
-| Public Sepolia shield confirmation and signing | Required | Required | Required | Rejected before prompt |
-| Production mainnet native ETH shield | Required | Required | Required | Required |
-| Resume after popup closes | Required | Required | Required | Required |
-| Private Sepolia withdrawal confirmation | Required | Required | Required | Rejected |
-| Relayer quote substitution rejected | Required | Required | Required | Required |
-| Full rescan from privacy phrase | Required | Required | Required | Required |
-| Emergency exit/ragequit on Sepolia | Required | Required | Required | Rejected |
+| Scenario | Private key | Seed phrase | Ledger | Trezor | Bankr API |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Create privacy recovery root with master session | Required | Required | Required | Required | Required |
+| Block setup/export under agent password | Required | Required | Required | Required | Required |
+| Restore root after service-worker restart | Required | Required | Required | Required | Required |
+| Public Sepolia shield confirmation and signing | Required | Required | Required | Required | Rejected before prompt |
+| Production mainnet native ETH shield | Required | Required | Required | Required | Required |
+| Resume after popup closes | Required | Required | Required | Required | Required |
+| Private Sepolia withdrawal confirmation | Required | Required | Required | Required | Rejected |
+| Relayer quote substitution rejected | Required | Required | Required | Required | Required |
+| Full rescan from privacy phrase | Required | Required | Required | Required | Required |
+| Emergency exit/ragequit on Sepolia | Required | Required | Required | Required | Rejected |
 | Production mainnet original-depositor ragequit | Required | Required | Required | Required |
 | Password change preserves identity | Required | Required | Required | Required |
 | Passkey unlock preserves identity | Required | Required | Required | Required |

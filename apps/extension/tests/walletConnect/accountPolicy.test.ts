@@ -37,6 +37,14 @@ const ACCOUNTS = {
     hdPath: "m/44'/60'/0'/0/0",
     hdIndex: 0,
   },
+  trezor: {
+    ...BASE_ACCOUNT,
+    id: "trezor",
+    type: "trezor",
+    deviceId: ADDRESS.toLowerCase(),
+    hdPath: "m/44'/60'/0'/0/0",
+    hdIndex: 0,
+  },
   safe: { ...BASE_ACCOUNT, id: "safe", type: "safe" },
   impersonator: {
     ...BASE_ACCOUNT,
@@ -55,7 +63,13 @@ const session = {
 };
 
 test("WalletConnect admits every signer and Safe but rejects view-only accounts", () => {
-  for (const type of ["bankr", "privateKey", "seedPhrase", "ledger"] as const) {
+  for (const type of [
+    "bankr",
+    "privateKey",
+    "seedPhrase",
+    "ledger",
+    "trezor",
+  ] as const) {
     assert.equal(isSigningAccount(ACCOUNTS[type]), true, type);
     assert.equal(isSessionAccount(ACCOUNTS[type]), true, type);
   }
@@ -66,13 +80,17 @@ test("WalletConnect admits every signer and Safe but rejects view-only accounts"
 });
 
 test("WalletConnect advertises account-specific signing and batching methods", () => {
-  for (const type of ["bankr", "privateKey", "seedPhrase"] as const) {
+  for (const type of ["privateKey", "seedPhrase"] as const) {
     assert.deepEqual(
       getWalletConnectMethodsForAccount(ACCOUNTS[type]),
       WALLETCONNECT_SUPPORTED_METHODS,
       type,
     );
   }
+
+  const bankrMethods = getWalletConnectMethodsForAccount(ACCOUNTS.bankr);
+  assert.ok(bankrMethods.includes("wallet_sendCalls"));
+  assert.ok(!bankrMethods.includes("wallet_requestExecutionPermissions"));
 
   const ledgerMethods = getWalletConnectMethodsForAccount(ACCOUNTS.ledger);
   assert.ok(ledgerMethods.includes("eth_sendTransaction"));
@@ -81,6 +99,16 @@ test("WalletConnect advertises account-specific signing and batching methods", (
   assert.ok(!ledgerMethods.includes("wallet_getCapabilities"));
   assert.ok(!ledgerMethods.includes("wallet_sendCalls"));
   assert.ok(!ledgerMethods.includes("wallet_requestExecutionPermissions"));
+
+  const trezorMethods = getWalletConnectMethodsForAccount(ACCOUNTS.trezor);
+  assert.ok(trezorMethods.includes("eth_sendTransaction"));
+  assert.ok(trezorMethods.includes("personal_sign"));
+  assert.ok(trezorMethods.includes("eth_signTypedData_v4"));
+  assert.ok(!trezorMethods.includes("wallet_getCapabilities"));
+  assert.ok(!trezorMethods.includes("wallet_sendCalls"));
+  assert.ok(
+    !trezorMethods.includes("wallet_requestExecutionPermissions"),
+  );
 
   const safeMethods = getWalletConnectMethodsForAccount(ACCOUNTS.safe);
   assert.ok(safeMethods.includes("eth_sendTransaction"));
@@ -92,7 +120,7 @@ test("WalletConnect advertises account-specific signing and batching methods", (
   assert.ok(!safeMethods.includes("wallet_requestExecutionPermissions"));
 });
 
-test("WalletConnect resolves all four signing wallet types and Safe exactly", async (t) => {
+test("WalletConnect resolves all five signing wallet types and Safe exactly", async (t) => {
   const originalChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   let storedAccounts: Account[] = [];
   Object.defineProperty(globalThis, "chrome", {
@@ -114,6 +142,7 @@ test("WalletConnect resolves all four signing wallet types and Safe exactly", as
       "privateKey",
       "seedPhrase",
       "ledger",
+      "trezor",
     ] as const) {
       await t.test(type, async () => {
         storedAccounts = [ACCOUNTS[type]];

@@ -45,6 +45,8 @@ function accountTypeLabel(account: Account): string {
       return `Seed · #${account.derivationIndex}`;
     case "ledger":
       return `Ledger · Account ${account.hdIndex + 1}`;
+    case "trezor":
+      return `Trezor · Account ${account.hdIndex + 1}`;
     case "impersonator":
       return "View-Only";
     case "safeBunker": return "Safe Bunker";

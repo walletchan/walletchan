@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GasOverrides } from "@/chrome/txHandlers";
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import { playInteractionSound } from "@/sounds/soundManager";
@@ -25,6 +25,7 @@ interface UseTransactionActionsOptions {
   onRejected: () => void;
   onBeforeReject?: () => void;
   onAddedToBatch?: () => void;
+  onRetryReview?: () => void;
 }
 
 export function useTransactionActions({
@@ -45,15 +46,60 @@ export function useTransactionActions({
   onRejected,
   onBeforeReject,
   onAddedToBatch,
+  onRetryReview,
 }: UseTransactionActionsOptions) {
   const [state, setState] = useState<ConfirmationState>("ready");
   const [error, setError] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
   const [isAddingToBatch, setIsAddingToBatch] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryUnavailable, setRetryUnavailable] = useState(false);
+  const [retryRevision, setRetryRevision] = useState(0);
+  const retryAttempt = useRef(0);
+  const retryLocked = useRef(false);
+  useEffect(() => {
+    retryLocked.current = false;
+    setIsRetrying(false);
+    setRetryUnavailable(false);
+    const attemptRef = retryAttempt;
+    return () => { attemptRef.current++; };
+  }, [txRequest.id]);
+  const handleRetry = async () => {
+    if ((state !== "error" && state !== "ready") || retryLocked.current || isRejecting || isAddingToBatch || retryUnavailable) return;
+    retryLocked.current = true;
+    const attempt = ++retryAttempt.current;
+    setIsRetrying(true);
+    try {
+      const pending = await new Promise<{ tx?: unknown } | null>((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: "getPendingTransaction", txId: txRequest.id }, (response) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message || "Could not refresh request"));
+          else resolve(response ?? null);
+        });
+      });
+      if (attempt !== retryAttempt.current) return;
+      if (!pending?.tx) {
+        setState("error");
+        setRetryUnavailable(true);
+        setError("This request is no longer pending. Check Activity for its status.");
+        return;
+      }
+      onRetryReview?.();
+      setRetryRevision((revision) => revision + 1);
+      setError("");
+      setState("ready");
+    } catch (cause) {
+      if (attempt === retryAttempt.current) {
+        setState("error");
+        setError(cause instanceof Error ? cause.message : "Could not refresh request");
+      }
+    } finally {
+      if (attempt === retryAttempt.current) { retryLocked.current = false; setIsRetrying(false); }
+    }
+  };
   const { tx } = txRequest;
 
   const handleAddToBatch = () => {
-    if (isAddingToBatch) return;
+    if (isAddingToBatch || retryLocked.current) return;
     setIsAddingToBatch(true);
     chrome.runtime.sendMessage(
       { type: "addToCrossDappBatch", txId: txRequest.id },
@@ -71,6 +117,7 @@ export function useTransactionActions({
   };
 
   const handleConfirm = async () => {
+    if (retryLocked.current || state === "submitting" || isRejecting) return;
     void playInteractionSound("transactionConfirm");
     setState("submitting");
     setError("");
@@ -85,6 +132,8 @@ export function useTransactionActions({
         ? "confirmImpersonatedTransaction"
         : accountType === "ledger"
         ? "confirmTransactionAsyncLedger"
+        : accountType === "trezor"
+        ? "confirmTransactionAsyncTrezor"
         : accountType === "privateKey" || accountType === "seedPhrase"
           ? "confirmTransactionAsyncPK"
           : "confirmTransactionAsync";
@@ -122,8 +171,9 @@ export function useTransactionActions({
             : "token",
         ...(feePaymentQuoteId ? { feePaymentQuoteId } : {}),
       },
-      (result: { success: boolean; error?: string }) => {
-        if (result.success) {
+      (result: { success: boolean; error?: string } | undefined) => {
+        const transportError = chrome.runtime.lastError?.message;
+        if (!transportError && result?.success) {
           if (shouldForceInclusion) setState("forceInclusion");
           else if (isInSidePanel) onConfirmed();
           else {
@@ -131,7 +181,7 @@ export function useTransactionActions({
             setTimeout(() => window.close(), 1000);
           }
         } else {
-          setError(result.error || "Failed to submit transaction");
+          setError(transportError || result?.error || "Failed to submit transaction");
           setState("error");
         }
       },
@@ -139,7 +189,7 @@ export function useTransactionActions({
   };
 
   const handleReject = () => {
-    if (isRejecting) return;
+    if (isRejecting || retryLocked.current) return;
     setIsRejecting(true);
     onBeforeReject?.();
     chrome.runtime.sendMessage(
@@ -170,6 +220,10 @@ export function useTransactionActions({
     handleForceInclusionComplete,
     handleForceInclusionError,
     handleReject,
+    handleRetry,
+    isRetrying,
+    retryRevision,
+    retryUnavailable,
     isAddingToBatch,
     isRejecting,
     state,

@@ -22,7 +22,7 @@ test("Ledger onboarding defers persistence until after master credential setup",
     "pages/onboarding/onboardingSubmission.ts",
   );
   const ledgerCommit = submission.indexOf(
-    'else {\n      await initializeCredential("pk-only-mode")',
+    'else if (input.accountType === "ledger")',
   );
   const credential = submission.indexOf(
     'await initializeCredential("pk-only-mode")',
@@ -38,11 +38,35 @@ test("Ledger onboarding defers persistence until after master credential setup",
   assert.match(submission, /type: "rollbackOnboardingInitialization"/);
 });
 
-test("the shared Ledger flow can collect without writing accounts early", async () => {
-  const source = await readSource("components/Ledger/AddLedgerFlow.tsx");
+test("Trezor onboarding defers persistence until after master credential setup", async () => {
+  const submission = await readSource(
+    "pages/onboarding/onboardingSubmission.ts",
+  );
+  const trezorCommit = submission.indexOf(
+    'type: "addTrezorAccounts"',
+  );
+  const credential = submission.lastIndexOf(
+    'await initializeCredential("pk-only-mode")',
+    trezorCommit,
+  );
+  assert.ok(trezorCommit >= 0 && credential >= 0 && credential < trezorCommit);
+  assert.match(submission, /type: "rollbackOnboardingInitialization"/);
+});
 
-  assert.match(source, /commitAccounts\?\(selection: LedgerAccountSelection\)/);
-  assert.match(source, /if \(commitAccounts\) \{/);
-  assert.match(source, /await commitAccounts\(selection\)/);
-  assert.match(source, /renderLayout\?\(parts: LedgerFlowLayoutParts\)/);
+test("the shared Ledger flow can collect without writing accounts early", async () => {
+  const [ledgerFlow, sharedFlow] = await Promise.all([
+    readSource("components/Ledger/AddLedgerFlow.tsx"),
+    readSource("components/HardwareWallet/AddHardwareWalletFlow.tsx"),
+  ]);
+
+  assert.match(
+    ledgerFlow,
+    /commitAccounts\?\(selection: LedgerAccountSelection\)/,
+  );
+  assert.match(
+    ledgerFlow,
+    /renderLayout\?\(parts: LedgerFlowLayoutParts\)/,
+  );
+  assert.match(sharedFlow, /if \(commitAccounts\) \{/);
+  assert.match(sharedFlow, /await commitAccounts\(selection\)/);
 });

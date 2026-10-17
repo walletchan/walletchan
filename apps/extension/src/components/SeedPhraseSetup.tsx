@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useEffect, useState, memo } from "react";
 import {
   Box,
   VStack,
@@ -44,6 +44,7 @@ interface SeedPhraseSetupProps {
   initialMode?: "choose" | "import";
   onBack: () => void;
   onComplete: (account: Account) => void;
+  onImportViewChange?: (isImportView: boolean) => void;
   /** Reassert a live mnemonic capability after a passkey Never-session restore. */
   ensureMnemonicAccess?: () => Promise<{ ready: boolean }>;
   /** When provided, collect mnemonic + selected derivation indices without saving (for onboarding flow where wallet isn't unlocked yet). */
@@ -59,6 +60,7 @@ function SeedPhraseSetup({
   initialMode = "choose",
   onBack,
   onComplete,
+  onImportViewChange,
   ensureMnemonicAccess,
   onCollect,
 }: SeedPhraseSetupProps) {
@@ -72,6 +74,7 @@ function SeedPhraseSetup({
   const isOnboarding = !!onCollect;
 
   const [mode, setMode] = useState<Mode>(initialMode);
+  useEffect(() => { onImportViewChange?.(mode === "import"); }, [mode, onImportViewChange]);
   const [generatedMnemonic, setGeneratedMnemonic] = useState<string | null>(null);
   const [importedMnemonic, setImportedMnemonic] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -517,6 +520,7 @@ function SeedPhraseSetup({
     <SetupFrame
       isOnboarding={isOnboarding}
       title="Import seed phrase"
+      onboardingHeadingOnly={isOnboarding && !!onImportViewChange}
       onBack={initialMode === "import" ? onBack : () => setMode("choose")}
       action={
         <Button

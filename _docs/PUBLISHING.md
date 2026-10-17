@@ -17,6 +17,28 @@ WalletChan is distributed through two channels.
 CWS **rejects** uploads containing a `key` field in `manifest.json` (it assigns its own extension ID). The shipped `manifest.json` does not include `key`, so `pnpm zip` and `pnpm zip:cws` produce equivalent output today; the strip step in `scripts/strip-cws-keys.sh` is kept as a safety net in case `key` is ever re-introduced.
 
 Both `zip` and `zip:cws` run `pnpm build` automatically — no need to build separately first.
+Every ZIP command removes its exact same-version destination before invoking
+`zip -r`; this is required because updating an existing archive would retain
+stale hashed chunks that no longer exist in the current build.
+
+### Trezor release boundary
+
+Trezor is Chromium-only. Chrome bundles exact-pinned Connect 10 in the
+background worker and uses Suite Web/Desktop for approvals. The hardware
+offscreen document is Ledger-only. Firefox hides Trezor setup, substitutes
+fail-closed background authority modules, removes Chrome-only assets and
+scans final JavaScript for Trezor transport leakage. Cleanup of obsolete helper
+paths remains a packaging safeguard against stale build contents.
+
+Before publishing a Chrome build that exposes Trezor, attach the completed
+emulator and representative physical-device matrix from [TREZOR.md](./TREZOR.md).
+The store privacy disclosure must explain that user-initiated Connect/Sign
+communicates with Trezor Suite Web (`suite.trezor.io`) or Suite Desktop's local
+connection. Suite owns device discovery, approvals and its own privacy behavior;
+WalletChan does not pin the Suite application release. WalletChan adds no
+behavioral telemetry and never receives a PIN, passphrase, recovery phrase or
+private key. Review [the dependency audit](./TREZOR_DEPENDENCY_REVIEW.md) when
+changing the SDK or its pinned channel patch.
 
 ### Extension license and corresponding source
 

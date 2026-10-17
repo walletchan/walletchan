@@ -6,11 +6,12 @@ screens.
 | File | Responsibility | Effects |
 | --- | --- | --- |
 | `RequestIdentity.tsx` | Centered requesting-app identity shared by every signing decision. | None. |
-| `EstimatedChangesHeading.tsx` | Shared chain context pill plus the transaction/batch simulation heading. Request headings show `on <chain>`; review surfaces may omit the preposition while retaining identical geometry. | None. |
+| `EstimatedChangesHeading.tsx` | Shared chain context pill plus the transaction/batch simulation heading. The full title and right-aligned `on <chain>` share a line when they fit; otherwise the pill wraps to a right-aligned second line. Review surfaces may omit the preposition. | None. |
 | `QueueNavigation.tsx` | Pending-request navigation and reject-all action. | Callbacks only. |
 | `ForceInclusionOption.tsx` | OP Stack force-inclusion advanced row. | Callback only. |
 | `RequestToolActions.tsx` | Compact Tenderly and add-to-batch action rows, with disabled batch reasons disclosed on hover/focus and retained in accessible labels. | Local tooltip state; callbacks only. |
 | `SimulationFailureConfirmButton.tsx` | Warning-state Confirm action and explicit proceed-anyway dialog shared by single, batch, and cross-dapp requests. | Local dialog state; invokes the supplied confirm callback only after the gate. |
+| `RequestRetryNotice.tsx` | Wrapped error or warning with a right-aligned Retry action. | Callback only. |
 | `simulationFailure.ts` | Pure policy for explicit simulation failures that require the second confirmation. | None. |
 
 Feature roots own request policy and pass already-resolved labels, chain data,

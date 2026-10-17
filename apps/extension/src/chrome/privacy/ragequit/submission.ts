@@ -152,13 +152,17 @@ async function loadBatchOperations(
     loaded.push({ operation, details: await releaseDetails(operation) });
   }
   const first = loaded[0].operation.summary;
-  if (first.accountType === "ledger" || loaded.some(({ operation }) =>
+  if (
+    first.accountType === "ledger" ||
+    first.accountType === "trezor" ||
+    loaded.some(({ operation }) =>
     operation.summary.accountId !== first.accountId ||
     operation.summary.accountType !== first.accountType ||
     operation.summary.accountAddress.toLowerCase() !== first.accountAddress.toLowerCase() ||
     operation.summary.chainId !== first.chainId ||
     operation.summary.poolAddress.toLowerCase() !== first.poolAddress.toLowerCase()
-  )) throw new Error("operation-unavailable");
+    )
+  ) throw new Error("operation-unavailable");
   return loaded;
 }
 

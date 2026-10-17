@@ -1,11 +1,10 @@
 import { LedgerError, LedgerErrorCode, normalizeLedgerError } from "./errors";
+import {
+  ensureHardwareOffscreen,
+  withHardwareOffscreenRequest,
+} from "../hardware/offscreenManager";
 
-const OFFSCREEN_URL = "offscreen.html";
 const TARGET = "walletchan-ledger-offscreen";
-const IDLE_MS = 30_000;
-let creationPromise: Promise<void> | null = null;
-let idleTimer: ReturnType<typeof setTimeout> | null = null;
-let activeRequests = 0;
 
 export type LedgerStatusUpdate = {
   opId: string;
@@ -15,37 +14,29 @@ export type LedgerStatusUpdate = {
 };
 
 export async function ensureLedgerOffscreen(): Promise<void> {
-  if (!chrome.offscreen || !chrome.runtime.getContexts) {
+  if (!chrome.offscreen) {
     throw new LedgerError(
       LedgerErrorCode.OFFSCREEN_UNAVAILABLE,
       "Ledger support requires Chrome 124 or newer.",
     );
   }
-  const documentUrl = chrome.runtime.getURL(OFFSCREEN_URL);
-  const contexts = await chrome.runtime.getContexts({
-    contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
-    documentUrls: [documentUrl],
-  });
-  if (contexts.length) return;
-  if (!creationPromise) {
-    creationPromise = chrome.offscreen.createDocument({
-      url: OFFSCREEN_URL,
-      reasons: [chrome.offscreen.Reason.WORKERS],
-      justification: "Communicate with a Ledger hardware wallet over WebHID",
-    }).finally(() => { creationPromise = null; });
-  }
-  await creationPromise;
+  await ensureHardwareOffscreen();
 }
 
 async function send<T>(type: string, body: Record<string, unknown>): Promise<T> {
-  await ensureLedgerOffscreen();
-  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
-  activeRequests += 1;
   try {
-    const response = await chrome.runtime.sendMessage({ type, target: TARGET, ...body }) as {
-      ok?: boolean; payload?: T;
-      error?: { code?: string; userMessage?: string; technicalMessage?: string };
-    };
+    const response = await withHardwareOffscreenRequest(
+      () =>
+        chrome.runtime.sendMessage({ type, target: TARGET, ...body }) as Promise<{
+          ok?: boolean;
+          payload?: T;
+          error?: {
+            code?: string;
+            userMessage?: string;
+            technicalMessage?: string;
+          };
+        }>,
+    );
     if (response?.ok) return response.payload as T;
     throw new LedgerError(
       (response?.error?.code as LedgerErrorCode) || LedgerErrorCode.UNKNOWN,
@@ -54,19 +45,7 @@ async function send<T>(type: string, body: Record<string, unknown>): Promise<T> 
     );
   } catch (error) {
     throw normalizeLedgerError(error);
-  } finally {
-    activeRequests -= 1;
-    scheduleTeardown();
   }
-}
-
-function scheduleTeardown(): void {
-  if (activeRequests || idleTimer) return;
-  idleTimer = setTimeout(async () => {
-    idleTimer = null;
-    if (activeRequests || !chrome.offscreen) return;
-    try { await chrome.offscreen.closeDocument(); } catch { /* already closed */ }
-  }, IDLE_MS);
 }
 
 export function connectLedger(opId: string, productName?: string) {

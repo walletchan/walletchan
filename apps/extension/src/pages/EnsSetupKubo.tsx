@@ -1,3 +1,4 @@
+import { KUBO_DEFAULT_GATEWAY_ORIGIN } from "@/constants/externalUrls";
 /**
  * EnsSetupKubo — guides the user through allowing the extension's origin in
  * Kubo's API CORS allowlist. Required for onchain-HTML pinning because
@@ -131,7 +132,7 @@ export default function EnsSetupKubo() {
   );
   const combinedCmd = useMemo(
     () =>
-      `ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["${extensionOrigin}", "http://localhost:8080"]' && ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["POST"]'`,
+      `ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["${extensionOrigin}", "${KUBO_DEFAULT_GATEWAY_ORIGIN}"]' && ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["POST"]'`,
     [extensionOrigin],
   );
 

@@ -94,15 +94,25 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
             ? "Safe bridge unavailable"
             : options.accountType === "ledger"
               ? "Ledger swap not available"
+            : options.accountType === "trezor"
+              ? "Trezor swap not available"
             : "View-only account",
         description:
           options.accountType === "safe"
             ? "Safe swaps currently stay on one network."
             : options.accountType === "ledger"
               ? "Use a swap dapp; WalletChan will show the normal Ledger confirmation."
+            : options.accountType === "trezor"
+              ? "Use a swap dapp; WalletChan will show the normal Trezor confirmation."
             : "Impersonator accounts cannot send transactions",
-        status: options.accountType === "ledger" ? "info" : "error",
-        duration: options.accountType === "ledger" ? 4000 : 3000,
+        status:
+          options.accountType === "ledger" || options.accountType === "trezor"
+            ? "info"
+            : "error",
+        duration:
+          options.accountType === "ledger" || options.accountType === "trezor"
+            ? 4000
+            : 3000,
       });
       return;
     }

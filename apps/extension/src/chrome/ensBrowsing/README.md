@@ -49,3 +49,8 @@ layer; name and ERC-4804 resolvers never import navigation or message routing.
 Remote ENS/IPFS content remains untrusted throughout this domain. Network
 fetches must retain URL, redirect, MIME, and response-size validation before any
 content becomes renderer-visible.
+- `recipientHistory.ts` queries only current-resolver ETH/ENSIP-11/default-EVM
+  address events. Ownership and resolver-change events are not queried.
+  It reuses `contenthashHistory.ts` bounded query/block-timestamp helpers and
+  owns only a capped, one-minute in-memory advisory cache. The trusted-UI Send
+  route returns timestamps without participating in resolution or signing.

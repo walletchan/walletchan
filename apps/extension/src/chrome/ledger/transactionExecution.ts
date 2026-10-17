@@ -22,7 +22,7 @@ import {
   type PendingTxRequest,
 } from "../requests/pendingTxStorage";
 import { addTxToHistory, updateTxInHistory } from "../txHistoryStorage";
-import type { LedgerAccount } from "../types";
+import type { LedgerAccount, TrezorAccount } from "../types";
 import { lookupFunctionName } from "../transactions/displayMetadata";
 import { handleTransactionFailure } from "../transactions/failure";
 import {
@@ -53,13 +53,62 @@ import type { GasOverrides } from "../transactions/localExecution";
 import { cancelLedgerOperation } from "./offscreenBridge";
 import { ensureLedgerSigningSession } from "./session";
 import { signAndBroadcastLedgerTransaction } from "./signing";
+import { cancelTrezorOperation } from "../trezor/offscreenBridge";
+import { createTrezorOperationId } from "../trezor/operationId";
+import { ensureTrezorSigningSession } from "../trezor/session";
+import { signAndBroadcastTrezorTransaction } from "../trezor/signing";
 import { validateTransactionNonceSelection } from "../transactions/noncePolicy";
 import { replacementGasSelectionError } from "@/lib/transactionReplacement";
 
 type ConfirmationResult = { success: boolean; error?: string };
+type HardwareProvider = "ledger" | "trezor";
 
 /** Confirms one pinned Ledger transaction and starts device execution. */
 export async function handleConfirmTransactionAsyncLedger(
+  txId: string,
+  password: string,
+  _tabId?: number,
+  functionName?: string,
+  gasOverrides?: GasOverrides,
+  forceInclusion?: boolean,
+  nonce?: unknown,
+): Promise<ConfirmationResult> {
+  return handleConfirmHardwareTransaction(
+    "ledger",
+    txId,
+    password,
+    _tabId,
+    functionName,
+    gasOverrides,
+    forceInclusion,
+    nonce,
+  );
+}
+
+/** Confirms one pinned Trezor transaction through the shared hardware lifecycle. */
+export async function handleConfirmTransactionAsyncTrezor(
+  txId: string,
+  password: string,
+  _tabId?: number,
+  functionName?: string,
+  gasOverrides?: GasOverrides,
+  forceInclusion?: boolean,
+  nonce?: unknown,
+): Promise<ConfirmationResult> {
+  return handleConfirmHardwareTransaction(
+    "trezor",
+    txId,
+    password,
+    _tabId,
+    functionName,
+    gasOverrides,
+    forceInclusion,
+    nonce,
+  );
+}
+
+async function handleConfirmHardwareTransaction(
+  provider: HardwareProvider,
   txId: string,
   password: string,
   _tabId?: number,
@@ -81,10 +130,15 @@ export async function handleConfirmTransactionAsyncLedger(
   };
   const pinned = await resolvePinnedAccount(pending);
   if (!pinned.ok) return fail(pinned.error);
-  if (pinned.account.type !== "ledger") {
-    return fail("Account does not support Ledger signing");
+  if (pinned.account.type !== provider) {
+    return fail(
+      provider === "ledger"
+        ? "Account does not support Ledger signing"
+        : "Account does not support Trezor signing",
+    );
   }
   if (forceInclusion) {
+    if (provider === "trezor") return fail("Force inclusion is not supported for Trezor accounts");
     const { isForceInclusionSupportedForAccount } = await import("@/constants/chainRegistry");
     if (!isForceInclusionSupportedForAccount(pending.tx.chainId, pinned.account.type)) {
       return fail("Chain does not support force inclusion for this account");
@@ -94,7 +148,11 @@ export async function handleConfirmTransactionAsyncLedger(
     }
   }
   if (pending.delegation7702Meta) {
-    return fail("EIP-7702 delegation is not supported for Ledger accounts");
+    return fail(
+      provider === "ledger"
+        ? "EIP-7702 delegation is not supported for Ledger accounts"
+        : "EIP-7702 delegation is not supported for Trezor accounts",
+    );
   }
   if (
     pending.tx.from?.toLowerCase() !== pinned.account.address.toLowerCase()
@@ -117,7 +175,11 @@ export async function handleConfirmTransactionAsyncLedger(
   if (!privacyAuthorization.ok) return fail(privacyAuthorization.error);
 
   try {
-    await ensureLedgerSigningSession(password);
+    if (provider === "ledger") {
+      await ensureLedgerSigningSession(password);
+    } else {
+      await ensureTrezorSigningSession(password);
+    }
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Wallet must be unlocked");
   }
@@ -130,12 +192,13 @@ export async function handleConfirmTransactionAsyncLedger(
   const effectLease = beginPendingRequestEffectLease("transaction", txId);
   if (!effectLease) return fail("Wallet reset is in progress");
 
-  if (forceInclusion) {
+  if (forceInclusion && pinned.account.type === "ledger") {
     const { processLedgerForceInclusion } = await import("./forceInclusion");
     return processLedgerForceInclusion({ txId, pending, account: pinned.account, gasOverrides, effectLease });
   }
 
   return processLedgerTransaction({
+    provider,
     txId,
     pending,
     account: pinned.account,
@@ -150,9 +213,10 @@ export async function handleConfirmTransactionAsyncLedger(
 }
 
 async function processLedgerTransaction(input: {
+  provider: HardwareProvider;
   txId: string;
   pending: PendingTxRequest;
-  account: LedgerAccount;
+  account: LedgerAccount | TrezorAccount;
   functionName?: string;
   gasOverrides?: GasOverrides;
   nonce?: number;
@@ -163,6 +227,7 @@ async function processLedgerTransaction(input: {
 }): Promise<ConfirmationResult> {
   const {
     txId,
+    provider,
     pending,
     account,
     functionName,
@@ -173,11 +238,18 @@ async function processLedgerTransaction(input: {
     privacyRagequitAuthorization,
     privacyDirectUnshieldAuthorization,
   } = input;
+  const hardwareOperationId =
+    provider === "trezor" ? createTrezorOperationId() : txId;
   const abortController = new AbortController();
   activeAbortControllers.set(txId, abortController);
   abortController.signal.addEventListener(
     "abort",
-    () => void cancelLedgerOperation(txId).catch(() => undefined),
+    () =>
+      void (
+        provider === "ledger"
+          ? cancelLedgerOperation(txId)
+          : cancelTrezorOperation(hardwareOperationId)
+      ).catch(() => undefined),
     { once: true },
   );
   const effectGuard = guardPendingRequestEffectLease(effectLease);
@@ -205,8 +277,8 @@ async function processLedgerTransaction(input: {
         : reserveNonce(account.address, pending.tx.chainId, nonceOverride);
     let result;
     try {
-      result = await signAndBroadcastLedgerTransaction({
-        opId: txId,
+      const signerInput = {
+        opId: hardwareOperationId,
         account,
         tx: { ...pending.tx, nonce },
         gasOverrides,
@@ -214,7 +286,7 @@ async function processLedgerTransaction(input: {
           const latest = await getAccountById(account.id);
           if (
             !latest ||
-            latest.type !== "ledger" ||
+            latest.type !== account.type ||
             latest.address.toLowerCase() !== account.address.toLowerCase() ||
             latest.deviceId !== account.deviceId ||
             latest.hdPath !== account.hdPath
@@ -231,7 +303,7 @@ async function processLedgerTransaction(input: {
           }
 
           // Keep the confirmation screen and request editor mounted while the
-          // device is waiting. The Ledger signature has been recovered at this
+          // device is waiting. The hardware signature has been recovered at this
           // point, so the request can now cross its terminal boundary before
           // the raw transaction is broadcast.
           await removePendingTxRequest(txId);
@@ -245,7 +317,7 @@ async function processLedgerTransaction(input: {
             chainName: pending.chainName,
             chainId: pending.tx.chainId,
             createdAt: pending.timestamp,
-            accountType: "ledger",
+            accountType: account.type,
             functionName,
             parentBundleId: pending.parentBundleId,
             bundleIndex: pending.bundleIndex,
@@ -282,7 +354,18 @@ async function processLedgerTransaction(input: {
           );
           effectGuard.beginEffect();
         },
-      });
+      };
+      if (account.type === "ledger") {
+        result = await signAndBroadcastLedgerTransaction({
+          ...signerInput,
+          account,
+        });
+      } else {
+        result = await signAndBroadcastTrezorTransaction({
+          ...signerInput,
+          account,
+        });
+      }
       effectGuard.settleEffect();
     } catch (error) {
       // Device/preparation failures occur before raw RPC broadcast. The shared
@@ -340,9 +423,14 @@ async function processLedgerTransaction(input: {
     return { success: true };
   } catch (error) {
     const errorMessage =
-      error instanceof Error ? error.message : "Ledger transaction failed";
+      error instanceof Error
+        ? error.message
+        : `${provider === "ledger" ? "Ledger" : "Trezor"} transaction failed`;
     if (publishedTxHash) {
-      console.error("[ledger-transaction] Post-broadcast history update failed", error);
+      console.error(
+        `[${provider}-transaction] Post-broadcast history update failed`,
+        error,
+      );
       await writeResultToStorage(`txResult:${txId}`, {
         success: true,
         txHash: publishedTxHash,

@@ -1,3 +1,4 @@
+import { IPFS_GATEWAY } from "@/constants/externalUrls";
 import {
   isAllowedRemoteImageUrl,
   sanitizeTrustedRendererImageSrc,
@@ -6,7 +7,7 @@ import type { NftMetadata } from "./types";
 
 export const MAX_NFT_METADATA_BYTES = 256 * 1024;
 export const MAX_INLINE_NFT_URI_CHARS = 360_000;
-const IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
+const IPFS_GATEWAY_URL = IPFS_GATEWAY;
 
 export function expandNftUri(rawUri: string, tokenId: bigint): string | null {
   if (!rawUri || rawUri.length > MAX_INLINE_NFT_URI_CHARS) return null;

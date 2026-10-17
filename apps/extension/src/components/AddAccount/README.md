@@ -1,8 +1,11 @@
 # Add Account
 
 - `../AddAccount.tsx` is the public composition root and owns account setup effects.
-- `AddAccountTypeSelectionScreen.tsx` renders the account-type chooser.
-- `AddAccountActionBar.tsx` owns action availability and labels for each setup path.
+- `AddAccountTypeSelectionScreen.tsx` renders saved seed groups and their + Add
+  actions above the new-account type chooser. The Seed phrase card opens
+  `SeedPhraseSetup` directly; Back returns to this combined chooser.
+- `AddAccountActionBar.tsx` owns actions for non-seed setup paths. Seed setup
+  owns its own actions; the legacy biometric seed gate has no mutation button.
 - `PrivateKeyAccountSection.tsx` connects private-key entry to the externally
   placed backup acknowledgment without owning persistence.
 - `SeedPhraseAccountSection.tsx` presents saved seed groups and delegates

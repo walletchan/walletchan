@@ -13,6 +13,7 @@ export type BackgroundTransactionExecutionDependencies = {
   handleConfirmTransactionAsync: (txId: string, password: string, functionName?: string, forceInclusion?: boolean, feePaymentToken?: "native" | "token", feePaymentQuoteId?: string) => Promise<any>;
   handleConfirmTransactionAsyncPK: (txId: string, password: string, tabId?: number, functionName?: string, gasOverrides?: any, forceInclusion?: boolean, feePaymentToken?: "native" | "token", feePaymentQuoteId?: string, nonce?: unknown) => Promise<any>;
   handleConfirmTransactionAsyncLedger: (txId: string, password: string, tabId?: number, functionName?: string, gasOverrides?: any, forceInclusion?: boolean, nonce?: unknown) => Promise<any>;
+  handleConfirmTransactionAsyncTrezor: (txId: string, password: string, tabId?: number, functionName?: string, gasOverrides?: any, forceInclusion?: boolean, nonce?: unknown) => Promise<any>;
   handleConfirmImpersonatedTransaction: (txId: string, functionName?: string, gasOverrides?: any) => Promise<any>;
   handleInitiateTransfer: (message: any) => Promise<any>;
   runPendingRequestResolution: typeof PendingRequestResolutionModule.runPendingRequestResolution;

@@ -1,6 +1,6 @@
 import { getAccountById } from "../accountStorage";
 import { getLocalPrivateKeyForAccount } from "../accounts/localKeyResolver";
-import { isSafeExecutorAccount } from "../safe/accountTypePolicy";
+import { isBunkerPayerAccount } from "./payerPolicy";
 import { createLocalSignerClient } from "../localSigning/client";
 import { secureHttpTransport } from "../network/rpcClient";
 import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLock";
@@ -15,7 +15,7 @@ import type { BunkerAccess } from "./access";
 
 export async function bunkerPayer(id: string, expected?: string) {
   const account = await getAccountById(id);
-  if (!account || !isSafeExecutorAccount(account) || (expected && account.address.toLowerCase() !== expected)) throw new Error("Choose a private-key, seed-phrase or Ledger gas payer");
+  if (!account || !isBunkerPayerAccount(account) || (expected && account.address.toLowerCase() !== expected)) throw new Error("Choose a private-key, seed-phrase or Ledger gas payer");
   return account;
 }
 export async function submitBunkerOuter(input: {

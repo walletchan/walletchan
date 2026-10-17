@@ -6,6 +6,7 @@ export type TransferAccountType =
   | "privateKey"
   | "seedPhrase"
   | "ledger"
+  | "trezor"
   | "impersonator"
   | "safe"
   | "safeBunker";

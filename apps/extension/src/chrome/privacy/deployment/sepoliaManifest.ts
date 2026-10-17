@@ -1,3 +1,9 @@
+import {
+  SEPOLIA_ETHERSCAN_URL,
+  PRIVACY_POOLS_SEPOLIA_ASP_URL,
+  PRIVACY_POOLS_TESTNET_RELAYER_URL,
+  PRIVACY_POOLS_FAST_RELAYER_URL,
+} from "../../../constants/externalUrls";
 import type { Address, Hex } from "viem";
 
 import {
@@ -11,7 +17,7 @@ export const PRIVACY_POOLS_SEPOLIA_DEPLOYMENT = Object.freeze({
   version: 1 as const,
   profile: "sepolia" as const,
   chainName: "Sepolia" as const,
-  explorerBaseUrl: "https://sepolia.etherscan.io" as const,
+  explorerBaseUrl: SEPOLIA_ETHERSCAN_URL,
   source: Object.freeze({
     repository: "0xbow-io/privacy-pools-website" as const,
     commit: "461867adb439f25f1cc809ee0187357916b90ef6",
@@ -37,17 +43,17 @@ export const PRIVACY_POOLS_SEPOLIA_DEPLOYMENT = Object.freeze({
     maxRelayFeeBPS: 100n,
   }),
   services: Object.freeze({
-    aspBaseUrl: "https://dw.0xbow.io" as const,
+    aspBaseUrl: PRIVACY_POOLS_SEPOLIA_ASP_URL,
     relayers: Object.freeze([
       Object.freeze({
         name: "Testnet Relay",
-        url: "https://testnet-relayer.privacypools.com" as const,
+        url: PRIVACY_POOLS_TESTNET_RELAYER_URL,
         signerPolicy: "pinned" as const,
         signerAddress: "0x696FE46495688fC9e99BAd2dAF2133B33de364eA" as Address,
       }),
       Object.freeze({
         name: "Freedom Relay",
-        url: "https://fastrelay.xyz" as const,
+        url: PRIVACY_POOLS_FAST_RELAYER_URL,
         signerPolicy: "fee-recipient" as const,
       }),
     ]),

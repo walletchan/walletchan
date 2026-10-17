@@ -542,9 +542,10 @@ This requires a grep + replace sweep. ~30-50 usage sites.
 - Verify gas estimate with overrides panel.
 - Verify calldata decoder expansion (all param types: address, uint, int, bool, bytes, string, array).
 - Verify force inclusion flow UI (toggle force inclusion on an OP Stack chain).
-- Test with **all four signing wallet types**: PrivateKey, SeedPhrase, Ledger,
-  and Bankr. Ledger additionally requires real-device QA. (Per `AGENTS.md`,
-  required for any tx/sig change even though the UI work is shared.)
+- Test with **all five signing wallet types**: PrivateKey, SeedPhrase, Ledger,
+  Trezor, and Bankr. Ledger and Trezor additionally require real-device QA.
+  (Per `AGENTS.md`, required for any tx/sig change even though the UI work is
+  shared.)
 - Confirm, then verify success animation in both themes.
 - Reject, verify the return to home state.
 
@@ -568,7 +569,7 @@ This requires a grep + replace sweep. ~30-50 usage sites.
 - Trigger `personal_sign` from a dapp — verify in both themes.
 - Trigger `eth_signTypedData_v4` — verify nested struct rendering in both themes (`AddressValue` copy button + explorer link must work per AGENTS.md standard).
 - Trigger `wallet_watchAsset` — verify in both themes.
-- Test all four signing wallet types.
+- Test all five signing wallet types.
 
 ### Phase 9 — Batch Transactions ✅ Shipped
 

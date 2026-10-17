@@ -3,6 +3,17 @@
 > Screen-by-screen implementation decisions and current review status live in
 > [`_docs/WARM_MIDNIGHT.md`](./_docs/WARM_MIDNIGHT.md).
 
+## Add account
+
+Saved seed phrases sit above the Add new account grid, using the existing
+list rows with a one-line group name, account count, and + Add action.
+New Seed phrase setup opens Generate/Import directly. The layout retains
+Warm Midnight typography, intent tokens, and compact cards; at 320px the
+account count sits below the name so it does not crowd the Add button.
+Both section headings use small muted labels. Saved rows have a subtle border,
+a tinted seed-icon tile, and a transparent blue + Add action with a 44px target.
+No new visual tokens or interaction style are introduced (2026-10-16).
+
 ## Bankr chat
 
 Chat extends Warm Midnight as a calm, compact, approachable conversation
@@ -2147,3 +2158,12 @@ Bunker removal reuses the regular two-step AccountRemovalModal over account
 settings. There is no dedicated removal destination or backup checkbox. Both
 steps explicitly name phrase deletion only for the last regular-or-Bunker account
 using that phrase; cancel leaves settings and account data intact.
+## Send ENS history warning
+
+The Send recipient field shows a compact warning for address updates within
+30 days. A small fixed-size warning icon aligns with “ENS address updated” in
+12px/600 text; the update age sits on the same row at the trailing edge in muted
+12px text. The row wraps only when needed. A short muted verification reminder
+sits beneath, aligned with the heading. Existing warning tint, border and radius
+remain; the long bold sentence is removed. Loading shows muted “Checking ENS history…” status text; unavailable history
+stays silent. Only address-record events trigger the warning (2026-10-16).

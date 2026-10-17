@@ -7,6 +7,7 @@ import { useCachedAvatarSrc } from "@/hooks/useCachedAvatarSrc";
 import { truncateAddress } from "@/lib/addressUtils";
 import { useAddressContact } from "@/hooks/useAddressContacts";
 import { LedgerAvatar } from "@/components/Ledger/LedgerAvatar";
+import { TrezorAvatar } from "@/components/Trezor/TrezorAvatar";
 
 interface FromAccountDisplayProps {
   address: string;
@@ -66,6 +67,8 @@ export function FromAccountDisplay({ address, chainId: _chainId = 1 }: FromAccou
         />
       ) : fromAccount?.type === "ledger" ? (
         <LedgerAvatar size={20} />
+      ) : fromAccount?.type === "trezor" ? (
+        <TrezorAvatar size={20} />
       ) : (
         <Image
           src={blo(address as `0x${string}`)}

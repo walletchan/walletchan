@@ -1,12 +1,6 @@
-import { Box, Text, VStack } from "@chakra-ui/react";
-import AddLedgerFlow, {
-  type LedgerAccountSelection,
-} from "@/components/Ledger/AddLedgerFlow";
-import {
-  OnboardingCanvas,
-  OnboardingFooter,
-  OnboardingHeader,
-} from "./OnboardingShell";
+import type { LedgerAccountSelection } from "@/components/Ledger/AddLedgerFlow";
+import { ledgerHardwareWalletProvider } from "@/components/Ledger/ledgerFlowAdapter";
+import { HardwareWalletOnboardingStep } from "./HardwareWalletOnboardingStep";
 
 export function LedgerOnboardingStep({
   onBack,
@@ -18,38 +12,11 @@ export function LedgerOnboardingStep({
   onCollect: (selection: LedgerAccountSelection) => Promise<void>;
 }) {
   return (
-    <AddLedgerFlow
+    <HardwareWalletOnboardingStep
+      provider={ledgerHardwareWalletProvider}
       onBack={onBack}
-      onComplete={() => undefined}
-      commitAccounts={onCollect}
-      renderLayout={({ content, primaryAction }) => (
-        <OnboardingCanvas
-          currentStep={1}
-          onStepClick={onProgressStepClick}
-          header={<OnboardingHeader onBack={onBack} step={1} />}
-          footer={
-            <OnboardingFooter>
-              <Box sx={{ "& > button": { width: "100%" } }}>
-                {primaryAction}
-              </Box>
-            </OnboardingFooter>
-          }
-        >
-          <VStack align="stretch" spacing={6}>
-            <VStack align="stretch" spacing={1.5}>
-              <Text
-                as="h1"
-                fontSize="2xl"
-                fontWeight="700"
-                letterSpacing="-0.02em"
-              >
-                Connect your Ledger
-              </Text>
-            </VStack>
-            {content}
-          </VStack>
-        </OnboardingCanvas>
-      )}
+      onProgressStepClick={onProgressStepClick}
+      onCollect={onCollect}
     />
   );
 }

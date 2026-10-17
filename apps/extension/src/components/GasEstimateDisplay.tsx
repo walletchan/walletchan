@@ -5,13 +5,9 @@ import {
   VStack,
   HStack,
   Text,
-  IconButton,
-  Tooltip,
 } from "@chakra-ui/react";
 import {
   WarningIcon,
-  CopyIcon,
-  CheckIcon,
 } from "@chakra-ui/icons";
 import { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import { GasEstimate, GasEstimateTier } from "@/chrome/gasEstimation";
@@ -22,6 +18,8 @@ import {
   formatGwei,
   formatWeiToUsd,
 } from "@/lib/gasFormatUtils";
+import { RequestRetryNotice } from "@/components/RequestConfirmation/RequestRetryNotice";
+import { RevertWarning } from "@/components/GasEstimate/RevertWarning";
 import { useTheme } from "@/theme";
 import {
   DEFAULT_TIER,
@@ -38,7 +36,7 @@ import type { NativeFeePaymentSummary } from "@/components/feePaymentUi";
 
 interface GasEstimateDisplayProps {
   txRequest: PendingTxRequest;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "impersonator";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator";
   onGasOverrides?: (overrides: GasOverrides | null) => void;
   /**
    * Reports whether the current gas params are valid for broadcast. Bubbled
@@ -98,53 +96,6 @@ function deriveMaxFeeFromPriority(
   return (predictedNextBaseFee * 150n) / 100n + priorityWei;
 }
 
-function RevertWarning({ shortError, fullError }: { shortError: string; fullError: string }) {
-  const [copied, setCopied] = useState(false);
-  const { tokens } = useTheme();
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(fullError);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard writes can fail when the extension view is not focused.
-    }
-  };
-
-  return (
-    <HStack
-      bg="status.error.bg"
-      border={tokens.borders.medium}
-      borderColor="status.error.border"
-      borderRadius="lg"
-      boxShadow="card"
-      px={3}
-      py={2}
-      spacing={2}
-    >
-      <WarningIcon color="status.error.fg" boxSize={3.5} flexShrink={0} />
-      <Text fontSize="xs" color="status.error.fg" fontWeight="600" flex="1" noOfLines={2}>
-        TX may revert: {shortError}
-      </Text>
-      <Tooltip label="Copy full error" fontSize="xs" hasArrow>
-        <IconButton
-          aria-label="Copy full error"
-          icon={copied ? <CheckIcon /> : <CopyIcon />}
-          size="xs"
-          minW="24px"
-          w="24px"
-          h="24px"
-          variant="ghost"
-          color={copied ? "accent.highlight" : "status.error.fg"}
-          onClick={handleCopy}
-          _hover={{ color: "status.error.fg", bg: "blackAlpha.200" }}
-          flexShrink={0}
-        />
-      </Tooltip>
-    </HStack>
-  );
-}
 
 function GasEstimateDisplay({
   txRequest,
@@ -160,6 +111,7 @@ function GasEstimateDisplay({
   const { tokens } = useTheme();
   const [estimate, setEstimate] = useState<GasEstimate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retryRevision, setRetryRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -199,7 +151,7 @@ function GasEstimateDisplay({
   }, [isReadOnly]);
 
   const isLocalAccount =
-    accountType === "privateKey" || accountType === "seedPhrase" || accountType === "ledger";
+    accountType === "privateKey" || accountType === "seedPhrase" || accountType === "ledger" || accountType === "trezor";
   // Picker is hidden only when we have no tier data (force inclusion /
   // non-1559 chain) or when the account type doesn't allow overrides. We
   // intentionally still show it when the dapp suggested gas — the user
@@ -215,6 +167,12 @@ function GasEstimateDisplay({
   // fee rows) that stutters the slide. Skeleton stays put during the slide,
   // estimate arrives the frame after entry settles.
   const screenEntered = useScreenEntered();
+
+  const retryEstimate = () => {
+    if (loading || isReadOnly) return;
+    onGasOverrides?.(null); onValidityChange?.(false); onLoadingChange?.(true);
+    setLoading(true); setRetryRevision((revision) => revision + 1);
+  };
 
   // Fetch gas estimate on mount and when forceInclusion toggles
   useEffect(() => {
@@ -244,8 +202,8 @@ function GasEstimateDisplay({
       },
       (result: GasEstimate) => {
         if (cancelled) return;
-        if (chrome.runtime.lastError) {
-          setError("Gas estimate unavailable");
+        if (chrome.runtime.lastError || !result?.gasLimit) {
+          setError(chrome.runtime.lastError?.message || "Gas estimate unavailable");
           setLoading(false);
           return;
         }
@@ -298,7 +256,7 @@ function GasEstimateDisplay({
     // changed would be wasteful. The tier-change effect below repopulates the
     // editable fields from cached `estimate.tiers`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [txRequest.id, forceInclusion, screenEntered]);
+  }, [txRequest.id, forceInclusion, screenEntered, retryRevision]);
 
   const openCustomEditor = useCallback(() => {
     if (!estimate) return;
@@ -518,9 +476,9 @@ function GasEstimateDisplay({
     draftValidForSet,
   ]);
 
-  const validForBroadcast =
+  const validForBroadcast = !loading && (
     !isLocalAccount || // Bankr / impersonator paths don't broadcast through us
-    (allFieldsValid && maxFeeCoversBase);
+    (!!estimate && allFieldsValid && maxFeeCoversBase));
 
   // Report fee readiness to the parent's confirmation action.
   useEffect(() => {
@@ -623,9 +581,7 @@ function GasEstimateDisplay({
         px={3}
         py={2}
       >
-        <Text fontSize="xs" color="text.tertiary" fontWeight="600">
-          Gas estimate unavailable
-        </Text>
+        <RequestRetryNotice error={error} onRetry={retryEstimate} isDisabled={isReadOnly} />
       </Box>
     );
   }
@@ -709,6 +665,7 @@ function GasEstimateDisplay({
     <VStack spacing={2} align="stretch">
       {estimate.estimationFailed && (
         <RevertWarning
+          onRetry={retryEstimate} isDisabled={isReadOnly}
           shortError={estimate.estimationError || "estimation failed"}
           fullError={estimate.estimationErrorFull || estimate.estimationError || "estimation failed"}
         />

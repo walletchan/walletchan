@@ -24,6 +24,7 @@ export function SponsorshipEligibilityNotice({
     premiumStatus.isPremium ||
     accountType === "impersonator" ||
     accountType === "ledger" ||
+    accountType === "trezor" ||
     accountType === "safe"
   ) {
     return null;
@@ -86,6 +87,7 @@ export function TransferNotices({
         premiumStatus?.isPremium &&
         accountType !== "impersonator" &&
         accountType !== "ledger" &&
+        accountType !== "trezor" &&
         accountType !== "safe" && (
           <Box
             bg="status.success.bg"

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Account } from "@/chrome/types";
 import { DecisionAccountSelector } from "@/components/RequestConfirmation/DecisionAccountSelector";
 import { usePayerBalances } from "./usePayerBalances";
-import { isSafeExecutorAccount } from "@/chrome/safe/accountTypePolicy";
+import { isBunkerPayerAccount } from "@/chrome/safeBunker/payerPolicy";
 
 export function PayerFields({ value, onChange, remember, onRemember, disabled, compact = false, defaultAccountId, onAccountChange, deployment = false, chainId }: {
   chainId: number; deployment?: boolean; value: string; onChange: (id: string) => void; remember: boolean; onRemember: (value: boolean) => void; disabled?: boolean; compact?: boolean; defaultAccountId?: string; onAccountChange?: (account: Account | null) => void;
@@ -11,7 +11,7 @@ export function PayerFields({ value, onChange, remember, onRemember, disabled, c
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   useEffect(() => { let active = true;
-    void chrome.runtime.sendMessage({ type: "getAccounts" }).then((a: Account[]) => { if (active) setAccounts(a.filter(isSafeExecutorAccount)); });
+    void chrome.runtime.sendMessage({ type: "getAccounts" }).then((a: Account[]) => { if (active) setAccounts(a.filter(isBunkerPayerAccount)); });
     return () => { active = false; };
   }, []);
   const balances = usePayerBalances(accounts, chainId);

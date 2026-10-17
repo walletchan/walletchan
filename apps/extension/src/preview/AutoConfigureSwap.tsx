@@ -95,4 +95,3 @@ export function AutoConfigureSwap({ bridge }: { bridge: boolean }) {
 
   return null;
 }
-

@@ -17,7 +17,6 @@ import {
   FullScreenPickerSearch,
   ListItem,
   ListItemContent,
-  ListItemDescription,
   ListItemMedia,
   ListItemTitle,
 } from "@/components/ui";
@@ -198,6 +197,7 @@ export default function AccountPickerScreen({
       controls={
         <FullScreenPickerSearch
           label="Search accounts"
+          hideLabel
           placeholder="Name, address, or wallet type"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -209,22 +209,14 @@ export default function AccountPickerScreen({
           {!normalizedQuery && accounts.length > 1 ? (
             <SortableAccountPickerRows
               accounts={accounts}
-              label="Accounts"
-              description={`${accounts.length} accounts · Drag the handle to reorder`}
+              label={null}
               getDisplayName={getDisplayName}
               onReorder={persistAccountOrder}
               onReorderError={setReorderError}
               renderAccount={renderAccountRow}
             />
           ) : (
-            <FullScreenPickerGroup
-              label="Accounts"
-              description={
-                normalizedQuery
-                  ? `${filteredAccounts.length} of ${accounts.length} accounts`
-                  : "1 account"
-              }
-            >
+            <FullScreenPickerGroup label={null}>
               {filteredAccounts.map((account) => renderAccountRow(account))}
             </FullScreenPickerGroup>
           )}
@@ -241,7 +233,7 @@ export default function AccountPickerScreen({
         />
       )}
 
-      <FullScreenPickerGroup label="Manage">
+      <FullScreenPickerGroup label={null}>
         <ListItem interactive onClick={onAddAccount}>
           <ListItemMedia>
             <Flex
@@ -257,9 +249,6 @@ export default function AccountPickerScreen({
           </ListItemMedia>
           <ListItemContent>
             <ListItemTitle>Add account</ListItemTitle>
-            <ListItemDescription>
-              Import a wallet or add a view-only address
-            </ListItemDescription>
           </ListItemContent>
         </ListItem>
       </FullScreenPickerGroup>

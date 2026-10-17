@@ -1,5 +1,6 @@
 import { AccountRemovalModal } from "./AccountRemovalModal";
 import { BunkerSettingsScreen } from "./SafeBunker/BunkerSettingsScreen";
+import { etherscanAddressUrl } from "@/constants/externalUrls";
 import { useState, useEffect, useRef, memo } from "react";
 import {
   Box,
@@ -37,7 +38,7 @@ import {
   ensIdentityKey,
   isCacheValid,
 } from "@/lib/ensIdentityCache";
-import AccountSettingsIdentity from "./AccountSettingsIdentity";
+import AccountSettingsIdentity, { HardwareAccountDetails } from "./AccountSettingsIdentity";
 import DelegatedPermissionsSection from "./DelegatedPermissionsSection";
 import SmartAccountSection from "./SmartAccountSection";
 import RevealPrivateKey from "./RevealPrivateKey";
@@ -746,8 +747,7 @@ function AccountSettings({
   }
 
   // Main settings view
-  const displayNameDirty =
-    displayName.trim() !== (account.displayName || "");
+  const displayNameDirty = displayName.trim() !== (account.displayName || "");
   const seedGroupDirty =
     !!seedGroupName.trim() &&
     seedGroupName.trim() !== originalSeedGroupName;
@@ -771,11 +771,11 @@ function AccountSettings({
                 account={account}
                 resolvedName={ensIdentity.name}
                 resolvedAvatar={ensIdentity.avatar}
-                explorerUrl={`https://etherscan.io/address/${account.address}`}
+                explorerUrl={etherscanAddressUrl(account.address)}
               />
             </Box>
 
-            <ScreenSection title="Account name" description="Shown throughout WalletChan.">
+            <ScreenSection title="Account name">
               <FormControl>
                 <HStack spacing={2}>
                   <Input
@@ -803,7 +803,7 @@ function AccountSettings({
                 </HStack>
               </FormControl>
             </ScreenSection>
-
+            {(account.type === "ledger" || account.type === "trezor") && <HardwareAccountDetails account={account} />}
             {account.type === "seedPhrase" && (
               <ScreenSection
                 title="Seed group"
@@ -847,7 +847,7 @@ function AccountSettings({
                       {isRefreshingEns ? "Refreshing names…" : "Refresh onchain names"}
                     </ListItemTitle>
                     <ListItemDescription>
-                      Fetch ENS and other onchain names and avatars
+                      Fetch onchain names and avatar
                     </ListItemDescription>
                   </ListItemContent>
                 </ListItem>
@@ -908,7 +908,6 @@ function AccountSettings({
                     <ListItemMedia><ViewIcon color="status.warning.fg" boxSize={5} /></ListItemMedia>
                     <ListItemContent>
                       <ListItemTitle>Reveal private key</ListItemTitle>
-                      <ListItemDescription>View the secret key for this account</ListItemDescription>
                     </ListItemContent>
                   </ListItem>
                 )}
@@ -933,9 +932,7 @@ function AccountSettings({
                     <ListItemTitle color={removeDisabled ? "fg.muted" : "status.error.emphasis"}>
                       Remove account
                     </ListItemTitle>
-                    <ListItemDescription>
-                      {removeDisabled ? "You cannot remove your last account" : "Remove this account from WalletChan"}
-                    </ListItemDescription>
+                    {removeDisabled && <ListItemDescription>You cannot remove your last account</ListItemDescription>}
                   </ListItemContent>
                 </ListItem>
               </ListSurface>

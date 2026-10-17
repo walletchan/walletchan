@@ -23,7 +23,7 @@ public links are verified. -->
 
 ![WalletChan Warm Midnight home showing a multichain portfolio and primary wallet actions](.github/screenshots/readme/01-home.png)
 
-WalletChan brings Ledger hardware wallet support, existing Safe multisigs,
+WalletChan brings Ledger and Trezor hardware wallet support, existing Safe multisigs,
 Privacy Pools ETH shielding, and supported-token network fees into one redesigned
 extension. Readable transaction review runs across the experience so you can
 understand what will happen before approving.
@@ -36,15 +36,16 @@ browsing.
 
 ### Use the right account for the job
 
-- Connect Ledger hardware accounts through Chromium WebHID and approve
-  transactions and messages on the device.
+- Connect Ledger accounts through Chromium WebHID or Trezor accounts through
+  the official Trezor Connect popup, then approve transactions and messages on
+  the device.
 - Discover or import existing Safe multisigs, review their configuration,
   propose transactions, collect approvals, and execute at quorum.
 - Add private-key, seed-phrase, view-only, and Bankr API accounts.
 - Assign accounts and networks to connected dapps without repeatedly changing one
   global wallet context.
 
-![WalletChan account picker with seed phrase, private key, view-only, Ledger, Safe, and Bankr API account types](.github/screenshots/readme/02-accounts.png)
+![WalletChan account picker with seed phrase, private key, view-only, Ledger, Trezor, Safe, and Bankr API account types](.github/screenshots/readme/02-accounts.png)
 
 ### Understand what happens before approving
 
@@ -90,7 +91,7 @@ token, request, and transaction. Ledger accounts use native gas.
 ## Privacy and control
 
 - Private keys and seed phrases are encrypted locally.
-- Ledger keys remain on the hardware device.
+- Ledger and Trezor keys remain on the hardware device.
 - WalletChan does not add behavioral analytics or advertising trackers to the extension.
 - User-invoked features still connect to blockchain RPCs and required service
   providers.

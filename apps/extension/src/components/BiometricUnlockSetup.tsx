@@ -16,6 +16,9 @@ import {
   WarningTwoIcon,
 } from "@chakra-ui/icons";
 import { useThemedToast } from "@/hooks/useThemedToast";
+import UnlockMascotSpotlight from "@/components/UnlockMascotSpotlight";
+import { getUnlockMascotState } from "@/components/unlockMascotState";
+import { FingerprintIcon } from "@/components/Settings/icons";
 import {
   createPasskeyUnlockCredential,
   getPasskeyErrorMessage,
@@ -120,6 +123,10 @@ function BiometricUnlockSetup({
       <AppHeader title="Set up biometric unlock" onBack={onCancel} />
       <ScreenBody pt={5} pb={6}>
         <VStack spacing={6} w="full" align="stretch">
+          <UnlockMascotSpotlight
+            state={getUnlockMascotState({ password, error, isUnlocking: isSubmitting, isPasskeyUnlocking: false, showSuccess: false })}
+            badge={<FingerprintIcon boxSize="16px" />}
+          />
           <ScreenSection
             title="Verify password"
             description="Enter your password to continue."

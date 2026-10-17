@@ -44,11 +44,10 @@ import { createBackgroundTransactionStatusMessageRouter } from "../transactionSt
 import type { PendingResolutionComposition } from "./pendingResolution";
 import { getArbitrumForceInclusionStatus, submitArbitrumForceInclusion } from "../../arbitrumForceInclusion/status";
 import { handleConfirmTransactionAsyncLedger } from "../../ledger/transactionExecution";
+import { handleConfirmTransactionAsyncTrezor } from "../../trezor/transactionExecution";
 import { getTransactionNonceForReview } from "../../transactions/nonceReview";
 import { prepareTransactionReplacement } from "../../transactions/replacementPreparation";
-export function composeExecutionRoutes(
-  pending: PendingResolutionComposition,
-) {
+export function composeExecutionRoutes(pending: PendingResolutionComposition) {
   const routeBackgroundTransactionExecutionMessage =
     createBackgroundTransactionExecutionMessageRouter({
       getPendingTxRequestById,
@@ -58,6 +57,7 @@ export function composeExecutionRoutes(
       handleConfirmTransactionAsync,
       handleConfirmTransactionAsyncPK,
       handleConfirmTransactionAsyncLedger,
+      handleConfirmTransactionAsyncTrezor,
       handleConfirmImpersonatedTransaction,
       handleInitiateTransfer,
       runPendingRequestResolution: pending.runPendingRequestResolution,

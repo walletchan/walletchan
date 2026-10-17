@@ -178,6 +178,7 @@ interface FinancialImpactProps {
   isValueZero: boolean;
   onRevertedChange: (reverted: boolean) => void;
   onSimulationUnavailableChange: (unavailable: boolean) => void;
+  onSimulationLoadingChange?: (loading: boolean) => void;
   approvalCleanup?: AssetChangesDisplayProps["approvalCleanup"];
 }
 
@@ -187,6 +188,7 @@ export function TransactionFinancialImpact({
   isValueZero,
   onRevertedChange,
   onSimulationUnavailableChange,
+  onSimulationLoadingChange,
   approvalCleanup,
 }: FinancialImpactProps) {
   const { tx } = txRequest;
@@ -206,6 +208,7 @@ export function TransactionFinancialImpact({
           txRequest={txRequest}
           embedded
           approvalCleanup={approvalCleanup}
+          onSimulationLoadingChange={onSimulationLoadingChange}
           onRevertedChange={onRevertedChange}
           onSimulationUnavailableChange={onSimulationUnavailableChange}
         />

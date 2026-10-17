@@ -6,6 +6,7 @@
  */
 
 import type { Account, AccountType } from "../types";
+import { decodeTrezorAccount } from "../trezor/codecs";
 import {
   WALLET_SECRET_STORAGE_LOCK_KEY,
   withStorageLock,
@@ -23,7 +24,15 @@ export function normalizeEvmAccountAddress(address: string): string {
 
 export async function getAccounts(): Promise<Account[]> {
   const result = await chrome.storage.local.get(ACCOUNTS_STORAGE_KEY);
-  return result[ACCOUNTS_STORAGE_KEY] || [];
+  const accounts = result[ACCOUNTS_STORAGE_KEY] || [];
+  if (!Array.isArray(accounts)) throw new Error("Invalid account storage");
+  return accounts.map((account) =>
+    account &&
+    typeof account === "object" &&
+    (account as { type?: unknown }).type === "trezor"
+      ? decodeTrezorAccount(account)
+      : (account as Account),
+  );
 }
 
 export async function saveAccounts(accounts: Account[]): Promise<void> {

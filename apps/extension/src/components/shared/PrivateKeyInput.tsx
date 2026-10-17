@@ -1,3 +1,4 @@
+import { etherscanAddressUrl } from "@/constants/externalUrls";
 import { useEffect, useRef, useState } from "react";
 import {
   Box,
@@ -389,7 +390,7 @@ export default function PrivateKeyInput({
               color="fg.secondary"
               onClick={() =>
                 window.open(
-                  `https://etherscan.io/address/${derivedAddress}`,
+                  etherscanAddressUrl(derivedAddress),
                   "_blank",
                   "noopener,noreferrer",
                 )

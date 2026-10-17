@@ -1,3 +1,4 @@
+import { SEPOLIA_FALLBACK_RPC_URL } from "@/constants/externalUrls";
 import { createPublicClient, type PublicClient } from "viem";
 import { mainnet, sepolia } from "viem/chains";
 import { secureHttpTransport } from "../network/rpcClient";
@@ -15,7 +16,7 @@ export async function getL1RpcUrl(l1ChainId: number): Promise<string> {
   const stored = await getRpcUrl(l1ChainId);
   if (stored) return stored;
   if (l1ChainId === sepolia.id) {
-    return "https://ethereum-sepolia-rpc.publicnode.com";
+    return SEPOLIA_FALLBACK_RPC_URL;
   }
   throw new Error(`No L1 RPC URL configured for chain ${l1ChainId}`);
 }

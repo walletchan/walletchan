@@ -1,3 +1,4 @@
+import { TENDERLY_SIMULATOR_URL } from "@/constants/externalUrls";
 import {
   Box,
   HStack,
@@ -73,7 +74,7 @@ function TenderlyAndBatchControls({
     network: String(tx.chainId),
     ...(tx.to ? { contractAddress: tx.to } : {}),
   });
-  const tenderlyUrl = `https://dashboard.tenderly.co/simulator/new?${params}`;
+  const tenderlyUrl = `${TENDERLY_SIMULATOR_URL}?${params}`;
   return (
     <RequestToolActions
       tenderlyUrl={tenderlyUrl}

@@ -96,7 +96,7 @@ export function BiometricUnlockRemove({
       <VStack spacing={6} align="stretch">
         <VStack align="stretch" spacing={1}>
           <Text fontSize="lg" fontWeight="600">
-            Confirm with your master password
+            Confirm with your password
           </Text>
           <Text fontSize="sm" color="fg.secondary" lineHeight="1.5">
             This removes the biometric credential from this browser. Your
@@ -105,12 +105,12 @@ export function BiometricUnlockRemove({
         </VStack>
 
         <FormControl isInvalid={!!removeError}>
-          <FormLabel>Master password</FormLabel>
+          <FormLabel srOnly>Password</FormLabel>
           <InputGroup>
             <Input
               ref={masterPasswordInputRef}
               type={showMasterPassword ? "text" : "password"}
-              placeholder="Enter master password"
+              placeholder="Enter your password"
               value={masterPassword}
               onChange={(event) => {
                 setMasterPassword(event.target.value);

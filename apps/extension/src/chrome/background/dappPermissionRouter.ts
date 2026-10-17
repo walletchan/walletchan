@@ -1,3 +1,4 @@
+import type { EnsRecipientHistory } from "../ensBrowsing/recipientHistory";
 /**
  * Focused transport for injected dapp requests and trusted-UI permission
  * management. It runs only after the composition root's audience, sender, and
@@ -18,6 +19,7 @@ export const BACKGROUND_DAPP_PERMISSION_MESSAGE_TYPES = [
   "rejectDappConnection",
   "revokeDappPermission",
   "getEnsContenthashLastUpdated",
+  "getEnsRecipientHistory",
 ] as const;
 
 export type BackgroundDappPermissionRouteResult =
@@ -37,6 +39,7 @@ type Dependencies = {
   handleConfirmDappConnection: (requestId: string) => Promise<any>;
   handleRejectDappConnection: (requestId: string) => Promise<any>;
   handleRevokeDappPermission: (origin: string) => Promise<any>;
+  getEnsRecipientHistory: (ensName: unknown, chainId: unknown) => Promise<EnsRecipientHistory>;
   getEnsContenthashLastUpdated: (ensName: unknown) => Promise<number | null>;
   runPendingRequestResolution: typeof PendingRequestResolutionModule.runPendingRequestResolution;
   pendingResolutionConflict: (action: any) => any;
@@ -164,6 +167,13 @@ export function createBackgroundDappPermissionMessageRouter(
         dependencies
           .handleRevokeDappPermission(message.origin || "")
           .then(sendResponse);
+        return HANDLED_ASYNC;
+      }
+
+      case "getEnsRecipientHistory": {
+        dependencies.getEnsRecipientHistory(message.ensName, message.chainId)
+          .then((history) => sendResponse({ success: true, history }))
+          .catch(() => sendResponse({ success: false, error: "ENS history unavailable" }));
         return HANDLED_ASYNC;
       }
 

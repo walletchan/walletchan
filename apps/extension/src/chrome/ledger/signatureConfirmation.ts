@@ -9,6 +9,11 @@ import type { SignatureResult } from "../transactions/runtime";
 import { prepareSignatureConfirmation } from "../signatures/confirmationPolicy";
 import { ensureLedgerSigningSession } from "./session";
 import { signLedgerSignatureRequest } from "./signing";
+import { ensureTrezorSigningSession } from "../trezor/session";
+import { createTrezorOperationId } from "../trezor/operationId";
+import { signTrezorSignatureRequest } from "../trezor/signing";
+
+type HardwareProvider = "ledger" | "trezor";
 
 /** Confirms a pinned Ledger message or EIP-712 signature request. */
 export async function handleConfirmLedgerSignatureRequest(
@@ -17,15 +22,51 @@ export async function handleConfirmLedgerSignatureRequest(
   _tabId?: number,
   allowUnsafeSiwe = false,
 ): Promise<SignatureResult> {
+  return handleConfirmHardwareSignatureRequest(
+    "ledger",
+    sigId,
+    password,
+    _tabId,
+    allowUnsafeSiwe,
+  );
+}
+
+/** Confirms a pinned Trezor message or EIP-712 signature request. */
+export async function handleConfirmTrezorSignatureRequest(
+  sigId: string,
+  password: string,
+  _tabId?: number,
+  allowUnsafeSiwe = false,
+): Promise<SignatureResult> {
+  return handleConfirmHardwareSignatureRequest(
+    "trezor",
+    sigId,
+    password,
+    _tabId,
+    allowUnsafeSiwe,
+  );
+}
+
+async function handleConfirmHardwareSignatureRequest(
+  provider: HardwareProvider,
+  sigId: string,
+  password: string,
+  _tabId?: number,
+  allowUnsafeSiwe = false,
+): Promise<SignatureResult> {
   const preflight = await prepareSignatureConfirmation(sigId, allowUnsafeSiwe);
   if (!preflight.ok) return preflight.result;
   const { pending, account } = preflight.value;
-  if (account.type !== "ledger") {
+  if (account.type !== provider) {
     return { success: false, error: "Pending request is no longer valid" };
   }
 
   try {
-    await ensureLedgerSigningSession(password);
+    if (account.type === "ledger") {
+      await ensureLedgerSigningSession(password);
+    } else {
+      await ensureTrezorSigningSession(password);
+    }
     const authorization = await enforcePendingRequestAuthorizationAtConfirmation(
       "signature",
       pending,
@@ -40,13 +81,23 @@ export async function handleConfirmLedgerSignatureRequest(
       effectGuard.beginEffect();
       let signature: `0x${string}`;
       try {
-        signature = await signLedgerSignatureRequest({
-          opId: sigId,
-          account,
-          method: pending.signature.method,
-          params: pending.signature.params,
-          chainId: pending.signature.chainId,
-        });
+        if (account.type === "ledger") {
+          signature = await signLedgerSignatureRequest({
+            opId: sigId,
+            account,
+            method: pending.signature.method,
+            params: pending.signature.params,
+            chainId: pending.signature.chainId,
+          });
+        } else {
+          signature = await signTrezorSignatureRequest({
+            opId: createTrezorOperationId(),
+            account,
+            method: pending.signature.method,
+            params: pending.signature.params,
+            chainId: pending.signature.chainId,
+          });
+        }
         effectGuard.settleEffect();
       } catch (error) {
         effectGuard.settleEffect();
@@ -54,7 +105,11 @@ export async function handleConfirmLedgerSignatureRequest(
       }
       const finalAuthorization = await revalidatePendingSignatureBeforeRelease(
         pending,
-        "ledger",
+        provider,
+        {
+          deviceId: account.deviceId,
+          hdPath: account.hdPath,
+        },
       );
       if (!finalAuthorization.authorized) {
         // Signing finished but authority moved: terminalize the request so the
@@ -70,7 +125,10 @@ export async function handleConfirmLedgerSignatureRequest(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Ledger signing failed",
+      error:
+        error instanceof Error
+          ? error.message
+          : `${provider === "ledger" ? "Ledger" : "Trezor"} signing failed`,
     };
   }
 }

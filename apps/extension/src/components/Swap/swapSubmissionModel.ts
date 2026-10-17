@@ -1,4 +1,5 @@
 import type { SwapAccountType } from "./swapViewTypes";
+import { hasAccountTypeCapability } from "@/chrome/hardware/accountCapabilities";
 
 export type SwapSubmissionKind =
   | "walletExecution"
@@ -13,7 +14,7 @@ export function getSwapSubmissionKind(
   accountType: SwapAccountType,
   isBridge: boolean,
 ): SwapSubmissionKind {
-  if (accountType === "impersonator" || accountType === "ledger") {
+  if (!hasAccountTypeCapability(accountType, "directSwap")) {
     return "unsupported";
   }
   if (accountType === "safe") {

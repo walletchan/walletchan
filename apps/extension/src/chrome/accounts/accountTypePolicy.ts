@@ -18,6 +18,7 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
   privateKey: { directSigner: true, forceInclusion: "raw", forceInclusionBatch: true },
   seedPhrase: { directSigner: true, forceInclusion: "raw", forceInclusionBatch: true },
   ledger: { directSigner: true, forceInclusion: "raw", forceInclusionBatch: false },
+  trezor: { directSigner: true, forceInclusion: false, forceInclusionBatch: false },
   impersonator: { directSigner: false, forceInclusion: false, forceInclusionBatch: false },
   safeBunker: { directSigner: false, forceInclusion: false, forceInclusionBatch: false },
   safe: { directSigner: false, forceInclusion: false, forceInclusionBatch: false },

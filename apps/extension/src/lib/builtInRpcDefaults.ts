@@ -1,8 +1,9 @@
+import { RETIRED_SEPOLIA_RPC_URL } from "@/constants/externalUrls";
 import type { ChainEntry } from "@/constants/chainRegistry";
 
 // Only retired shipped defaults are upgraded; distinct user endpoints retain precedence.
 const RETIRED_DEFAULTS: Readonly<Record<number, ReadonlySet<string>>> = {
-  11155111: new Set(["https://sepolia.drpc.org"]),
+  11155111: new Set([RETIRED_SEPOLIA_RPC_URL]),
 };
 
 export function resolveBuiltInRpcUrl(chain: Pick<ChainEntry, "chainId" | "rpcUrl">, storedRpcUrl?: string): string {

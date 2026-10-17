@@ -11,6 +11,7 @@ import {
 import { withStorageLock } from "../storageLock";
 import { getTxById } from "../txHistoryStorage";
 import type { Account } from "../types";
+import { getAccountTypeCapabilities } from "../hardware/accountCapabilities";
 import { getRpcUrl } from "./rpcConfig";
 import {
   parseLatestNonce,
@@ -64,12 +65,8 @@ function replacementEligibilityError(
     return "This transaction submission type cannot be replaced";
   }
   if (!account) return "The transaction account is no longer available";
-  if (
-    account.type !== "privateKey" &&
-    account.type !== "seedPhrase" &&
-    account.type !== "ledger"
-  ) {
-    return "Speed Up and Cancel require a local or Ledger account";
+  if (!getAccountTypeCapabilities(account.type).transactionReplacement) {
+    return "Speed Up and Cancel require a local or hardware account";
   }
   return null;
 }
@@ -184,7 +181,8 @@ export async function prepareTransactionReplacement(
       if (
         account.type !== "privateKey" &&
         account.type !== "seedPhrase" &&
-        account.type !== "ledger"
+        account.type !== "ledger" &&
+        account.type !== "trezor"
       ) {
         return { success: false, error: "Transaction account cannot be replaced" };
       }

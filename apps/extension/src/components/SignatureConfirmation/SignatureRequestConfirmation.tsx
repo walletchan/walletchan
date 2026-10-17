@@ -22,8 +22,7 @@ import { analyzeSiweMessage } from "@/lib/siwe";
 import { useIconChipBg, useStripTokens } from "@/theme";
 import { SignatureConfirmationScreen } from "./SignatureConfirmationScreen";
 import { SignatureDecisionSummary } from "./SignatureDecisionSummary";
-import { LedgerSigningStatus } from "@/components/Ledger/LedgerSigningStatus";
-import {
+import { HardwareAccountSigningStatus } from "@/components/HardwareWallet/HardwareAccountSigningStatus";import {
   RawSignatureData,
   SignatureMessageData,
 } from "./SignatureMessageData";
@@ -40,7 +39,7 @@ interface SignatureRequestConfirmationProps {
   currentIndex: number;
   totalCount: number;
   isInSidePanel: boolean;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "impersonator" | "safe";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator" | "safe";
   onBack: () => void;
   onCancelled: () => void;
   onRejectAll: () => void;
@@ -136,8 +135,9 @@ function SignatureRequestConfirmation({
     accountType === "privateKey" ||
     accountType === "seedPhrase" ||
     accountType === "ledger" ||
+    accountType === "trezor" ||
     accountType === "bankr";
-  const isLedgerWaiting = accountType === "ledger" && isSubmitting;
+  const isLedgerWaiting = (accountType === "ledger" || accountType === "trezor") && isSubmitting;
 
   const handleCancel = () => {
     if (isRejecting) return;
@@ -388,7 +388,7 @@ function SignatureRequestConfirmation({
       }
       actionNotice={<VStack align="stretch" spacing={2}>
         <SafeRiskDecision decision={safeDecision} isDisabled={isSubmitting || isRejecting} />
-        {accountType === "safe" ? <ViewOnlySigningNotice message="Safe message signing is not supported yet. Use an owner account to sign as that owner." /> : accountType === "impersonator" ? <ViewOnlySigningNotice /> : accountType === "ledger" ? <LedgerSigningStatus active={isLedgerWaiting} /> : null}
+        {accountType === "safe" ? <ViewOnlySigningNotice message="Safe message signing is not supported yet. Use an owner account to sign as that owner." /> : accountType === "impersonator" ? <ViewOnlySigningNotice /> : accountType === "ledger" || accountType === "trezor" ? <HardwareAccountSigningStatus accountType={accountType} active={isLedgerWaiting} /> : null}
       </VStack>}
       isInteractionLocked={isLedgerWaiting}
       confirmAction={confirmButton}

@@ -10,7 +10,7 @@ import {
 } from "./transactionExecutionRouterSupport";
 export type { BackgroundTransactionExecutionDependencies, BackgroundTransactionExecutionRouteResult } from "./transactionExecutionRouterSupport";
 export const BACKGROUND_TRANSACTION_EXECUTION_MESSAGE_TYPES = [
-  "getTransactionNonce", "prepareTransactionReplacement", "confirmTransaction", "confirmTransactionAsync", "confirmTransactionAsyncPK", "confirmTransactionAsyncLedger", "confirmImpersonatedTransaction", "getFeePaymentOptions", "prepareFeePaymentQuote", "initiateTransfer",
+  "getTransactionNonce", "prepareTransactionReplacement", "confirmTransaction", "confirmTransactionAsync", "confirmTransactionAsyncPK", "confirmTransactionAsyncLedger", "confirmTransactionAsyncTrezor", "confirmImpersonatedTransaction", "getFeePaymentOptions", "prepareFeePaymentQuote", "initiateTransfer",
 ] as const;
 export function createBackgroundTransactionExecutionMessageRouter(
   dependencies: BackgroundTransactionExecutionDependencies,
@@ -146,16 +146,21 @@ export function createBackgroundTransactionExecutionMessageRouter(
           );
         return HANDLED_ASYNC;
       }
-      case "confirmTransactionAsyncLedger": {
+      case "confirmTransactionAsyncLedger":
+      case "confirmTransactionAsyncTrezor": {
+        const isTrezor = message.type === "confirmTransactionAsyncTrezor";
         const tabId = message.tabId || sender.tab?.id;
         const txId = typeof message.txId === "string" ? message.txId : "";
+        const confirmHardwareTransaction = isTrezor
+          ? dependencies.handleConfirmTransactionAsyncTrezor
+          : dependencies.handleConfirmTransactionAsyncLedger;
         dependencies
           .runPendingRequestResolution({
             family: "transaction",
             requestId: txId,
             action: "confirm",
             resolve: () =>
-              dependencies.handleConfirmTransactionAsyncLedger(
+              confirmHardwareTransaction(
                 txId,
                 message.password,
                 tabId,
@@ -170,7 +175,10 @@ export function createBackgroundTransactionExecutionMessageRouter(
           .catch((error) =>
             sendResponse({
               success: false,
-              error: errorMessage(error, "Failed to confirm Ledger transaction"),
+              error: errorMessage(
+                error,
+                `Failed to confirm ${isTrezor ? "Trezor" : "Ledger"} transaction`,
+              ),
             }),
           );
         return HANDLED_ASYNC;

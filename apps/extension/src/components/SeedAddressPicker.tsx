@@ -1,3 +1,4 @@
+import { etherscanAddressUrl } from "@/constants/externalUrls";
 import { useState, useEffect, useMemo, useRef, memo } from "react";
 import {
   Box,
@@ -242,7 +243,7 @@ function AddressRow({
             onClick={(e) => {
               e.stopPropagation();
               chrome.tabs.create({
-                url: `https://etherscan.io/address/${item.address}`,
+                url: etherscanAddressUrl(item.address),
               });
             }}
           />

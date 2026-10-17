@@ -31,6 +31,7 @@ function dependencies(overrides: Record<string, unknown> = {}): any {
     handleRejectDappConnection: async () => ({ success: true }),
     handleRevokeDappPermission: async () => ({ success: true }),
     getEnsContenthashLastUpdated: async () => null,
+    getEnsRecipientHistory: async () => ({ addressUpdatedAt: null }),
     runPendingRequestResolution: async (options: any) => options.resolve(),
     pendingResolutionConflict: () => ({ success: false }),
     writeResultToStorage: async () => {},
@@ -288,4 +289,26 @@ test("connection decisions retain the all-queue serialization boundary", async (
       },
     ],
   );
+});
+
+test("Send ENS history forwards only name/chain and returns public timestamps", async () => {
+  const history = { addressUpdatedAt: 1000 };
+  const router = createBackgroundDappPermissionMessageRouter(dependencies({
+    getEnsRecipientHistory: async (name: unknown, chain: unknown) => {
+      assert.equal(name, "test.eth"); assert.equal(chain, 8453); return history;
+    },
+  }));
+  const capture = responseCapture();
+  assert.deepEqual(router({ type: "getEnsRecipientHistory", ensName: "test.eth", chainId: 8453 }, {}, capture.sendResponse),
+    { handled: true, keepChannelOpen: true });
+  assert.deepEqual(await capture.response, { success: true, history });
+});
+
+test("Send ENS history errors do not leak upstream diagnostics", async () => {
+  const router = createBackgroundDappPermissionMessageRouter(dependencies({
+    getEnsRecipientHistory: async () => { throw new Error("upstream credential or response"); },
+  }));
+  const capture = responseCapture();
+  router({ type: "getEnsRecipientHistory", ensName: "test.eth", chainId: 1 }, {}, capture.sendResponse);
+  assert.deepEqual(await capture.response, { success: false, error: "ENS history unavailable" });
 });

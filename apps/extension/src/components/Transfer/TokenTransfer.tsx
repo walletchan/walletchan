@@ -17,6 +17,7 @@ import { CalldataSection } from "./CalldataSection";
 import { DeploymentBanner } from "./DeploymentBanner";
 import { NetworkPicker } from "./NetworkPicker";
 import { RecipientPicker } from "./RecipientPicker";
+import { EnsRecipientHistoryNotice } from "./EnsRecipientHistoryNotice";
 import { RecipientSection } from "./RecipientSection";
 import { RecipientSafetyNotice } from "./RecipientSafetyNotice";
 import { useSendRecipientSafety } from "./hooks/useSendRecipientSafety";
@@ -267,11 +268,16 @@ function TokenTransfer({
           {preparation.isContractDeployment ? (
             <DeploymentBanner />
           ) : (
-            <RecipientSection
-              recipientState={recipientState}
-              explorerUrl={explorerUrl}
-              hasPoisoningWarning={Boolean(recipientSafety.match) && recipientState.isValid && !recipientState.isResolving}
-            />
+            <VStack align="stretch" spacing={0}>
+              <RecipientSection
+                recipientState={recipientState}
+                explorerUrl={explorerUrl}
+                hasPoisoningWarning={Boolean(recipientSafety.match) && recipientState.isValid && !recipientState.isResolving}
+              />
+              <EnsRecipientHistoryNotice recipient={recipientState.recipient}
+                address={recipientState.isValid && !recipientState.isResolving ? recipientState.resolvedAddress : null}
+                chainId={catalog.selectedChainId} />
+            </VStack>
           )}
           <AmountSection token={catalog.selectedToken} preparation={preparation} />
           {preparation.isNativeToken && (

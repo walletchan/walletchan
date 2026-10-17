@@ -25,6 +25,7 @@ interface TransactionDecisionSummaryProps {
   isReadOnly?: boolean;
   onGasOverrides: (overrides: GasOverrides | null) => void;
   onGasValidityChange: (valid: boolean) => void;
+  onGasLoadingChange?: (loading: boolean) => void;
   feePaymentToken: "native" | `0x${string}`;
   feePaymentQuote: FeePaymentQuoteSummary | null;
   onFeePaymentTokenChange: (token: "native" | `0x${string}`) => void;
@@ -45,6 +46,7 @@ export function TransactionDecisionSummary({
   isReadOnly = false,
   onGasOverrides,
   onGasValidityChange,
+  onGasLoadingChange,
   feePaymentToken,
   feePaymentQuote,
   onFeePaymentTokenChange,
@@ -116,6 +118,7 @@ export function TransactionDecisionSummary({
             accountType={accountType}
             onGasOverrides={onGasOverrides}
             onValidityChange={onGasValidityChange}
+            onLoadingChange={onGasLoadingChange}
             forceInclusion={forceInclusion}
             isReadOnly={isReadOnly}
             onFeeSummaryChange={setNativeFeeSummary}

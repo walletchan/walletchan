@@ -280,8 +280,12 @@ test("Unshield separates amount and destination entry from quote review", async 
   );
   assert.match(publicReviewSource, /Select whole deposits from one account/);
   assert.match(publicReviewSource, /They’ll exit in one public transaction/);
-  assert.match(publicReviewSource, /Ledger deposits exit one at a time/);
-  assert.match(publicReviewSource, /preview\.accountType === "ledger" \? 1 : 8/);
+  assert.match(publicReviewSource, /Hardware-wallet deposits exit one at a time/);
+  assert.match(
+    publicReviewSource,
+    /preview\.accountType === "ledger" \|\|[\s\S]{0,100}preview\.accountType === "trezor"/,
+  );
+  assert.match(publicReviewSource, /selectionLimit = isHardwareGroup \? 1 : 8/);
   assert.match(publicReviewSource, /Clear the other account to select/);
   assert.match(publicReviewSource, /I understand this exit is public/);
   assert.match(publicReviewSource, /Withdraw selected deposit/);

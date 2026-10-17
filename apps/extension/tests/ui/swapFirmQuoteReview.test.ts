@@ -172,7 +172,7 @@ test("price changes and cancellation invalidate approval", async () => {
   assert.equal(h.counts().executions, 0);
 });
 
-for (const [account, bridge] of [["ledger", false], ["impersonator", false], ["safe", true]] as const) {
+for (const [account, bridge] of [["ledger", false], ["trezor", false], ["impersonator", false], ["safe", true]] as const) {
   test(`${account} bridge=${bridge}: unsupported paths never prepare or submit`, async () => {
     const h = harness(account, bridge);
     await h.render().stagePlan();

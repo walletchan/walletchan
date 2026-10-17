@@ -1,12 +1,10 @@
+import { ensSubgraphUrl } from "@/constants/externalUrls";
 import { RPC_URLS } from "@/constants/chainRegistry";
 import { fetchTextBounded, parseJsonObjectBounded } from "../network/boundedHttp";
 import { fetchRpcResult } from "../network/rpcClient";
 
-const ENS_SUBGRAPH_ID = "5XqPmWe6gjyrJtFn9cLy237i4cWw2j9HcUJEXsP5qGtH";
 const THE_GRAPH_API_KEY = import.meta.env?.VITE_THE_GRAPH_API_KEY?.trim() ?? "";
-const ENS_SUBGRAPH_URL = THE_GRAPH_API_KEY
-  ? `https://gateway.thegraph.com/api/${THE_GRAPH_API_KEY}/subgraphs/id/${ENS_SUBGRAPH_ID}`
-  : "https://api.thegraph.com/subgraphs/name/ensdomains/ens";
+const ENS_SUBGRAPH_URL = ensSubgraphUrl(THE_GRAPH_API_KEY);
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_RESPONSE_BYTES = 128_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -47,10 +45,10 @@ function normalizeEnsName(value: unknown): string | null {
   return name;
 }
 
-async function querySubgraph(
+export async function querySubgraph(
   stage: "domain-query" | "event-query",
   query: string,
-  variables: Record<string, string>,
+  variables: Record<string, string | string[]>,
 ): Promise<Record<string, unknown>> {
   const body = JSON.stringify({ query, variables });
   const { response, text } = await fetchTextBounded(
@@ -153,6 +151,10 @@ async function fetchLatestContenthashUpdate(name: string): Promise<number | null
     );
   }
 
+  return getEnsHistoryBlockTimestamp(blockNumber);
+}
+
+export async function getEnsHistoryBlockTimestamp(blockNumber: string): Promise<number> {
   const block = await fetchRpcResult(
     RPC_URLS[1],
     "eth_getBlockByNumber",

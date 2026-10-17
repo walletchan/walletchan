@@ -23,7 +23,6 @@ import { keyframes } from "@emotion/react";
 import {
   BellIcon,
   ChevronRightIcon,
-  LockIcon,
   ViewIcon,
   ViewOffIcon,
   WarningTwoIcon,
@@ -32,7 +31,7 @@ import BrandWordmark from "@/components/BrandWordmark";
 import { AppScreen, ScreenBody } from "@/components/ui";
 import DisplayModeMenu from "@/components/DisplayModeMenu";
 import { FingerprintIcon } from "@/components/Settings/icons";
-import UnlockMascot from "@/components/UnlockMascot";
+import UnlockMascotSpotlight from "@/components/UnlockMascotSpotlight";
 import type { UnlockMascotState } from "@/components/unlockMascotState";
 
 interface UnlockViewProps {
@@ -68,45 +67,6 @@ interface UnlockViewProps {
   };
 }
 
-const UnlockMascotSpotlight = ({ state }: { state: UnlockMascotState }) => (
-  <Box
-    position="relative"
-    w="clamp(120px, 36vw, 148px)"
-    h="clamp(120px, 36vw, 148px)"
-    mx="auto"
-    aria-hidden="true"
-  >
-    <Box
-      position="absolute"
-      inset="12%"
-      bg="status.warning.tint"
-      border="1px solid"
-      borderColor="accent.highlight"
-      borderRadius="12px"
-      opacity={0.8}
-      transform="rotate(-7deg)"
-    />
-    <Box position="relative" w="full" h="full">
-      <UnlockMascot state={state} />
-    </Box>
-    <Box
-      position="absolute"
-      right="0"
-      bottom="2px"
-      display="grid"
-      placeItems="center"
-      boxSize="34px"
-      bg="accent.highlight"
-      color="accentFg.highlight"
-      border="3px solid"
-      borderColor="surface.base"
-      borderRadius="8px"
-      transform="rotate(4deg)"
-    >
-      <LockIcon boxSize="16px" />
-    </Box>
-  </Box>
-);
 
 const pendingBellRing = keyframes`
   0%, 5%, 42%, 100% { transform: rotate(0deg); }

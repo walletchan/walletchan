@@ -210,9 +210,8 @@ function BatchTransactionConfirmation(props: BatchTransactionConfirmationProps) 
     : titleOverride
     ? titleOverride.replace(/\s*\([^)]*\)\s*$/, "")
     : calls.length === 1 ? "Transaction request" : "Batch request";
-  const canConfirmBatch =
-    !!customConfirmHandler ||
-    (accountType !== "impersonator" && accountType !== "ledger");
+  const unsupportedHardware = accountType === "ledger" || accountType === "trezor";
+  const canConfirmBatch = !!customConfirmHandler || (accountType !== "impersonator" && !unsupportedHardware);
   const confirmDisabledReason = isIntakeValidating
     ? "Validating request"
     : actions.isRejecting
@@ -369,8 +368,8 @@ function BatchTransactionConfirmation(props: BatchTransactionConfirmationProps) 
         actionNotice={
           accountType === "impersonator" && !customConfirmHandler
             ? <ViewOnlySigningNotice />
-            : accountType === "ledger" && !customConfirmHandler
-              ? <ViewOnlySigningNotice message="Batch transactions are not supported with Ledger yet." />
+            : unsupportedHardware && !customConfirmHandler
+              ? <ViewOnlySigningNotice message={`Batch transactions are not supported with ${accountType === "ledger" ? "Ledger yet" : "Trezor"}.`} />
               : undefined
         }
         confirmAction={canConfirmBatch ? <ConfirmAction

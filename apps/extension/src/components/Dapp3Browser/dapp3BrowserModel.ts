@@ -1,7 +1,13 @@
+import {
+  ensLimoUrl,
+  ensLinkUrl,
+  gnsGatewayUrl,
+  web3GatewayUrl,
+  googleFaviconUrl,
+} from "@/constants/externalUrls";
 import type { EnsBookmark } from "@/chrome/ensBrowsing/bookmarks";
 import type { CachedResolve } from "@/chrome/ensBrowsing/cache";
 import type { BrowserConnectedDapp } from "@/chrome/ensBrowsing/connectedDapps";
-import { googleFaviconUrl } from "@/constants/externalUrls";
 import {
   isAllowedRemoteImageUrl,
   sanitizeTrustedRendererImageSrc,
@@ -91,7 +97,7 @@ export function navigationUrlForTarget(target: Dapp3NavigationTarget): string {
   const path = target.rest || "/";
   return target.kind === "ens"
     ? `http://${target.host}${path}`
-    : `https://${target.address}.w3eth.io${path}`;
+    : `${web3GatewayUrl(target.address)}${path}`;
 }
 
 export function filterConnectedDapps(
@@ -121,16 +127,16 @@ export function connectedFavoriteOrigins(
 function bookmarkGatewayOrigin(bookmark: EnsBookmark): string | null {
   if (bookmark.launchUrl) return null;
   if (bookmark.ensName.endsWith(".wei"))
-    return `https://${bookmark.ensName}.limo`;
-  if (bookmark.ensName.endsWith(".gwei")) return `https://${bookmark.ensName}.domains`;
+    return ensLimoUrl(bookmark.ensName);
+  if (bookmark.ensName.endsWith(".gwei")) return gnsGatewayUrl(bookmark.ensName);
   if (bookmark.kind === "web3" || /^0x[a-f0-9]{40}$/.test(bookmark.ensName)) {
     const label = bookmark.ensName.endsWith(".eth")
       ? bookmark.ensName.slice(0, -4)
       : bookmark.ensName;
-    return `https://${label}.w3eth.io`;
+    return web3GatewayUrl(label);
   }
   if (bookmark.ensName.endsWith(".eth")) {
-    return `https://${bookmark.ensName}.limo`;
+    return ensLimoUrl(bookmark.ensName);
   }
   return null;
 }
@@ -194,16 +200,16 @@ export function favoriteDappBrowserFaviconPageUrl(
 ): string | null {
   if (bookmark.launchUrl) return bookmark.launchUrl;
   if (bookmark.ensName.endsWith(".wei"))
-    return `https://${bookmark.ensName}.limo/`;
-  if (bookmark.ensName.endsWith(".gwei")) return `https://${bookmark.ensName}.domains`;
+    return `${ensLimoUrl(bookmark.ensName)}/`;
+  if (bookmark.ensName.endsWith(".gwei")) return gnsGatewayUrl(bookmark.ensName);
   if (bookmark.kind === "web3" || /^0x[a-f0-9]{40}$/.test(bookmark.ensName)) {
     const label = bookmark.ensName.endsWith(".eth")
       ? bookmark.ensName.slice(0, -4)
       : bookmark.ensName;
-    return `https://${label}.w3eth.io/`;
+    return `${web3GatewayUrl(label)}/`;
   }
   if (bookmark.ensName.endsWith(".eth")) {
-    return `https://${bookmark.ensName}.link/`;
+    return `${ensLinkUrl(bookmark.ensName)}/`;
   }
   return null;
 }

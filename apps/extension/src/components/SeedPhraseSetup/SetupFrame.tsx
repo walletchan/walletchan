@@ -10,6 +10,7 @@ import {
 
 interface SetupFrameProps {
   isOnboarding: boolean;
+  onboardingHeadingOnly?: boolean;
   title: string;
   onBack: () => void;
   action?: ReactNode;
@@ -19,6 +20,7 @@ interface SetupFrameProps {
 
 export function SetupFrame({
   isOnboarding,
+  onboardingHeadingOnly = false,
   title,
   onBack,
   action,
@@ -28,7 +30,9 @@ export function SetupFrame({
   if (isOnboarding) {
     return (
       <VStack spacing={6} w="full" maxW="600px" align="stretch">
-        <HStack w="full" justify="space-between" align="center">
+        {onboardingHeadingOnly ? (
+          <Text as="h1" fontSize="2xl" fontWeight="700" letterSpacing="-0.02em">{title}</Text>
+        ) : <HStack w="full" justify="space-between" align="center">
           <IconButton
             aria-label="Back"
             icon={<ArrowBackIcon />}
@@ -40,7 +44,7 @@ export function SetupFrame({
             {title}
           </Text>
           <Box w="32px" flexShrink={0} />
-        </HStack>
+        </HStack>}
         {children}
         {actionSummary}
         {action}

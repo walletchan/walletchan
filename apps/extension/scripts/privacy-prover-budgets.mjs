@@ -3,7 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const buildRoot = path.join(appRoot, "build");
+const buildRoot = path.join(
+  appRoot,
+  process.env.BROWSER === "firefox" ? "build-firefox" : "build",
+);
 const budgets = JSON.parse(await readFile(
   path.join(appRoot, "privacy-prover.budgets.json"),
   "utf8",

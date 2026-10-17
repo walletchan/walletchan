@@ -1,6 +1,7 @@
 import { Box, Image, Text } from "@chakra-ui/react";
 import type { CompletedTransaction } from "@/chrome/txHistoryStorage";
 import ChainIcon from "@/components/ChainIcon";
+import { resolveChainIconMeta } from "@/lib/chainIcons";
 import SafeImage from "@/components/SafeImage";
 import { googleFaviconUrl } from "@/constants/externalUrls";
 import { INERT_IMAGE_SRC } from "@/hooks/useCachedAvatarSrc";
@@ -80,18 +81,19 @@ function ChainBadge({
   tx,
   zIndex,
 }: Pick<ActivityMediaProps, "tx"> & { zIndex?: number }) {
+  const isTestnet = Boolean(resolveChainIconMeta(tx.chainId, tx.chainName).overlayLabel);
   return (
     <Box
       position="absolute"
       bottom="-2px"
-      right="-2px"
-      w="14px"
-      h="14px"
+      left={isTestnet ? "-2px" : undefined}
+      right={isTestnet ? undefined : "-2px"}
+      w="18px"
+      h="18px"
       borderRadius="full"
       bg="surface.raised"
       border="1px solid"
       borderColor="surface.raised"
-      overflow="hidden"
       display="flex"
       alignItems="center"
       justifyContent="center"
@@ -100,8 +102,9 @@ function ChainBadge({
       <ChainIcon
         chainId={tx.chainId}
         chainName={tx.chainName}
-        size="10px"
+        size="14px"
         withChip
+        testnetLabelPlacement="beside"
       />
     </Box>
   );

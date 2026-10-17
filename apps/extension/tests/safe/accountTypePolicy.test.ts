@@ -18,6 +18,7 @@ const accountTypes: AccountType[] = [
   "privateKey",
   "seedPhrase",
   "ledger",
+  "trezor",
   "impersonator",
   "safeBunker",
   "safe",
@@ -32,9 +33,12 @@ function account(type: AccountType): Account {
     ...(type === "seedPhrase"
       ? { seedGroupId: "seed", derivationIndex: 0 }
       : {}),
-    ...(type === "ledger"
+    ...(type === "ledger" || type === "trezor"
       ? {
-          deviceId: "device",
+          deviceId:
+            type === "trezor"
+              ? "0x2222222222222222222222222222222222222222"
+              : "device",
           hdPath: "m/44'/60'/0'/0/0",
           hdIndex: 0,
         }
@@ -46,11 +50,11 @@ test("one exhaustive policy defines every account type's Safe capabilities", () 
   assert.deepEqual(Object.keys(SAFE_ACCOUNT_TYPE_POLICY), accountTypes);
   assert.deepEqual(
     accountTypes.filter(isSafeOwnerAccountType),
-    ["bankr", "privateKey", "seedPhrase", "ledger"],
+    ["bankr", "privateKey", "seedPhrase", "ledger", "trezor"],
   );
   assert.deepEqual(
     accountTypes.filter(isSafeExecutorAccountType),
-    ["privateKey", "seedPhrase", "ledger"],
+    ["privateKey", "seedPhrase", "ledger", "trezor"],
   );
   assert.deepEqual(
     accountTypes.filter(isSafeFeeTokenExecutorAccountType),
@@ -74,16 +78,19 @@ test("the policy routes existing Safe signers through their central signing path
   assert.equal(getSafeOwnerSigningPath(account("privateKey")), "local");
   assert.equal(getSafeOwnerSigningPath(account("seedPhrase")), "local");
   assert.equal(getSafeOwnerSigningPath(account("ledger")), "ledger");
+  assert.equal(getSafeOwnerSigningPath(account("trezor")), "trezor");
   assert.equal(getSafeOwnerSigningPath(account("impersonator")), null);
   assert.equal(getSafeOwnerSigningPath(account("safe")), null);
 
   assert.equal(getSafeExecutionSigningPath(account("privateKey")), "local");
   assert.equal(getSafeExecutionSigningPath(account("seedPhrase")), "local");
   assert.equal(getSafeExecutionSigningPath(account("ledger")), "ledger");
+  assert.equal(getSafeExecutionSigningPath(account("trezor")), "trezor");
   assert.equal(getSafeExecutionSigningPath(account("bankr")), null);
   assert.equal(canExecuteSafeWithFeeToken(account("privateKey")), true);
   assert.equal(canExecuteSafeWithFeeToken(account("seedPhrase")), true);
   assert.equal(canExecuteSafeWithFeeToken(account("ledger")), false);
+  assert.equal(canExecuteSafeWithFeeToken(account("trezor")), false);
 });
 
 test("Safe eligibility consumers import the central account-type policy", async () => {
