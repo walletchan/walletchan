@@ -9,7 +9,9 @@
 - `PrivateKeyAccountSection.tsx` connects private-key entry to the externally
   placed backup acknowledgment without owning persistence.
 - `SeedPhraseAccountSection.tsx` presents saved seed groups and delegates
-  passkey-gated derive actions back to the composition root.
+  passkey-gated derive actions back to the composition root. The root derives a
+  public `safeBunkerCount` from loaded accounts; the section shows “1 safe bunker”
+  or “N safe bunkers” below the regular account count, keeping the counts separate.
 - `LegacyBiometricUpgradeNotice.tsx` is a presentation-only guard shown before
   private keys or seed phrases can be entered, generated, or derived with a
   signing-only legacy biometric session.

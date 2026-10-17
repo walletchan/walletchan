@@ -93,7 +93,7 @@ export function BunkerNetworkSetup({ group, isNewSource = false, discovery, onBa
               <HStack spacing={2}><ChainIcon chainId={n.chainId} chainName={n.name} size="22px" /><Text fontSize="sm">{n.name}</Text></HStack>
             </Checkbox>
           </ListItem>)}</ListSurface>
-          <Button size="sm" variant="secondary" isLoading={busy} isDisabled={!selected.length || deploying} onClick={() => void add()}>Add selected accounts</Button>
+          <Button size="sm" variant="brand" isLoading={busy} isDisabled={!selected.length || deploying} onClick={() => void add()}>Add selected accounts</Button>
         </VStack>
       </ScreenSection>}
         {!checking && failures.length > 0 && <HStack spacing={2} px={1} minH="32px" align="center">

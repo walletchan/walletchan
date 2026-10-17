@@ -16,6 +16,7 @@ export interface SeedGroupSummary {
   id: string;
   name: string;
   accountCount: number;
+  safeBunkerCount?: number;
 }
 
 interface SeedPhraseAccountSectionProps {
@@ -55,6 +56,7 @@ export function SeedPhraseAccountSection({
                 {group.accountCount}{" "}
                 {group.accountCount === 1 ? "account" : "accounts"}
               </ListItemDescription>
+              {(group.safeBunkerCount ?? 0) > 0 && <ListItemDescription>{group.safeBunkerCount} safe {group.safeBunkerCount === 1 ? "bunker" : "bunkers"}</ListItemDescription>}
             </ListItemContent>
             <ListItemActions>
               <Button

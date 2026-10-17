@@ -2122,9 +2122,10 @@ confirmation, address/copy, fee and account-menu primitives.
 - Add-account Bunker option and Bunker avatars use the info page's amber Safe
   logo. Account avatars retain a bound-chain badge; account-picker subtitles are
   source name · Bunker, and Send contacts label the type Bunker.
-- Saved-source cards align wallet icon, phrase name and Proceed on one top row.
-  Known-chain logos sit below the name, increasing card height, with hover/focus
-  tooltips and no text pills. Only these Proceed buttons have a right chevron.
+- Saved-source cards are compact, fully clickable rows with a wallet icon,
+  phrase name and adjacent known-chain logos. A muted chevron anchors the right
+  edge. Names/logos wrap when needed; chain tooltips remain hoverable, and each
+  row has one keyboard focus target. No separate Proceed button or footer row.
 - Network selection has a compact primary-foreground Deploy on label and full-width
   selector. The selected source name sits top-right; a created or imported source gets a
   small amber superscript new pill during this flow. Created/imported sources
@@ -2149,6 +2150,11 @@ confirmation, address/copy, fee and account-menu primitives.
   and removal. No recovery-details/export page or extra metadata backup. Removal
   uses the existing themed destructive confirmation with account identity and
   seed-backup acknowledgment; Cancel/Escape do not remove the account.
+
+Source-row design audit (2026-10-17): retained the existing compact wallet
+identity and semantic tokens. Verified both themes at 360px/700px, wrapped long
+names/multiple chain icons, and native click/Enter/Space navigation without nested
+focus targets.
 
 Preserve native gas dust notation, contrast, keyboard focus/tooltips, scrolling
 restoration and narrow-width behavior. Confirm/signing authority remains in the

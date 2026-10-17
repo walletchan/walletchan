@@ -2,7 +2,7 @@ import { ChevronRightIcon } from "@chakra-ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { Button, HStack, Spinner, Text, VStack } from "@chakra-ui/react";
 import type { SeedGroup } from "@/chrome/types";
-import { AppHeader, AppScreen, ListItem, ListItemActions, ListItemContent, ListItemMedia, ListItemTitle, ListSurface, ScreenBody, ScreenSection } from "@/components/ui";
+import { AppHeader, AppScreen, ListItem, ListItemContent, ListItemMedia, ListItemTitle, ListSurface, ScreenBody, ScreenSection } from "@/components/ui";
 import { SeedIcon } from "@/components/shared/AccountTypeIcons";
 import { LocalAccountBiometricGateStatus } from "@/components/AddAccount/LegacyBiometricUpgradeNotice";
 import { BunkerSetupIntro } from "./BunkerSetupIntro";
@@ -19,13 +19,21 @@ function SourceSelection({ onBack, onActivated }: { onBack: () => void; onActiva
   if (group) return <BunkerNetworkSetup group={group} isNewSource={addedSeedGroupIds.includes(group.id)} discovery={discovery} onBack={() => { setGroup(null); discovery.refresh(); }} onAdded={onActivated} />;
   return <AppScreen><AppHeader title="Safe Bunker" onBack={onBack} /><ScreenBody pt={5}>
     <VStack align="stretch" spacing={5}>
-      <ScreenSection title="Saved seed phrases"><ListSurface>{discovery.groups.map(saved => <ListItem key={saved.id} flexDirection="column" alignItems="stretch" gap={2}>
-        <HStack spacing={3} w="full" minW={0}>
-          <ListItemMedia><SeedIcon boxSize="18px" color="accent.primary" /></ListItemMedia>
-          <ListItemContent><ListItemTitle>{saved.name}</ListItemTitle></ListItemContent>
-          <ListItemActions><Button variant="secondary" size="sm" onClick={() => setGroup(saved)} rightIcon={<ChevronRightIcon aria-hidden="true" />}>Proceed</Button></ListItemActions>
-        </HStack>
-        <BunkerChainPills iconsOnly networks={discovery.networks} results={discovery.localResults[saved.id] ?? {}} />
+      <ScreenSection title="Saved seed phrases"><ListSurface>{discovery.groups.map(saved => <ListItem
+        key={saved.id}
+        interactive
+        minH="72px"
+        py={4}
+        onClick={() => setGroup(saved)}
+      >
+        <ListItemMedia><SeedIcon boxSize="18px" color="accent.primary" /></ListItemMedia>
+        <ListItemContent>
+          <HStack as="span" spacing={3} flexWrap="wrap" rowGap={2}>
+            <ListItemTitle>{saved.name}</ListItemTitle>
+            <BunkerChainPills iconsOnly networks={discovery.networks} results={discovery.localResults[saved.id] ?? {}} />
+          </HStack>
+        </ListItemContent>
+        <ChevronRightIcon boxSize={5} color="fg.muted" flexShrink={0} aria-hidden="true" />
       </ListItem>)}</ListSurface></ScreenSection>
       {discovery.loading && <HStack role="status"><Spinner size="sm" /><Text fontSize="sm" color="fg.secondary">Loading seed phrases…</Text></HStack>}
       {!discovery.loading && discovery.groups.length === 0 && !discovery.error && <Text color="fg.secondary" fontSize="sm">Create or import a seed phrase to get started.</Text>}

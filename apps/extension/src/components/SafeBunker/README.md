@@ -9,7 +9,8 @@ import and explicit reveal retain their ordinary trusted-UI/master boundaries.
 ## Setup
 
 - BunkerSetupIntro / SafeBunkerDraftScreen: info then saved phrase cards. The top
-  row aligns icon/name/Proceed; known-chain logos sit below with hover/focus names.
+  clickable row aligns icon/name/known-chain logos and a right-edge chevron.
+  The row is the sole focus target; logos retain hover names.
 - BunkerSourceSetup: ordinary create/import with zero implicit EOAs. Deferred backup
   and later EOA derivation use the normal phrase group/vault lifecycle.
 - BunkerNetworkSetup: source name/new badge, Deploy on selector, determined-address

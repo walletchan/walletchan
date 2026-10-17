@@ -7645,8 +7645,8 @@ extra stored signing/phrase capabilities are absent.
 ### Creation and rediscovery
 
 Add account → Safe Bunker → intro → saved seed phrases → network page. Source
-cards show icon/name/Proceed together, with known-chain logos below and hover/focus
-names. Create/import saves a normal phrase group without adding an EOA. The normal
+cards are fully clickable rows with icon/name/known-chain logos together and a
+right-edge chevron. Chain tooltips retain hover names; the row owns keyboard focus. Create/import saves a normal phrase group without adding an EOA. The normal
 backup reminder/reveal covers zero-EOA groups too. The selected source name appears
 in the header, with a flow-local superscript new badge for a phrase created or imported here.
 

@@ -455,7 +455,10 @@ function AddAccount({
     return (
       <AddAccountTypeSelectionScreen
         hasBankrAccount={hasBankrAccount}
-        seedGroups={seedGroups}
+        seedGroups={seedGroups.map(group => ({
+          ...group,
+          safeBunkerCount: allAccounts.filter(account => account.type === "safeBunker" && account.seedGroupId === group.id).length,
+        }))}
         isAuthenticating={isMnemonicAuthenticating}
         onDerive={(groupId) => void openSeedPicker(groupId)}
         onBack={onBack}
