@@ -1,3 +1,4 @@
+import { HomeBunkerRevertWarning } from "./HomeBunkerRevertWarning";
 import { Box, HStack, Text } from "@chakra-ui/react";
 import { ChevronRightIcon } from "@chakra-ui/icons";
 import type { Account, SafeBunkerAccount, SeedPhraseAccount } from "@/chrome/types";
@@ -24,4 +25,11 @@ export function HomeBackupReminder({ accounts, onBackup, onBackupGroup }: {
       <ChevronRightIcon boxSize={4} aria-hidden="true" />
     </HStack>
   </Box>;
+}
+
+/** Home composes both account reminders; navigation stays in App. */
+export function HomeAccountReminders({ account, onRotate, ...backupProps }: Parameters<typeof HomeBackupReminder>[0] & {
+  account: Account | null; onRotate: (account: SafeBunkerAccount) => void;
+}) {
+  return <><HomeBunkerRevertWarning account={account} onRotate={onRotate} /><HomeBackupReminder {...backupProps} /></>;
 }

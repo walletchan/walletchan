@@ -24,6 +24,7 @@ test("wallet reset local and sync manifests retain their exact released keys", (
     "safeBunkerJournalsV2",
     "safeBunkerInboxV1",
     "safeBunkerPendingV1",
+    "safeBunkerRevertWarningsV1",
     "privacyVault",
     "privacyRecoveryBackup",
     "accounts",

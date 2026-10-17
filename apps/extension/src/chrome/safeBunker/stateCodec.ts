@@ -3,7 +3,7 @@ import { isAddress } from "viem";
 import { exactRecord, assertBunkerDraftId } from "./record";
 import type { BunkerState } from "./types";
 
-const statuses = new Set(["queued", "reviewed", "signed", "ambiguous", "pending", "confirmed", "rejected", "invalidated"]);
+const statuses = new Set(["queued", "reviewed", "signed", "ambiguous", "pending", "confirmed", "reverted", "rejected", "invalidated"]);
 export function boundedString(value: unknown, max = 256): asserts value is string {
   if (typeof value !== "string" || !value || value.length > max) throw new Error("Invalid Bunker text");
 }

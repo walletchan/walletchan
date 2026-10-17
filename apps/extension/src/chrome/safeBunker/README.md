@@ -33,6 +33,11 @@ Audit order:
    result delivery and guarded removal. `accounts/seedRemoval.ts` owns shared
    last-account phrase cleanup and deletion of Bunker bindings/journals.
 
+`revertWarning` owns the public account-ID warning projection. Canonical failed
+operations settle without blocking new requests; the unchanged owner may rotate
+to its same unsigned successor. Journal writes and authenticated index repair
+update warnings atomically; the Home banner and shared badge consume hints only.
+
 Storage: `safeBunkerBindingsV2` public headers, `safeBunkerJournalsV2` encrypted
 state, existing unsigned inbox/notification keys. Source and backup belong to
 normal mnemonic groups, including zero-EOA groups. No alpha compatibility reader.

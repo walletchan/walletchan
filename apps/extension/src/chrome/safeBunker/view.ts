@@ -1,3 +1,4 @@
+import { BUNKER_REVERT_WARNINGS_KEY, hasBunkerRevertWarning, readBunkerRevertWarnings } from "./revertWarning";
 import { getStoredResolvedChainById } from "@/lib/chains";
 import { readSignedBunkerDeployment } from "./deploymentPublication";
 import { getBunkerHistoryRotation } from "./historyRotation";
@@ -58,14 +59,16 @@ export async function synchronizeBunkerPendingIndex() {
   const current = captureBunkerAccess(); current();
   await withStorageLock(WALLET_SECRET_STORAGE_LOCK_KEY, async () => {
     const pending: PendingBunkerRequest[] = [];
+    const warnings: string[] = [];
     for (const stored of await loadStoredBunkerStates()) {
       const state = await readBunkerState(stored.id, current());
-      if (state) pending.push(...projectBunkerPending(state));
+      if (state) { pending.push(...projectBunkerPending(state)); if (hasBunkerRevertWarning(state)) warnings.push(state.accountId); }
     }
     const previous = await readBunkerPendingIndex();
     const sort = (items: typeof pending) => items.sort((a, b) => a.id.localeCompare(b.id));
-    if (JSON.stringify(sort(previous)) !== JSON.stringify(sort(pending))) {
-      current(); await chrome.storage.local.set({ [BUNKER_PENDING_KEY]: pending });
+    const previousWarnings = await readBunkerRevertWarnings();
+    if (JSON.stringify(sort(previous)) !== JSON.stringify(sort(pending)) || JSON.stringify(previousWarnings.sort()) !== JSON.stringify(warnings.sort())) {
+      current(); await chrome.storage.local.set({ [BUNKER_PENDING_KEY]: pending, [BUNKER_REVERT_WARNINGS_KEY]: warnings });
       notifyBunkerPendingChanged();
     }
     current();

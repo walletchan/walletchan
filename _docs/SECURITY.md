@@ -3094,6 +3094,13 @@ Exact retired built-in RPC defaults may normalize by canonical chain/URL; custom
 endpoints/credentials are not rewritten. Neither behavior relaxes identity/code/
 nonce/receipt/release gates.
 
+safeBunkerRevertWarningsV1 contains only Bunker account IDs, is rebuilt from
+authenticated journals and is written atomically with the pending index/journal.
+It carries no authority. Canonical confirmed reverts do not block new requests;
+the current signer remains exposed until a verified owner rotation succeeds.
+A disclosed successor address without a signature is reusable. Retain all normal
+master, account, origin, nonce, simulation and final-release checks.
+
 safeBunkerPendingV1 contains only request ID, account ID and creation time; no
 calls, origins, payer, signatures or secrets. It merges with the unsigned inbox
 by ID, can be read for badges while locked and never grants authority. Journal

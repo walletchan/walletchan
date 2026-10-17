@@ -23,7 +23,7 @@ import type { SafeCall } from "../safe/types";
 import type { GasOverrides } from "../transactions/localExecution";
 import type { BunkerOperation, BunkerRoute } from "./types";
 
-export const outstanding = (o: BunkerOperation) => !!o.signature && !["confirmed", "invalidated"].includes(o.state);
+export const outstanding = (o: BunkerOperation) => !!o.signature && !["confirmed", "reverted", "invalidated"].includes(o.state);
 export async function stateForAccount(accountId: string) {
   const account = await getAccountById(accountId);
   if (!account || account.type !== "safeBunker") throw new Error("Bunker account not found");
@@ -46,7 +46,9 @@ export async function queueBunkerOperation(input: { accountId: string; chainId: 
     }
     if (state.operations.length >= 90) {
       const retained = new Set(state.operations.filter((o) => o.receipt).slice(-10).map((o) => o.id));
-      state.operations = state.operations.filter((o) => retained.has(o.id) || !["rejected", "invalidated", "confirmed"].includes(o.state) || o.state === "confirmed" && !o.published || o.state === "rejected" && !o.resultPublished);
+      const warning = [...state.operations].reverse().find(o => o.state === "reverted" && o.review?.ownerIndex === state.ownerIndex);
+      if (warning) retained.add(warning.id);
+      state.operations = state.operations.filter((o) => retained.has(o.id) || !["rejected", "invalidated", "confirmed", "reverted"].includes(o.state) || ["confirmed", "reverted"].includes(o.state) && !o.published || o.state === "rejected" && !o.resultPublished);
     }
     if (state.operations.length >= 100) throw new Error("Bunker activity limit reached; archive settled activity first");
     if (input.recovery && input.calls.length) throw new Error("Recovery cannot spend funds");
@@ -76,7 +78,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
   try {
     const state = await bunkerStep("state", () => stateForAccount(accountId)); current();
     const baseline = reviewSnapshot(state); const op = state.operations.find((o) => o.id === id);
-    if (!op || ["confirmed", "rejected", "invalidated"].includes(op.state)) throw new Error("Bunker operation is unavailable");
+    if (!op || ["confirmed", "reverted", "rejected", "invalidated"].includes(op.state)) throw new Error("Bunker operation is unavailable");
     if (state.recovery) throw new Error("Complete recovery scan first");
     if (op.kind === "recovery") captureBunkerAccess()();
     if (state.exposureUnknown && op.kind !== "recovery") throw new Error("Rotate the restored owner before spending");
@@ -128,7 +130,7 @@ export async function confirmBunkerOperation(accountId: string, id: string, dige
   const account = await getAccountById(accountId); if (account?.type !== "safeBunker") throw new Error("Bunker not found");
   return withStorageLock(`bunker:${account.bunkerId}`, async () => {
     let state = await stateForAccount(accountId); let op = state.operations.find((o) => o.id === id);
-    if (!op?.review || op.review.digest !== digest || op.review.expiresAt < Date.now() || ["confirmed", "rejected", "invalidated"].includes(op.state)) throw new Error("Review this Bunker operation again");
+    if (!op?.review || op.review.digest !== digest || op.review.expiresAt < Date.now() || ["confirmed", "reverted", "rejected", "invalidated"].includes(op.state)) throw new Error("Review this Bunker operation again");
     if (op.kind === "recovery") captureBunkerAccess()();
     if (state.recovery) throw new Error("Complete recovery scan first");
     if (op.outer) throw new Error("Check the submitted transaction before retrying");

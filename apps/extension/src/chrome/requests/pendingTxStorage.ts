@@ -235,9 +235,13 @@ export async function updateBadge(): Promise<void> {
   // but it must never inflate or obscure the actionable approval count.
   const count = approvalCount || (dappConnectionRequests.length > 0 ? 1 : 0);
 
-  if (count > 0) {
-    await chrome.action.setBadgeText({ text: count.toString() });
-    await chrome.action.setBadgeBackgroundColor({ color: "#3B82F6" });
+  const { readBunkerRevertWarnings } = await import("../safeBunker/revertWarning");
+  const { getAccounts } = await import("../accountStorage");
+  const warningIds: string[] = await readBunkerRevertWarnings().catch(() => []);
+  const hasRevertWarning = (await getAccounts()).some(account => account.type === "safeBunker" && warningIds.includes(account.id));
+  if (count > 0 || hasRevertWarning) {
+    await chrome.action.setBadgeText({ text: count > 0 ? count.toString() : "•" });
+    await chrome.action.setBadgeBackgroundColor({ color: hasRevertWarning ? "#DC2626" : "#3B82F6" });
   } else {
     await chrome.action.setBadgeText({ text: "" });
   }

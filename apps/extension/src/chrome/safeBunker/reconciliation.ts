@@ -1,3 +1,6 @@
+import { bunkerExecutionData } from "./transaction";
+import { getTxById } from "../txHistoryStorage";
+import { getBunkerHistoryRotation } from "./historyRotation";
 import { ensureBunkerDeploymentHistory } from "./deploymentPublication";
 import { ensureBunkerHistory } from "./history";
 import { cancelUnauthorizedBunkerRequests } from "./cancellation";
@@ -42,8 +45,16 @@ export async function reconcileBunker(id: string, client: PublicClient) {
         op.error = "Chain reorganization detected. Recovery required."; op.published = false; delete op.receipt; changed = true;
       }
     }
-    for (const op of state.operations.filter(outstanding).slice(0, 5)) {
+    for (const op of [...state.operations.filter(outstanding), ...state.operations.filter(o => o.state === "reverted" && o.review?.ownerIndex === state.ownerIndex).reverse()].slice(0, 5)) {
       let hash: Hex | undefined = op.outer?.hash;
+      // Earlier builds discarded the outer hash after a revert. Recover the public
+      // Activity hint, then verify the canonical receipt before upgrading its state.
+      if (!hash && op.state === "signed" && op.error === "Execution reverted; owner unchanged. Review to retry or recover.") {
+        const hint = (await getTxById(`bunker:${state.accountId}:${op.id}`))?.txHash as Hex | undefined;
+        const transaction = hint ? await client.getTransaction({ hash: hint }).catch(() => null) : null;
+        if (transaction?.to?.toLowerCase() === state.plan.address && op.review && op.signature &&
+            transaction.input.toLowerCase() === bunkerExecutionData(op.review.transaction, op.signature).toLowerCase()) hash = hint;
+      }
       let receipt = hash ? await client.getTransactionReceipt({ hash }).catch(() => null) : null;
       if (!receipt || receipt.status !== "success") {
         const from = BigInt(op.scanBlock ?? state.plan.fromBlock);
@@ -57,7 +68,20 @@ export async function reconcileBunker(id: string, client: PublicClient) {
         }
       }
       if (!receipt || receipt.status !== "success") {
-        if (receipt?.status === "reverted") { op.error = "Execution reverted; owner unchanged. Review to retry or recover."; op.state = "signed"; delete op.outer; changed = true; }
+        if (receipt?.status === "reverted" && op.state !== "reverted") {
+          if (head < receipt.blockNumber + BUNKER_CONFIRMATIONS - 1n) continue;
+          const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+          if (block.hash !== receipt.blockHash) continue;
+          op.state = "reverted"; op.error = "Last Tx reverted, Rotate owner"; op.published = false;
+          op.receipt = { hash: receipt.transactionHash, block: receipt.blockNumber.toString(), blockHash: receipt.blockHash, timestamp: Number(block.timestamp) * 1000 };
+          const next = getBunkerHistoryRotation(state.plan.address, op.review)?.newOwner.toLowerCase();
+          // Publishing a successor address does not expose a signature from it.
+          // Release this failed attempt's reservation, preserving other live reservations.
+          if (next && !state.operations.some(other => other.id !== op.id && other.signature && other.state !== "reverted" &&
+              other.state !== "invalidated" && getBunkerHistoryRotation(state.plan.address, other.review)?.newOwner.toLowerCase() === next))
+            state.usedOwners = state.usedOwners.filter(owner => owner !== next);
+          changed = true;
+        }
         continue;
       }
       if (head < receipt.blockNumber + BUNKER_CONFIRMATIONS - 1n) continue;
@@ -88,6 +112,10 @@ export async function reconcileBunker(id: string, client: PublicClient) {
     if (changed) await writeBunkerState(state, current);
     for (const op of state.operations.filter((o) => o.state === "invalidated" && !o.published)) {
       await publishBunkerRoutes(state, op, "rejected"); current(); op.published = true;
+      await writeBunkerState(state, current);
+    }
+    for (const op of state.operations.filter((o) => o.state === "reverted" && !o.published)) {
+      await publishBunkerRoutes(state, op, "reverted", await client.getTransactionReceipt({ hash: op.receipt!.hash })); current(); op.published = true;
       await writeBunkerState(state, current);
     }
     for (const op of state.operations.filter((o) => o.state === "confirmed" && !o.published)) {

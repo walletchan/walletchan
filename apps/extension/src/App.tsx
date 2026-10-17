@@ -135,7 +135,7 @@ import {
 import { SafeApprovalsSurface, SafeFeatureUnavailable, SafeHomeActivity, SafeHomeApprovalRail, SafeHomeQuickActions } from "@/app/SafeAppSurfaces";
 import { toLegacyAccountType } from "@/app/safeAccountType";
 import { SeedGroupBackupSurface } from "@/app/SeedGroupBackupSurface";
-import { HomeBackupReminder } from "@/app/home/HomeBackupReminder";
+import { HomeAccountReminders } from "@/app/home/HomeBackupReminder";
 import { PrivatePortfolioHome, useWalletHomeMode, WalletModeToggle } from "@/app/home";
 import type { UnshieldOperation } from "@/components/Shield/model/unshield";
 import PrivacyActionRoute from "@/app/screens/PrivacyActionRoute";
@@ -234,7 +234,7 @@ function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccount, setActiveAccount] = useState<Account | null>(null);
   const [settingsAccount, setSettingsAccount] = useState<Account | null>(null);
-  const [accountSettingsReturnTarget, setAccountSettingsReturnTarget] = useState<"home" | "settingsAccounts" | "backup">("home");
+  const [accountSettingsReturnTarget, setAccountSettingsReturnTarget] = useState<"home" | "settingsAccounts" | "backup" | "bunkerRotation">("home");
   const [isAccountPickerOpen, setIsAccountPickerOpen] = useState(false);
   const [accountSettingsInitialView, setAccountSettingsInitialView] =
     useState<AccountSettingsSubView>("settings");
@@ -2367,7 +2367,7 @@ function App() {
                 setAccountSettingsInitialView("settings");
                 setAccountSettingsApiKeyDraft(null);
                 if (accountSettingsReturnTarget === "settingsAccounts") { setSettingsInitialTab("accounts"); setView("settings"); }
-                else { setIsAccountPickerOpen(accountSettingsReturnTarget !== "backup"); setView("main"); }
+                else { setIsAccountPickerOpen(accountSettingsReturnTarget === "home"); setView("main"); }
               }}
               onAccountUpdated={loadAccounts}
               onBunkerSubmitted={handleBunkerSubmitted}
@@ -3476,7 +3476,7 @@ function App() {
               onAccountPickerOpenChange={setIsAccountPickerOpen}
               onAccountsReordered={setAccounts}
             />}
-            <HomeBackupReminder onBackupGroup={(id) => { setBackupGroupId(id); setView("seedGroupBackup"); }} accounts={accounts} onBackup={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("backup"); setAccountSettingsInitialView("revealSeedPhrase"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} />
+            <HomeAccountReminders account={activeAccount} onRotate={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("bunkerRotation"); setAccountSettingsInitialView("rotateBunkerOwner"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} onBackupGroup={(id) => { setBackupGroupId(id); setView("seedGroupBackup"); }} accounts={accounts} onBackup={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("backup"); setAccountSettingsInitialView("revealSeedPhrase"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} />
 
             {walletHomeMode === "public" && activeAccount?.type === "safe" && (
               <SafeHomeApprovalRail

@@ -1,3 +1,4 @@
+import { BUNKER_REVERT_WARNINGS_KEY, hasBunkerRevertWarning, readBunkerRevertWarnings } from "./revertWarning";
 import { BUNKER_PENDING_KEY, readBunkerPendingIndex, projectBunkerPending, notifyBunkerPendingChanged } from "./pendingRequests";
 import { decodeBase64Bounded, decodeBase64Exact } from "../cryptography/base64";
 import { getCachedVaultKey } from "../sessionCache";
@@ -42,8 +43,10 @@ export async function writeBunkerState(state: BunkerState, current: () => Crypto
     const old = stored.find((e) => e.id === state.id); const revision = (old?.revision ?? 0) + 1;
     const cipher = await encryptBunkerState(entry, key, revision, checked);
     const pending = (await readBunkerPendingIndex()).filter((item) => item.accountId !== state.accountId);
+    const warnings = (await readBunkerRevertWarnings()).filter(id => id !== state.accountId);
+    if (hasBunkerRevertWarning(checked)) warnings.push(state.accountId);
     current();
-    await chrome.storage.local.set({ ...extra, [BUNKER_PENDING_KEY]: [...pending, ...projectBunkerPending(checked)], [BUNKER_STATE_KEY]: { version: 2,
+    await chrome.storage.local.set({ ...extra, [BUNKER_REVERT_WARNINGS_KEY]: warnings, [BUNKER_PENDING_KEY]: [...pending, ...projectBunkerPending(checked)], [BUNKER_STATE_KEY]: { version: 2,
       entries: [...stored.filter((e) => e.id !== state.id), { id: state.id, revision, cipher }] } });
     current();
     notifyBunkerPendingChanged();

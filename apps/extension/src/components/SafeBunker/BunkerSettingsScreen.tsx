@@ -18,14 +18,15 @@ import { bunkerCommand } from "./transport";
 import { useBunkerSettings } from "./useBunkerSettings";
 
 type Destination = "deployment" | "settings" | "phrase" | "recover";
-export function BunkerSettingsScreen({ account, accounts, onBack, onAccountUpdated, onSubmitted }: {
+export function BunkerSettingsScreen({ account, accounts, onBack, onAccountUpdated, onSubmitted, initialScreen = "settings" }: {
+  initialScreen?: "settings" | "recover";
   account: SafeBunkerAccount; accounts: Account[]; onBack: () => void;
   onAccountUpdated: () => void | Promise<unknown>; onSubmitted: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const scrollTop = useRef(0);
   const { restore: restoreScroll, cancel: cancelScrollRestore } = useScreenScrollRestoration(container);
-  const [screen, setScreen] = useState<Destination>("settings");
+  const [screen, setScreen] = useState<Destination>(initialScreen);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteStep, setDeleteStep] = useState<AccountRemovalStep>("review");
   const [recoveryId, setRecoveryId] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export function BunkerSettingsScreen({ account, accounts, onBack, onAccountUpdat
   const unresolved = view?.operations.some((op) => isBunkerApprovalPending(op) || isBunkerExecutionInFlight(op));
   const removeBlocked = accounts.length <= 1 ? "You cannot remove your last account." : unresolved ? "Resolve pending Bunker requests and submitted transactions before removing this account." : undefined;
   const recover = () => void run("recover", async () => {
+    if (masterOnly) throw new Error("Unlock with your master password");
     let next = view;
     if (view?.recovering) {
       await bunkerCommand({ type: "continueSafeBunkerRecovery", id: account.bunkerId });
@@ -60,7 +62,7 @@ export function BunkerSettingsScreen({ account, accounts, onBack, onAccountUpdat
   if (screen === "deployment") return <BunkerDeploymentScreen id={account.bunkerId} onBack={back} onActivated={onSubmitted} />;
   if (recoveryId) return <BunkerAccountScreen rejectOnBack account={account} initialRequestId={recoveryId} onBack={() => { setRecoveryId(null); void load().catch(() => {}); }} onSubmitted={onSubmitted} />;
   if (screen === "phrase") return <RevealSeedPhrase account={null} seedGroupIdOverride={account.seedGroupId} onBack={back} />;
-  if (view && screen === "recover") return <BunkerRotationScreen account={displayAccount} view={view} busy={!!busy} error={error} onBack={back} onRecover={recover} />;
+  if (view && screen === "recover") return <BunkerRotationScreen account={displayAccount} view={view} busy={!!busy} error={error} onBack={back} onRecover={recover} canRotate={!masterOnly} />;
   const closeRemoval = () => { if (!busy) { setIsDeleteOpen(false); setDeleteStep("review"); setError(""); } };
   const remove = () => {
     if (deleteStep !== "final" || masterOnly || !view || removeBlocked) return;

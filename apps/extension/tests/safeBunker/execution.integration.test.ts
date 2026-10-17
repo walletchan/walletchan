@@ -443,6 +443,70 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
       assert.equal(state.ownerIndex, index); assert.equal(state.exposureUnknown, false);
       assert.equal(state.operations.filter(o => o.kind === "recovery").length, recoveryCount, "restore adds no recovery transaction");
     });
+    await t.test("onchain reverts warn without blocking n to n+1, cleared by spending or manual rotation", async () => {
+      const { hasBunkerRevertWarning, readBunkerRevertWarnings } = await import("../../src/chrome/safeBunker/revertWarning");
+      const { getPendingBunkerRequests } = await import("../../src/chrome/safeBunker/pendingRequests");
+      const { synchronizeBunkerPendingIndex } = await import("../../src/chrome/safeBunker/view");
+      const { getTxById } = await import("../../src/chrome/txHistoryStorage");
+      const { updateBadge } = await import("../../src/chrome/requests/pendingTxStorage");
+      let badgeText = "", badgeColor: unknown;
+      (chrome as any).action = { setBadgeText: async ({ text }: any) => { badgeText = text; }, setBadgeBackgroundColor: async ({ color }: any) => { badgeColor = color; } };
+      for (const [n, resolution] of ["transaction", "recovery"].entries()) {
+        const before = await stateForAccount(state.accountId);
+        const opId = await create(900 + n);
+        const reviewed = await reviewBunkerOperation(state.accountId, opId, "payer", client);
+        assert.equal(reviewed.review!.nextIndex, before.ownerIndex + 1);
+        // The target changes after exact simulation, before mining: a real onchain revert.
+        const raced = { ...client, call: async (args: any) => {
+          const result = await client.call(args);
+          await client.request({ method: "anvil_setCode" as any, params: [address, "0x60006000fd"] as any });
+          return result;
+        } } as typeof client;
+        await confirmBunkerOperation(state.accountId, opId, reviewed.review!.digest, false, raced);
+        await reconcileBunker(id, client);
+        assert.equal(hasBunkerRevertWarning(await stateForAccount(state.accountId)), false, "wait for canonical confirmations");
+        await mine();
+        if (n === 0) {
+          const legacy = await stateForAccount(state.accountId);
+          const attempt = legacy.operations.find(o => o.id === opId)!;
+          attempt.state = "signed"; delete attempt.outer;
+          attempt.error = "Execution reverted; owner unchanged. Review to retry or recover.";
+          const { writeBunkerState } = await import("../../src/chrome/safeBunker/stateRepository");
+          await writeBunkerState(legacy, captureBunkerAccess());
+        }
+        await reconcileBunker(id, client);
+        let failed = await stateForAccount(state.accountId);
+        assert.equal(failed.ownerIndex, before.ownerIndex);
+        assert.equal(failed.operations.find(o => o.id === opId)!.state, "reverted");
+        assert.equal((await getTxById(`bunker:${state.accountId}:${opId}`))?.status, "failed");
+        assert.deepEqual(await getPendingBunkerRequests(), [], "revert never reappears as an approval");
+        assert.deepEqual(await readBunkerRevertWarnings(), [state.accountId]);
+        await updateBadge(); assert.equal(badgeText, "•"); assert.equal(badgeColor, "#DC2626");
+        cache.setCachedVaultKey(null);
+        assert.deepEqual(await readBunkerRevertWarnings(), [state.accountId], "public notification survives locked reads");
+        unlock();
+        assert.ok(hasBunkerRevertWarning(await stateForAccount(state.accountId)), "warning survives lock and authenticated reread");
+        const journal = JSON.stringify(local.safeBunkerJournalsV2);
+        delete local.safeBunkerRevertWarningsV1;
+        await synchronizeBunkerPendingIndex(); await synchronizeBunkerPendingIndex();
+        assert.deepEqual(await readBunkerRevertWarnings(), [state.accountId]);
+        assert.equal(JSON.stringify(local.safeBunkerJournalsV2), journal, "idempotent notification repair preserves journal");
+        await client.request({ method: "anvil_setCode" as any, params: [address, "0x"] as any });
+        const replacementId = resolution === "transaction" ? await create(910 + n) : (await createBunkerRecoveryOperation(state.accountId, client) as { id: string }).id;
+        const replacement = await reviewBunkerOperation(state.accountId, replacementId, "payer", client);
+        assert.equal(replacement.review!.nextIndex, reviewed.review!.nextIndex, "reuse the disclosed but unsigned n+1 address");
+        await updateBadge(); assert.equal(badgeText, "1"); assert.equal(badgeColor, "#DC2626", "warning coexists with approval counts");
+        await confirmBunkerOperation(state.accountId, replacementId, replacement.review!.digest, false, client);
+        assert.deepEqual(await readBunkerRevertWarnings(), [state.accountId], "submission cannot clear warning");
+        await mine(); await reconcileBunker(id, client); state = await stateForAccount(state.accountId);
+        assert.equal(state.ownerIndex, before.ownerIndex + 1);
+        assert.equal(hasBunkerRevertWarning(state), false);
+        assert.deepEqual(await readBunkerRevertWarnings(), []);
+        await updateBadge(); assert.equal(badgeText, "");
+        await reconcileBunker(id, client);
+        assert.deepEqual(await readBunkerRevertWarnings(), [], "old reverted attempts cannot restore warning after rotation");
+      }
+    });
     await t.test("master removal clears operational data and repairs selection", async () => {
       const { removeBunkerAccount } = await import("../../src/chrome/safeBunker/management");
       const restoredId = id;

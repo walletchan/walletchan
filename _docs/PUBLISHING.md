@@ -391,6 +391,10 @@ Before releasing Bunker changes:
   records; last-source-account removal clears the phrase/group too. Verify both
   removal orders with mixed regular/Bunker accounts and Bunkers across chains.
   No extra recovery-details backup is required.
+- Verify canonical onchain reverts show the red Home rotation shortcut and badge,
+  survive reload/lock, permit a new request with the same n+1, and clear only after
+  successful confirmed spending or manual rotation. Check multiple accounts,
+  approval-count coexistence, failed Activity/bundle receipts and index repair.
 - Disclose chain/infrastructure restrictions and incompatible-alpha limitations.
   Do not downgrade to a build unaware of the current identity/journal keys.
 

@@ -12,6 +12,7 @@ export interface AccountSettingsProps {
   onApiKeyDraftChange?: (draft: BankrConfigDraft | null) => void;
 }
 export type AccountSettingsSubView =
+  | "rotateBunkerOwner"
   | "settings"
   | "changeApiKey"
   | "revealPrivateKey"

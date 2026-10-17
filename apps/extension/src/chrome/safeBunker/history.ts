@@ -15,7 +15,7 @@ export function buildBunkerHistory(state: BunkerState, op: BunkerOperation): Com
   if (!hash) return null;
   return {
     id: bunkerHistoryId(state, op), chainId: state.chainId, chainName: state.chainName, createdAt: op.createdAt,
-    completedAt: op.receipt?.timestamp, status: op.state === "confirmed" ? "success" : op.state === "invalidated" ? "dropped" : "pending",
+    completedAt: op.receipt?.timestamp, status: op.state === "confirmed" ? "success" : op.state === "reverted" ? "failed" : op.state === "invalidated" ? "dropped" : "pending",
     origin: op.routes.map((r) => r.origin).join(", ").slice(0, 512), favicon: null,
     txHash: hash, accountId: state.accountId,
     functionName: op.kind === "recovery" ? "Owner rotation" : undefined,
@@ -33,8 +33,8 @@ export async function ensureBunkerHistory(state: BunkerState, op: BunkerOperatio
   if (JSON.stringify(stored.safeBunkerMeta) !== JSON.stringify(entry.safeBunkerMeta) || stored.functionName !== entry.functionName) {
     await updateTxInHistory(entry.id, { safeBunkerMeta: entry.safeBunkerMeta, functionName: entry.functionName });
   }
-  if (op.state === "confirmed" && (stored.status !== "success" || stored.txHash !== entry.txHash)) {
-    await updateTxInHistory(entry.id, { status: "success", txHash: entry.txHash, completedAt: entry.completedAt });
+  if (["confirmed", "reverted"].includes(op.state) && (stored.status !== entry.status || stored.txHash !== entry.txHash)) {
+    await updateTxInHistory(entry.id, { status: entry.status, txHash: entry.txHash, completedAt: entry.completedAt });
   }
   if (op.state === "confirmed" && !stored.assetChanges) void startReceiptAssetChangeExtraction(entry.id, entry.txHash!, state.chainId);
   const outer = op.outer;

@@ -181,8 +181,14 @@ creation's footer state. Confirm remains disabled until review/preview gates pas
   `signing`, `checking`, `broadcasting`, `submitted`. They grant no authority.
   Durable submission selects the Bunker and returns to Home Activity.
 - Ambiguous outcomes retain exposure and retry identical serialized outer bytes.
-  There is no automatic rebroadcast or new-signature retry. Reverts do not make
-  an exposed owner safe to reuse for another intent.
+  There is no automatic rebroadcast. A canonically confirmed outer revert settles
+  the operation as `reverted`, preserves failed Activity and allows new requests
+  or manual rotation from the still-current owner n to the same successor n+1.
+  Disclosure of n+1 without a signature does not consume that owner. Home shows
+  the red “Last Tx reverted, Rotate owner” shortcut and the extension badge is
+  red (a dot when there are no approvals). Only a confirmed owner change clears
+  the warning; submission, reload, lock and account switching do not. This is an
+  advisory warning, not an execution block or a claim that owner n is unexposed.
 - Settlement requires canonical ExecutionSuccess/hash, owner-change evidence and
   compatible live owner/nonce after three confirmations. Recent block anchors
   detect reorgs; unresolved exposure requires recovery. External nonrotating

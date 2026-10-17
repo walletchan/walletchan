@@ -9,7 +9,7 @@ import { updateTxInHistory } from "../txHistoryStorage";
 import { ensureBunkerHistory } from "./history";
 import type { BunkerOperation, BunkerState } from "./types";
 
-export async function publishBunkerRoutes(state: BunkerState, op: BunkerOperation, stage: "submitted" | "confirmed" | "rejected", receipt?: TransactionReceipt) {
+export async function publishBunkerRoutes(state: BunkerState, op: BunkerOperation, stage: "submitted" | "confirmed" | "reverted" | "rejected", receipt?: TransactionReceipt) {
   const hash = op.receipt?.hash ?? op.outer?.hash;
   for (const route of op.routes) {
     if (route.kind === "batch") {
@@ -21,7 +21,7 @@ export async function publishBunkerRoutes(state: BunkerState, op: BunkerOperatio
         if (!await getBundleStatus(route.requestId)) await saveBundleStatus({ id: route.requestId, chainId: state.chainId, status: BUNDLE_STATUS.PENDING, atomic: true, createdAt: op.createdAt,
           origin: route.origin, ...(route.topic && route.remoteId !== undefined ? { walletConnect: { topic: route.topic, requestId: route.remoteId, method: "wallet_sendCalls" } } : {}) });
         if (!op.resultPublished) await writeResultToStorage(`batchTxAck:${route.requestId}`, { success: true, id: route.requestId });
-        await updateBundleStatus(route.requestId, { txHash: hash, ...(stage === "confirmed" ? { status: BUNDLE_STATUS.CONFIRMED, completedAt: Date.now(), ...(receipt ? { receipts: [{ status: "0x1" as const, transactionHash: receipt.transactionHash,
+        await updateBundleStatus(route.requestId, { txHash: hash, ...(["confirmed", "reverted"].includes(stage) ? { status: stage === "reverted" ? BUNDLE_STATUS.REVERTED : BUNDLE_STATUS.CONFIRMED, completedAt: Date.now(), ...(receipt ? { receipts: [{ status: (stage === "reverted" ? "0x0" : "0x1") as "0x0" | "0x1", transactionHash: receipt.transactionHash,
           blockHash: receipt.blockHash, blockNumber: toHex(receipt.blockNumber), gasUsed: toHex(receipt.gasUsed), logs: receipt.logs.map((l) => ({ address: l.address as Hex, topics: [...l.topics], data: l.data })) }] } : {}) } : {}) });
       }
     } else if (route.kind !== "wallet" && !op.resultPublished) {

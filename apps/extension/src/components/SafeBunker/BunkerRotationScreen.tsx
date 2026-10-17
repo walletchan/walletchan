@@ -4,12 +4,13 @@ import type { BunkerAccountView } from "@/chrome/safeBunker/types";
 import { AppHeader, AppScreen, ScreenBody, StickyActionBar } from "@/components/ui";
 import AccountSettingsIdentity from "@/components/AccountSettingsIdentity";
 
-export function BunkerRotationScreen({ account, view, busy, error, onBack, onRecover }: {
+export function BunkerRotationScreen({ account, view, busy, error, onBack, onRecover, canRotate = true }: {
+  canRotate?: boolean;
   account: SafeBunkerAccount; view: BunkerAccountView;
   busy: boolean; error: string;
   onBack: () => void; onRecover: () => void;
 }) {
-  const exposed = view.operations.some((op) => ["signed", "pending", "ambiguous"].includes(op.state));
+  const exposed = view.operations.some((op) => ["signed", "pending", "ambiguous"].includes(op.state) || op.state === "reverted" && op.rotation?.oldIndex === view.ownerIndex);
   return <AppScreen>
     <AppHeader title="Rotate owner" onBack={onBack} isBackDisabled={busy} />
     <ScreenBody pt={5}><VStack align="stretch" spacing={5}>
@@ -18,9 +19,10 @@ export function BunkerRotationScreen({ account, view, busy, error, onBack, onRec
         {view.recovering && <Box p={3} bg="surface.raised" borderRadius="lg"><Text fontSize="sm" fontWeight="600">Owner scan in progress</Text><Text fontSize="sm" color="fg.secondary" mt={1}>{view.recoveryProgress}</Text></Box>}
         {exposed && <Alert status="warning" alignItems="start"><AlertIcon /><Text fontSize="sm">An earlier signed transaction can still execute before recovery. Recovery does not cancel it.</Text></Alert>}
         {view.exposureUnknown && !view.recovering && <Alert status="warning" alignItems="start"><AlertIcon /><Text fontSize="sm">Complete an owner recovery before sending transactions.</Text></Alert>}
+      {!canRotate && <Text fontSize="sm" color="fg.secondary">Unlock with your master password to rotate the owner.</Text>}
       {error && <Text role="alert" fontSize="sm" color="status.error.emphasis" overflowWrap="anywhere">{error}</Text>}
     </VStack></ScreenBody>
     <StickyActionBar secondaryAction={<Button variant="secondary" onClick={onBack} isDisabled={busy}>Cancel</Button>}
-      primaryAction={<Button variant="brand" isLoading={busy} loadingText={view.recovering ? "Scanning…" : "Preparing…"} onClick={onRecover}>{view.recovering ? "Continue recovery scan" : "Review rotation"}</Button>} />
+      primaryAction={<Button variant="brand" isDisabled={!canRotate} isLoading={busy} loadingText={view.recovering ? "Scanning…" : "Preparing…"} onClick={onRecover}>{view.recovering ? "Continue recovery scan" : "Review rotation"}</Button>} />
   </AppScreen>;
 }

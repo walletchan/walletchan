@@ -506,6 +506,7 @@ cleanup changes no stored shape and requires no migration.
 | safeBunkerBindingsV2 | Optional `{ version: 2, entries: [{ header }] }`, at most 100 public source/chain identities. | safeBunker/record.ts, repository.ts, drafts.ts |
 | safeBunkerJournalsV2 | Optional `{ version: 2, entries: [{ id, revision, cipher: { iv, ciphertext } }] }`; encrypted operations, exposure, deployment evidence and payer preference. | safeBunker/stateRepository.ts, stateCodec.ts, crypto.ts |
 | safeBunkerInboxV1 | Bounded unsigned public request queue, with account/chain/CALLs and worker-authored provenance. | safeBunker/inbox.ts |
+| safeBunkerRevertWarningsV1 | Optional array of at most 100 Bunker account IDs with a confirmed revert under their current owner; notification hints only. | safeBunker/revertWarning.ts, stateRepository.ts |
 | safeBunkerPendingV1 | Array of `{ id, accountId, createdAt }`, merged with inbox by request ID; notification hints only. | safeBunker/pendingRequests.ts |
 
 The strict binding header contains id `bunker-source:<chainId>:<lowercaseFirstOwner>`,
@@ -548,11 +549,23 @@ original deployment hash or forcing a rotation. Known exposure/operations and
 reserved successors are retained. Discovery checks up to 64 owner indices per
 page without historical log scanning or signing.
 
-Every journal write atomically projects safeBunkerPendingV1 under the existing
+Every journal write atomically projects safeBunkerRevertWarningsV1 and
+safeBunkerPendingV1 under the existing
 secret-storage lock. The index omits submitted outer envelopes/hashes, including
 ambiguous submissions. An authenticated load rebuilds it idempotently without
 rewriting journal ciphertext. The locked badge may read hints but receives no
-calls/origins/payer/signature data or authority.
+calls/origins/payer/signature data or authority. The warning is derived from
+`reverted` operations whose reviewed owner index matches the current owner index.
+The encrypted journal accepts this additional operation status without changing
+the V2 envelope. Missing public warning metadata means empty; authenticated
+index synchronization rebuilds it idempotently without modifying ciphertext.
+Compaction retains the current warning evidence and unpublished failure results.
+Earlier-build signed operations bearing the fixed revert marker recover their
+transaction hash from Activity and upgrade only after canonical receipt checks;
+missing history is left unresolved rather than inventing evidence.
+A reverted attempt releases its successor reservation when no other live operation
+reserves it, so the next execution can still rotate n to n+1. Removal and reset
+clear the warning projection; no ordinary wallet/auth shape changes.
 
 Unsigned rejection commits before acknowledgment/result delivery. Existing
 optional resultPublished/published flags retain pending delivery across restart

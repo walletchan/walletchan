@@ -13,6 +13,7 @@ export const WALLET_LOCAL_STORAGE_KEYS = [
   "safeBunkerJournalsV2",
   "safeBunkerInboxV1",
   "safeBunkerPendingV1",
+  "safeBunkerRevertWarningsV1",
   "privacyVault",
   "privacyRecoveryBackup",
   "accounts",

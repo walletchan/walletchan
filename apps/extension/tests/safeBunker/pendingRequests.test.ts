@@ -4,7 +4,7 @@ import { getPendingBunkerRequests, projectBunkerPending, readBunkerPendingIndex 
 
 const request = { id: "request-one", accountId: "bunker-one", createdAt: 100 };
 test("notification projection excludes submitted and terminal operations and contains no signing material", () => {
-  const states = ["queued", "reviewed", "signed", "pending", "ambiguous", "confirmed", "rejected", "invalidated"];
+  const states = ["queued", "reviewed", "signed", "pending", "ambiguous", "confirmed", "reverted", "rejected", "invalidated"];
   const state = { activated: true, archived: false, accountId: "bunker-one", operations: states.map((s, n) => ({ state: s, id: s, createdAt: n, signature: "secret", calls: ["secret"], review: { payerId: "secret" } })) } as never;
   const entries = projectBunkerPending(state);
   assert.deepEqual(entries.map(r => r.id), ["queued", "reviewed", "signed", "ambiguous"]);

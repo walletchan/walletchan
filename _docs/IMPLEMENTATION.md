@@ -7531,7 +7531,13 @@ blocks later owner execution until reconciliation. Unsigned Reject commits befor
 result delivery and does not await fee RPC; durable outbox flags retry delivery.
 Late reviews cannot resurrect rejected requests. Signed exposure cannot be canceled
 by dismissing UI. Canonical receipt/hash/owner-change evidence advances the owner;
-reorgs, reverts and unknown exposure preserve recovery requirements.
+reorgs and unknown exposure preserve recovery requirements. A canonically confirmed
+revert settles as `reverted`, keeps the owner unchanged and permits new requests
+using the same n → n+1 successor. Home shows “Last Tx reverted, Rotate owner” in
+a red backup-style banner linking to Settings → Rotate owner. A successful
+confirmed rotation, manual or part of another transaction, clears the warning.
+The shared browser badge shows a red dot while any live Bunker has the warning;
+approval counts remain visible on the red badge when requests also exist.
 
 ### Storage, history and settings
 

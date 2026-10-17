@@ -525,7 +525,7 @@ function AccountSettings({
 
   if (!account) return null;
   if (account.type === "safeBunker" && initialView === "revealSeedPhrase") return <RevealSeedPhrase account={account} onBack={onClose} />;
-  if (account.type === "safeBunker") return <BunkerSettingsScreen key={account.id} account={account} accounts={accounts} onBack={onClose} onAccountUpdated={onAccountUpdated} onSubmitted={() => onBunkerSubmitted ? onBunkerSubmitted(account) : onClose()} />;
+  if (account.type === "safeBunker") return <BunkerSettingsScreen key={`${account.id}:${initialView}`} initialScreen={initialView === "rotateBunkerOwner" ? "recover" : "settings"} account={account} accounts={accounts} onBack={onClose} onAccountUpdated={onAccountUpdated} onSubmitted={() => onBunkerSubmitted ? onBunkerSubmitted(account) : onClose()} />;
   if (account.type === "safe") return <SafeSecurityScreen account={account} onBack={onClose} onAccountUpdated={async () => { await onAccountUpdated(); }} onRemoved={async () => { await onAccountUpdated(); onClose(); }} />;
   if (view === "revealPrivateKey") {
     return <RevealPrivateKey account={account} onBack={() => setView("settings")} />;

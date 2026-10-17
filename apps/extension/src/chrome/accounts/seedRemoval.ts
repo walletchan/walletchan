@@ -9,6 +9,7 @@ import type { Account } from "../types";
 import { loadBunkerDraftVault } from "../safeBunker/repository";
 import { BUNKER_DRAFT_VAULT_KEY } from "../safeBunker/record";
 import { BUNKER_STATE_KEY, loadStoredBunkerStates, readBunkerState } from "../safeBunker/stateRepository";
+import { BUNKER_REVERT_WARNINGS_KEY, readBunkerRevertWarnings } from "../safeBunker/revertWarning";
 import { BUNKER_PENDING_KEY, readBunkerPendingIndex, notifyBunkerPendingChanged } from "../safeBunker/pendingRequests";
 
 export async function cleanupRemovedSeedAccount(
@@ -36,7 +37,7 @@ export async function cleanupRemovedSeedAccount(
         const state = await readBunkerState(id);
         if (!state) continue;
         if ((!state.activated && state.plan.deploymentHash) || state.operations.some(o =>
-          !!o.signature && !["confirmed", "invalidated"].includes(o.state) || ["queued", "reviewed"].includes(o.state)))
+          !!o.signature && !["confirmed", "reverted", "invalidated"].includes(o.state) || ["queued", "reviewed"].includes(o.state)))
           throw new Error("Resolve Bunker requests before removal");
         removedAccountIds.add(state.accountId);
       }
@@ -44,6 +45,7 @@ export async function cleanupRemovedSeedAccount(
         throw new Error("Resolve Bunker requests before removal");
       patch[BUNKER_DRAFT_VAULT_KEY] = { ...bindings, entries: bindings.entries.filter(e => !ids.has(e.header.id)) };
       patch[BUNKER_STATE_KEY] = { version: 2, entries: journals.filter(e => !ids.has(e.id)) };
+      patch[BUNKER_REVERT_WARNINGS_KEY] = (await readBunkerRevertWarnings()).filter(id => !removedAccountIds.has(id));
       patch[BUNKER_PENDING_KEY] = (await readBunkerPendingIndex()).filter(e => !removedAccountIds.has(e.accountId));
     }
     if (last) {

@@ -18,7 +18,7 @@ export interface BunkerReview {
   transaction: SafeTransactionData; safeTxHash: Hex;
   gas: GasOverrides; maxFee: string;
 }
-export type BunkerOperationStatus = "queued" | "reviewed" | "signed" | "ambiguous" | "pending" | "confirmed" | "rejected" | "invalidated";
+export type BunkerOperationStatus = "queued" | "reviewed" | "signed" | "ambiguous" | "pending" | "confirmed" | "reverted" | "rejected" | "invalidated";
 export interface BunkerOperation {
   id: string; calls: SafeCall[]; routes: BunkerRoute[];
   kind: "transaction" | "recovery"; state: BunkerOperationStatus;
