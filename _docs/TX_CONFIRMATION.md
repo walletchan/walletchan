@@ -77,6 +77,9 @@ they do not become ordinary imported-Safe proposals or generic EOA signing promp
   Explicit selection clears the unsaved checkbox. The worker commits a remembered
   preference with the outer envelope before broadcast. UI refresh hydrates a saved
   default only when no deliberate override exists; operation-bound payers win.
+- An unavailable asset preview uses the shared informational simulation warning
+  from ordinary transaction confirmation. It requires no acknowledgment checkbox
+  and does not block Confirm; exact execution preflight still runs before broadcast.
 - Payer/gas changes invalidate review. Review binds exact calls/provenance,
   chain/configuration/nonce, owner/successor indices, payer, gas, digest and expiry.
   Idle expiration refreshes review; failures offer Retry. No preview authorizes

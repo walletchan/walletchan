@@ -28,7 +28,7 @@ function harness() {
     require(name: string) {
       if (name === "react") return hooks;
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
-      if (name === "@/theme") return { useStripTokens: () => ({}), useIconChipBg: () => "surface.raised" };
+      if (name === "@/theme") return { useTheme: () => ({ tokens: { borders: { medium: "1px solid" } } }), useStripTokens: () => ({}), useIconChipBg: () => "surface.raised" };
       if (name === "@/constants/chainRegistry") return { CHAIN_REGISTRY: [] };
       if (name === "./requestQueue") return { earlierBunkerRequest: () => null, isUnsignedBunkerRequest: () => true };
       return new Proxy({}, { get: (_target, key) => key });

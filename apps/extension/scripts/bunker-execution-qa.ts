@@ -38,7 +38,7 @@ await new Promise<void>((resolve) => proxy.listen(port + 1000, "127.0.0.1", reso
 const profile = await mkdtemp(path.join(os.tmpdir(), "bunker-execution-"));
 const out = "/tmp/bunker-execution-qa"; await mkdir(out, { recursive: true });
 const build = path.resolve("build"), errors: string[] = [];
-const context = await chromium.launchPersistentContext(profile, { channel: "chromium", headless: true, viewport: { width: 420, height: 800 },
+const context = await chromium.launchPersistentContext(profile, { channel: "chromium", headless: true, ignoreDefaultArgs: ["--disable-extensions"], viewport: { width: 420, height: 800 },
   args: [`--disable-extensions-except=${build}`, `--load-extension=${build}`, "--disable-background-timer-throttling", "--disable-renderer-backgrounding"] });
 context.on("page", (page) => page.on("pageerror", (e) => errors.push(e.message)));
 try {
@@ -49,6 +49,10 @@ try {
     const fixture = JSON.parse(await readFile(new URL(`../tests/safeBunker/fixtures/${name}.json`, import.meta.url), "utf8"));
     await client.request({ method: "anvil_setCode" as any, params: [fixture.address, fixture.runtime] as any });
   }
+  // Let Chromium finish registering unpacked extensions before reading its worker.
+  const extensionManager = await context.newPage();
+  await extensionManager.goto("chrome://extensions/");
+  await extensionManager.locator("extensions-item").waitFor();
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
   const extensionId = new URL(worker.url()).host, page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/onboarding.html`);
@@ -160,16 +164,15 @@ try {
   await rpcError.waitFor({ state: "hidden" });
   await page.reload();
   await page.getByRole("heading", { name: "Transaction request", exact: true }).waitFor({ timeout: 30000 });
-  const previewAck = page.getByRole("checkbox", { name: "Continue without an asset preview" });
-  if (await previewAck.isVisible()) await page.getByText("Continue without an asset preview", { exact: true }).click();
   const confirm = page.getByRole("button", { name: "Confirm", exact: true });
   await confirm.waitFor();
-  // Await asynchronous preview; acknowledge its explicit unavailable state if needed.
+  // Asset-preview unavailability is informational and never needs acknowledgment.
   for (let i = 0; i < 60 && !await confirm.isEnabled(); i++) {
-    if (await previewAck.isVisible() && !await previewAck.isChecked()) await page.getByText("Continue without an asset preview", { exact: true }).click();
     await new Promise((r) => setTimeout(r, 500));
   }
-  assert.ok(await confirm.isEnabled(), "reviewed valid execution can be confirmed");
+  assert.ok(await confirm.isEnabled(), "reviewed valid execution can be confirmed without acknowledging preview availability");
+  assert.equal(await page.getByRole("checkbox", { name: /asset preview/i }).count(), 0);
+  await page.screenshot({ path: `${out}/preview-without-checkbox.png`, fullPage: true });
   // Pending requests use the ordinary Home banner and extension toolbar badge.
   await page.getByRole("button", { name: "Go back", exact: true }).click();
   await page.getByRole("button", { name: "Choose account", exact: true }).waitFor();
@@ -182,7 +185,6 @@ try {
   await banner.click();
   await page.getByRole("heading", { name: "Transaction request", exact: true }).waitFor();
   for (let i = 0; i < 60 && !await confirm.isEnabled(); i++) {
-    if (await previewAck.isVisible() && !await previewAck.isChecked()) await page.getByText("Continue without an asset preview", { exact: true }).click();
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   // Footer reuses the wallet's anchored gas chooser, with automatic re-review.
@@ -196,7 +198,6 @@ try {
   await page.reload();
   await page.getByRole("heading", { name: "Transaction request", exact: true }).waitFor({ timeout: 30000 });
   for (let i = 0; i < 60 && !await confirm.isEnabled(); i++) {
-    if (await previewAck.isVisible() && !await previewAck.isChecked()) await page.getByText("Continue without an asset preview", { exact: true }).click();
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   assert.ok(await confirm.isEnabled(), "cold request resumes with its payer and fresh review");
@@ -251,7 +252,6 @@ try {
   assert.ok(second.success);
   await page.getByText("1/2", { exact: true }).waitFor();
   for (let i = 0; i < 60 && !await confirm.isEnabled(); i++) {
-    if (await previewAck.isVisible() && !await previewAck.isChecked()) await page.getByText("Continue without an asset preview", { exact: true }).click();
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   await page.getByText("set default payer for future", { exact: true }).click();
@@ -394,7 +394,6 @@ try {
   await page.getByRole("heading", { name: "Transaction request", exact: true }).waitFor();
   await page.getByText("1/2", { exact: true }).waitFor({ state: "hidden" });
   for (let i = 0; i < 60 && !await confirm.isEnabled(); i++) {
-    if (await previewAck.isVisible() && !await previewAck.isChecked()) await page.getByText("Continue without an asset preview", { exact: true }).click();
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   assert.ok(await confirm.isEnabled(), "rejecting the head exposes a confirmable next request");

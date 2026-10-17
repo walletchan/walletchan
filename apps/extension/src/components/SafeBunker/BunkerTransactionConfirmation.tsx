@@ -1,3 +1,4 @@
+import { SimulationUnavailableBanner } from "@/components/AssetChangesDisplay";
 import { BunkerRotationCalls, BunkerRotationPreview } from "./BunkerRotationReview";
 import { CHAIN_REGISTRY } from "@/constants/chainRegistry";
 import { RepeatIcon } from "@chakra-ui/icons";
@@ -15,7 +16,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { RequestIdentity } from "@/components/RequestConfirmation/RequestIdentity";
 import { EstimatedChangesHeading } from "@/components/RequestConfirmation/EstimatedChangesHeading";
 import { LedgerSigningStatus } from "@/components/Ledger/LedgerSigningStatus";
-import { useIconChipBg, useStripTokens } from "@/theme";
+import { useTheme, useIconChipBg, useStripTokens } from "@/theme";
 import { QueueNavigation } from "@/components/RequestConfirmation/QueueNavigation";
 import { earlierBunkerRequest, isUnsignedBunkerRequest } from "./requestQueue";
 import { BunkerAssetPreview } from "./BunkerAssetPreview";
@@ -34,6 +35,7 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
   const earlier = earlierBunkerRequest(queue, operation);
   const index = queue.findIndex((item) => item.id === operation.id);
   const iconChipBg = useIconChipBg();
+  const { tokens } = useTheme();
   // Keep only a deliberate override in state so refreshed persisted defaults hydrate.
   const [chosenPayer, setPayer] = useState<string | null>(null);
   const payer = chosenPayer ?? operation.payerId ?? view.defaultPayer?.id ?? "";
@@ -50,6 +52,7 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
   const submittedOnce = useRef(false);
   const [error, setError] = useState("");
   const [previewValid, setPreviewValid] = useState(false);
+  const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [now, setNow] = useState(Date.now());
   const claim = useRef<Action | null>(null), alive = useRef(true);
   const unsigned = ["queued", "reviewed"].includes(operation.state);
@@ -148,10 +151,11 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
       isInternalWalletChan={operation.kind === "recovery" || origin === "WalletChan"} labelOverride={operation.kind === "recovery" ? "Owner rotation" : undefined} originInitials="SAFE" />}
     financialImpactTitle={<EstimatedChangesHeading chainId={view.chainId} chainName={view.chainName} />}
     financialImpact={operation.calls.length ? <Box px={3} bg="surface.raised" border="1px solid" borderColor="border.subtle" borderRadius="lg">
-      <BunkerAssetPreview chainId={view.chainId} chainName={view.chainName} key={operation.id} safe={view.safeAddress} operation={operation} onValidityChange={setPreviewValid} />
+      <BunkerAssetPreview chainId={view.chainId} chainName={view.chainName} key={operation.id} safe={view.safeAddress} operation={operation} onValidityChange={setPreviewValid} onUnavailableChange={setPreviewUnavailable} />
     </Box> : <BunkerRotationPreview chainId={view.chainId} rotation={rotation} explorer={explorer} loading={preparing} />}
     context={<VStack align="stretch" spacing={3}>
       {operation.calls.length > 0 && <BatchCallsList chainId={view.chainId} calls={operation.calls.map((call) => ({ to: call.to, value: numberToHex(BigInt(call.value)), data: call.data }))} />}
+      {operation.calls.length > 0 && previewUnavailable && <SimulationUnavailableBanner borders={tokens.borders} />}
       {operation.kind === "recovery" && <BunkerRotationCalls chainId={view.chainId} rotation={rotation} explorer={explorer} />}
       {operation.origins.length > 1 && <Text color="fg.secondary" fontSize="sm">{operation.origins.join(", ")}</Text>}
       {operation.kind === "recovery" && view.operations.some((op) => op.id !== operation.id && ["signed", "pending", "ambiguous"].includes(op.state)) && <Text color="status.warning.emphasis" fontSize="sm">An earlier signed transaction can execute before rotation.</Text>}
