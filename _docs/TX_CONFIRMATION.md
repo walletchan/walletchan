@@ -72,7 +72,7 @@ they do not become ordinary imported-Safe proposals or generic EOA signing promp
   balances use the request's chain; failed reads show a dash, never a false zero.
 - Payer eligibility comes from safe/accountTypePolicy.ts. Bunkers, imported Safes,
   view-only and Bankr records cannot be execution payers here. Actual implemented
-  payer paths are private-key, seed-phrase and Ledger.
+  payer paths are private-key, seed-phrase, Ledger and Trezor.
 - A square amber checkbox offers a default payer for this Bunker account only.
   Explicit selection clears the unsaved checkbox. The worker commits a remembered
   preference with the outer envelope before broadcast. UI refresh hydrates a saved
@@ -87,7 +87,7 @@ they do not become ordinary imported-Safe proposals or generic EOA signing promp
 - Confirm derives/signs only with live master authority, persists the Safe signature
   before signed RPC, signs the external payer envelope, then performs one fresh
   block-pinned authority check and exact gas-capped simulation. Reviewed gas/fees
-  cannot be silently replaced. Ledger approval precedes the same final gate.
+  cannot be silently replaced. Ledger/Trezor approval precedes the same final gate.
 - Fixed phase hints show Signing / Checking / Broadcasting for the exact request.
   Submission selects the Bunker and opens Activity immediately. Submitted outer
   transactions leave approval navigation; a later request waits for prior rotation

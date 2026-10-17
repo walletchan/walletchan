@@ -269,10 +269,11 @@ export function getResolvedChains(
 export function getVisibleChains(
   networksInfo: NetworksInfo | undefined,
   accountType?: ChainAccountType | null,
+  boundChainId?: number,
 ): ResolvedChain[] {
   return getResolvedChains(networksInfo).filter((chain) => {
+    if (accountType === "safeBunker") return chain.chainId === boundChainId;
     if (chain.hidden) return false;
-    if (accountType === "safeBunker") return chain.chainId === 11155111;
     if (accountType === "bankr") return chain.isBankrSupported;
     return true;
   });

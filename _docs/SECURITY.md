@@ -3239,3 +3239,15 @@ Loading shows a status label; unavailable or incomplete history renders no notic
 Absence of warnings is never presented as proof of recipient safety. Only address-record updates are
 queried; ownership and resolver-change events do not trigger warnings. Offchain/L2
 Basename records are excluded.
+
+### Safe Bunker hardware payer parity
+
+Bunker payer eligibility uses the shared imported-Safe executor policy, including
+Trezor. Hardware signing uses exact reviewed chain/type/nonce/gas/fee fields. The
+Trezor helper verifies device-returned bytes and recovered signer without RPC
+preparation or submission. After device approval, Bunker rechecks live account
+type/address/device/path and master authority, then runs its existing final Safe
+authority/simulation gate and persists exact bytes before broadcast under the
+secret-operation lock. SDK attempts use fresh opaque operation IDs. No new
+storage or message routes are added; Bankr, view-only and contract accounts
+remain excluded as payers by the shared policy.

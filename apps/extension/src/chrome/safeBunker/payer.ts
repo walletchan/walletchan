@@ -1,6 +1,9 @@
 import { getAccountById } from "../accountStorage";
 import { getLocalPrivateKeyForAccount } from "../accounts/localKeyResolver";
-import { isBunkerPayerAccount } from "./payerPolicy";
+import { isSafeExecutorAccount } from "../safe/accountTypePolicy";
+import { ensureTrezorSigningSession } from "../trezor/session";
+import { signPreparedTrezorTransaction } from "../trezor/signing";
+import { createTrezorOperationId } from "../trezor/operationId";
 import { createLocalSignerClient } from "../localSigning/client";
 import { secureHttpTransport } from "../network/rpcClient";
 import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLock";
@@ -15,7 +18,7 @@ import type { BunkerAccess } from "./access";
 
 export async function bunkerPayer(id: string, expected?: string) {
   const account = await getAccountById(id);
-  if (!account || !isBunkerPayerAccount(account) || (expected && account.address.toLowerCase() !== expected)) throw new Error("Choose a private-key, seed-phrase or Ledger gas payer");
+  if (!account || !isSafeExecutorAccount(account) || (expected && account.address.toLowerCase() !== expected)) throw new Error("Choose a private-key, seed-phrase, Ledger or Trezor gas payer");
   return account;
 }
 export async function submitBunkerOuter(input: {
@@ -28,18 +31,22 @@ export async function submitBunkerOuter(input: {
     gas: input.gas.gasLimit, maxFeePerGas: input.gas.maxFeePerGas, maxPriorityFeePerGas: input.gas.maxPriorityFeePerGas };
   const beforeBroadcast = async (p: { serializedTransaction: Hex; transactionHash: Hex }) => {
     input.current(); const live = await bunkerPayer(payer.id, input.payerAddress);
-    if (live.type !== payer.type || (payer.type === "ledger" && (live.type !== "ledger" || live.deviceId !== payer.deviceId || live.hdPath !== payer.hdPath))) throw new Error("Gas payer changed");
+    if (live.type !== payer.type || ((payer.type === "ledger" || payer.type === "trezor") && ((live.type !== "ledger" && live.type !== "trezor") || live.deviceId !== payer.deviceId || live.hdPath !== payer.hdPath))) throw new Error("Gas payer changed");
     await input.beforeBroadcast(p); input.current();
   };
-  if (payer.type === "ledger") {
-    await ensureLedgerSigningSession(""); input.current();
+  if (payer.type === "ledger" || payer.type === "trezor") {
+    if (payer.type === "ledger") await ensureLedgerSigningSession("");
+    else await ensureTrezorSigningSession("");
+    input.current();
     const nonce = await getNextNonce(payer.address, input.chainId);
     let persisted = false;
     try {
       const client = createWalletClient({ transport: secureHttpTransport(input.rpc, { timeout: 15000, retryCount: 0 }) });
       const transaction: TransactionSerializable = { type: "eip1559", chainId: input.chainId, to: input.to,
         data: input.data, value: 0n, nonce, gas: BigInt(input.gas.gasLimit), maxFeePerGas: BigInt(input.gas.maxFeePerGas), maxPriorityFeePerGas: BigInt(input.gas.maxPriorityFeePerGas) };
-      const raw = await signPreparedLedgerTransaction({ account: payer, opId: `bunker:${input.id}`, transaction });
+      const raw = payer.type === "ledger"
+        ? await signPreparedLedgerTransaction({ account: payer, opId: `bunker:${input.id}`, transaction })
+        : await signPreparedTrezorTransaction({ account: payer, opId: createTrezorOperationId(), transaction });
       return await withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
         await beforeBroadcast({ serializedTransaction: raw, transactionHash: keccak256(raw) }); persisted = true;
         input.current(); return broadcastBunkerBytes(client, raw);

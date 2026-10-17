@@ -25,7 +25,7 @@ Audit order:
    explicit Add existing rechecks ownership, preserves exposure, requires no tx.
 6. `ingress`, `inbox`, `authorization`, `barrier`, `cancellation`: unsigned intake,
    pinned account/chain/origin/topic, reset and revocation gates.
-7. `transaction`, `operations`, `preflight`, `payerPolicy`, `payer`, `broadcast`: CALL-only
+7. `transaction`, `operations`, `preflight`, `payer`, `broadcast`: CALL-only
    execution with final rotation, durable-before-RPC signatures, exact gas-capped
    simulation and final authority gate after local/hardware payer approval.
 8. `reconciliation`, `recovery`, `publication`, `management`, `view`: canonical
@@ -45,11 +45,11 @@ See `_docs/SAFE_BUNKER_DERIVATION.md`, `_docs/STORAGE.md` and `_docs/SAFE_BUNKER
 
 Only chains with verified frozen canonical EVM infrastructure work; unsupported
 profiles fail closed. Bunkers are bound to one chain, never direct signers or gas
-payers. Local PK/seed/Ledger accounts pay outer native gas. Provider signatures,
+payers. Local PK/seed/Ledger/Trezor accounts pay outer native gas. Provider signatures,
 delegation, permissions, sponsored/force-included execution and Shield remain
 unsupported. External Safe tooling can bypass rotation; this is client policy,
 not an onchain restriction or post-quantum guarantee.
 
-`payerPolicy` narrows the shared Safe executor policy to implemented Bunker outer
-signers (private key, seed phrase and Ledger). Trezor remains unavailable here
-until a Bunker-specific device dispatch and final-release path is implemented.
+Bunker payer eligibility uses the shared `safe/accountTypePolicy.ts` executor
+policy. Ledger and Trezor sign exact reviewed envelopes before the same final
+locked authority check and durable save. Trezor uses a fresh SDK operation ID.

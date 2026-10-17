@@ -146,7 +146,7 @@ placeholder, or an unavailable dash. Reads use configured bounded RPC and reject
 chain mismatches; stale responses are ignored. Display balances grant no authority.
 
 Eligibility is owned by `safe/accountTypePolicy.ts`: the implemented Bunker payer
-paths support private-key, seed-phrase and Ledger EOAs. Bunkers, imported Safes,
+paths support private-key, seed-phrase, Ledger and Trezor EOAs. Bunkers, imported Safes,
 view-only and Bankr accounts cannot pay through this path. Do not infer eligibility
 from general direct-signer status or add a second account-type list in React.
 
@@ -171,7 +171,7 @@ creation's footer state. Confirm remains disabled until review/preview gates pas
   review claims are rechecked before merging prepared fields into fresh state.
 - The real inner signature is encrypted durably before any signature-bearing RPC.
   The payer envelope uses explicit reviewed gas/fees; local preparation fills
-  only its nonce. Ledger approval precedes the same final gate as local signing.
+  only its nonce. Ledger/Trezor approval precedes the same final gate as local signing.
 - `preflight.ts` selects one fresh block and verifies chain, Safe version/singleton,
   owner/nonce/threshold/modules/guard/fallback, unused plain owner/successor EOAs,
   payer balance and one exact gas-capped `eth_call`. Confirm does not re-estimate
@@ -267,14 +267,19 @@ keys/funds and verified upstream runtimes. They cover separate chain IDs 1115511
 and 84532, deployment/rotation, persistence, history, owner discovery, recovery and
 failure handling. They do not establish public-network acceptance. UI tests cover
 manual discovery, default-payer hydration and request preloading/cancellation.
-Real Chrome acceptance is assigned to the user; physical Ledger QA needs a device.
+Real Chrome acceptance is assigned to the user; physical Ledger/Trezor QA needs devices.
 Do not claim those passed from typechecks or synthetic tests. Source changes also
 require the full root `pnpm build:extension` before Chrome reload.
 
-This checkout implements no Trezor payer path. Bankr execution, provider message/
+Bankr execution, provider message/
 typed-data signing, EOA delegation/permissions, Shield, sponsorship/force inclusion
 and cross-chain bridges are unsupported for Bunkers. Shared-phrase support has no
 reader/migration for the incompatible dedicated-phrase alpha; ordinary released
 wallet data must remain preserved. No formal post-quantum guarantee or protection
 from a compromised phrase, instant ECDSA break or external unpublished signatures
 is claimed.
+
+The home account explorer menu and direct explorer action use the Bunker account
+chain ID and configured explorer, including when that chain is hidden from general
+network lists. Shared chain visibility and WalletConnect callers pass the bound
+chain ID; no Sepolia fallback is used for Bunkers with missing chain metadata.

@@ -243,7 +243,7 @@ function App() {
   const unlockRouteHandledRef = useRef(false);
   const isWalletUnlockedRef = useRef(isWalletUnlocked);
   const selectedChain = getResolvedChainByName(chainName, networksInfo);
-  const visibleChains = getVisibleChains(networksInfo, activeAccount?.type);
+  const visibleChains = getVisibleChains(networksInfo, activeAccount?.type, activeAccount?.type === "safeBunker" ? activeAccount.chainId : undefined);
   const activeSafeChainIds = useActiveSafeChainIds(activeAccount);
 
   const openAccountSettingsView = (account: Account, returnTarget: "home" | "settingsAccounts") => { setAccountSettingsReturnTarget(returnTarget); setAccountSettingsInitialView("settings"); setAccountSettingsApiKeyDraft(null); setSettingsAccount(account); setView("accountSettings"); };

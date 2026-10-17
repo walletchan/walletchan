@@ -150,7 +150,8 @@ function AccountSwitcher({
                 <Flex pointerEvents="auto" flexShrink={0}>
                   <CopyButton value={activeAccount.address} label="Copy active address" />
                 </Flex>
-                <AccountExplorerMenu address={activeAccount.address} chains={explorerChains} />
+                <AccountExplorerMenu address={activeAccount.address} chains={explorerChains}
+                  boundChainId={activeAccount.type === "safeBunker" ? activeAccount.chainId : undefined} />
               </HStack>
             </VStack>
             <ChevronRightIcon boxSize={5} color="fg.muted" flexShrink={0} />

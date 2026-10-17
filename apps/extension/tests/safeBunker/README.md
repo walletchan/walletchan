@@ -43,4 +43,4 @@ helpers; their existence is not evidence that the latest UI has passed browser
 acceptance. Use only disposable profiles, synthetic keys and local chains when
 updating/running them. Never log, screenshot or retain recovery words or signed
 calldata. Physical Ledger and public-network acceptance are separate from these
-synthetic tests. This checkout has no implemented Trezor Bunker payer path.
+synthetic tests. Trezor uses the shared Safe executor policy and exact-envelope signing; physical device QA remains outstanding.

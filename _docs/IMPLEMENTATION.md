@@ -7769,5 +7769,9 @@ replace live subgraph verification or real Ledger signing QA.
 Combining the Bunker runtime with Trezor produces a syntax-compacted background
 bundle of approximately 4.08 MiB. The background-only release budget is 4.25 MiB
 (4,456,448 bytes); prover, artifact and total-build limits remain unchanged.
-Bunker payers remain local keys and Ledger through `safeBunker/payerPolicy.ts`;
-the broader imported-Safe executor policy does not enable Trezor Bunker signing.
+Bunker payer eligibility uses the shared `safe/accountTypePolicy.ts` executor
+policy, including Trezor. `signPreparedTrezorTransaction` signs the exact reviewed
+EIP-1559 envelope without RPC field preparation or broadcast, verifies the device
+bytes and recovered signer, and returns to the Bunker final authority/persistence
+gate. Device ID/path are revalidated after approval; each Trezor attempt uses a
+fresh opaque SDK operation ID.

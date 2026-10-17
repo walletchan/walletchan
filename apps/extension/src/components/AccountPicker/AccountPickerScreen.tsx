@@ -3,12 +3,13 @@ import { AddIcon, ExternalLinkIcon, SettingsIcon } from "@chakra-ui/icons";
 import { Flex, IconButton, Text } from "@chakra-ui/react";
 
 import type { Account } from "@/chrome/types";
+import { useNetworks } from "@/contexts/NetworksContext";
 import { AccountPickerRow } from "@/components/AccountPickerRow";
 import { CopyButton } from "@/components/CopyButton";
 import SortableAccountPickerRows, {
   type SortableRenderState,
 } from "@/components/SortableAccountPickerRows";
-import { getDefaultAccountExplorerUrl } from "@/components/accountExplorerUtils";
+import { getAccountExplorerUrl } from "@/components/accountExplorerUtils";
 import { getWalletTypeLabel } from "@/components/accountIdentityLabels";
 import {
   FullScreenPicker,
@@ -47,6 +48,7 @@ export default function AccountPickerScreen({
   onAccountsReordered,
   mode = "select",
 }: AccountPickerScreenProps) {
+  const { networksInfo } = useNetworks();
   const [query, setQuery] = useState("");
   const [reorderError, setReorderError] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -127,7 +129,7 @@ export default function AccountPickerScreen({
     sortableState?: SortableRenderState,
   ) => {
     const isActive = account.id === activeAccount?.id;
-    const explorerHref = getDefaultAccountExplorerUrl(account.address);
+    const explorerHref = getAccountExplorerUrl(account, networksInfo);
 
     return (
       <AccountPickerRow
