@@ -7467,296 +7467,100 @@ explains that Safe message signing is unsupported. Generic direct-signer
 preflight and signature release still reject Safe records. WalletConnect does
 not advertise unsupported Safe signature methods.
 
-## Safe Bunker: standard Safe with client rotation (2026-10-16)
+## Safe Bunker
 
-`chrome/safeBunker/` owns a dedicated account domain. A `safeBunker` Account row
-contains the deployed Safe address, Sepolia chain ID, derivation version and seed
-vault ID; it is never a generic direct signer or ordinary Safe owner/executor.
-See `SAFE_BUNKER_PLAN.md` and the domain README for the audit order.
+The current flow and runtime are documented in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md); the frozen
+path/salt/CREATE2 contract is in
+[SAFE_BUNKER_DERIVATION.md](./SAFE_BUNKER_DERIVATION.md).
 
-Create a master-only local draft with a dedicated 12-word (128-bit entropy) seed, then deploy a
-canonical Safe 1.4.1 through its pinned standard factory. CREATE2 planning is
-idempotent per draft. Setup has one owner, threshold one, no module, guard,
-fallback or payment. Activation verifies exact factory calldata/creation event,
-canonical block, three confirmations and live canonical Safe configuration. After a broadcast
-attempt, a deploymentPending account is published and selected for Home Activity;
-this public metadata grants no execution authority. Confirmation clears the flag
-without changing the user selection. deploymentPublication.ts validates the exact
-signed factory transaction and projects two idempotent receipt-polled history
-rows, one owned by the Safe and one by the outer payer.
+A standard Safe 1.4.1 has one owner/threshold one and executes user CALLs plus an
+atomic final owner swap. One normal source phrase derives one Bunker per chain,
+with different hardened signer branches and different Safe addresses across
+chains. Each account supports only its bound chain. All source access, management,
+review/signing, retry and recovery require master authority; agent execution and
+extra stored signing/phrase capabilities are absent.
 
-Owners derive at fully hardened `m/44'/60'/0'/0'/n'`. Per-draft random DEKs encrypt
-the seed and revision-bound operation journal and are wrapped by the general
-vault key. Hydration and master recovery verify all seed/journal/account bindings;
-password/factor changes retain general-key recovery. Master proof alone can reveal
-the phrase. Child keys are never cached, imported as accounts or returned to UI.
+### Creation and rediscovery
 
-The exact trusted UI command manifest is in background/safeBunkerMessageTypes.ts.
-The router restores an absent coherent session centrally, captures epoch/key/role,
-and claims a reset-aware internal operation before awaiting. Master authority is
-required for create/restore/recovery/removal; ordinary execution also supports
-agent sessions. Draft and operation writes use existing secret-operation/storage
-locks, with final current-authority checks. Ledger final persistence and broadcast
-share the secret-operation lock after device signing.
+Add account → Safe Bunker → intro → saved seed phrases → network page. Source
+cards show icon/name/Proceed together, with known-chain logos below and hover/focus
+names. Create/import saves a normal phrase group without adding an EOA. The normal
+backup reminder/reveal covers zero-EOA groups too. The selected source name appears
+in the header, with a flow-local superscript new badge for a phrase created or imported here.
 
-Injected, internal Send, ERC-5792, WalletConnect and same-chain swap adapters queue
-bounded public unsigned intents in safeBunkerInboxV1. Opening the pinned Bunker
-surface drains them into encrypted state. Unsigned requests can group/separate;
-every contributing origin/topic is reauthorized before signing and release.
-Revoked unsigned groups are rejected on reconciliation/view; signed records remain
-recoverable and cannot be dismissed as cancelled. Existing cross-dapp EOA staging
-is unchanged: Bunker grouping lives in its request surface.
+The network page offers Deploy on and, before selecting a chain, an explicit
+Find already deployed Bunkers action. Discovery never runs automatically. Unknown
+or failed probes do not disable a chain; known deployed/pending chains do.
+Add existing uses verified checkbox rows and sends no transaction or rotation.
+No Safe address/deployment hash is requested from the user.
 
-The canonical builder uses pinned MultiSendCallOnly CALLs plus final swapOwner;
-recovery has rotation only. Inner Safe gas reimbursement is zero. Review binds
-calls/routes, nonce, owner/next index, live config, selected payer, outer gas and
-expiry. The actual signature is persisted encrypted before any signed RPC preview.
-Exact execution is simulated from the payer and rechecked at final release. The
-payer funds outer native gas; PK/seed/Ledger are eligible, Bankr is not. A saved
-per-Bunker payer is a preference, never authority. Native MAX keeps Safe gas external.
+Choosing a chain determines the address and immediately shows the shared
+payer/gas/Deploy footer on the same page. The search alternative disappears.
+The default hidden name is SafeBunker - <chainName>. There is no separate
+name/deployment/review page or Continue setup list. Internal preparation is not
+an account. Broadcast publishes/selects a pending account and opens Home Activity;
+three-confirmation canonical verification enables execution afterward.
 
-Only confirmed canonical Safe ExecutionSuccess/hash plus owner-change evidence
-and live nonce/owner advances derivation. Reverts preserve signed exposure.
-Timeouts retry identical serialized outer bytes only; no background rebroadcast.
-A bounded rotating alarm cursor reconciles unlocked state. Recent confirmed block
-anchors detect reorgs and force recovery. External nonrotating Safe transactions
-can advance nonce without changing the derivation index. Known derived external
-rotations use an explicit master recovery scan; unknown/altered configurations block.
+### Requests and signing
 
-Restore takes phrase, Safe address and original deployment hash, verifies standard
-creation and reads the current onchain owner. Each continuation calls getOwners()
-and checks up to 64 locally derived addresses, stopping on a match; no eth_getLogs
-request or historical owner reconstruction is used. Initial import and final activation
-verify the full Safe configuration. A changed owner resets the local search; a change
-between matching and activation repins on the next continuation. Legacy checkpoints
-without targetOwner restart derivation while preserving known owners/reservations.
-Restore keeps exposure unknown until a confirmed master rotation. Recovery can race earlier
-signatures; no guard prevents other UIs from executing. Security exposes public
-recovery details and guarded local removal; unresolved signatures/deployment block
-reset, and encrypted archives survive account removal. Activity uses the Safe
-identity and grouped user calls, not the hidden owner.
+Provider, internal Send, ERC-5792, WalletConnect and supported same-chain swap
+CALLs queue unsigned provenance-bound intents, then drain into encrypted journals.
+Home uses the ordinary pending banner/list and toolbar badge. Navigation preloads
+UI code plus a fresh public view before opening confirmation; seeded mounts skip
+duplicate reads, and lock/account changes invalidate late opens. Gas/simulation
+loaders remain within their sections. Snapshots never authorize signing.
 
-Initial enabled chain is Sepolia. Message/SIWE/typed-data signing, EOA permissions,
-delegation, Shield, sponsored/force-included execution and cross-chain bridges are
-unsupported. Same-chain swap CALL preparation is routed here, but current live
-swap providers do not support Sepolia; no testnet quote availability is claimed.
-No custom contracts, relayers, reimbursement or post-quantum guarantees exist.
+Deployment and transaction payers share PayerFields/DecisionAccountSelector and
+one chain-bound native-balance hook. The square amber default-payer checkbox is
+per Bunker account. The worker persists that choice with exact outer bytes before
+broadcast. Without an explicit UI override, the selector follows the operation's
+payer or latest saved default; refresh preserves a deliberate selection.
 
-Bunker transaction review now uses the shared transaction confirmation composition
-through `BunkerTransactionConfirmation`, with automatic payer-bound fee preparation,
-asset-change preview and a compact gas-payer picker in the sticky footer. Payer/gas
-changes invalidate UI confirmation until the background returns a new digest.
-Successful submission returns to the Bunker account's Home Activity immediately;
-reconciliation and history publication stay background-owned. The separate Bunker settings surface owns account details, recovery and removal;
-pending requests use the shared Home entry points.
+Review verifies pinned infrastructure and owner authority, prepares gas and binds
+calls/routes, chain, nonce, owner/successor indices, payer, gas and expiry in a
+digest. Public RPC work is outside long-held secret locks; latest claims merge
+prepared fields into freshly loaded state. The inner signature is persisted
+before signed RPC. Payer signing is followed by a fresh block-pinned authority
+check and exact gas-capped simulation, then durable outer bytes/hash and release.
+Auth, reset, route and expiry gates apply at the final boundary, including after
+hardware approval. Ambiguity retries identical outer bytes only.
 
-Bunker transaction errors distinguish fixed gas-estimation, fee-price and exact
-simulation stages while suppressing raw RPC payloads. Unknown failures include
-the allowlisted command name so a reported error identifies which operation failed.
+Submitted transactions immediately leave approvals and stay in Activity. FIFO
+blocks later owner execution until reconciliation. Unsigned Reject commits before
+result delivery and does not await fee RPC; durable outbox flags retry delivery.
+Late reviews cannot resurrect rejected requests. Signed exposure cannot be canceled
+by dismissing UI. Canonical receipt/hash/owner-change evidence advances the owner;
+reorgs, reverts and unknown exposure preserve recovery requirements.
 
-Bunker confirmation uses the shared request queue navigator. Incoming notifications
-open the earliest unresolved operation rather than hiding it behind a newer request.
-Unsigned rejection advances the queue; signed operations are never bulk rejected.
-Later ordinary requests link to the first blocker and retain background FIFO checks.
+### Storage, history and settings
 
-Ethereum Sepolia uses `https://ethereum-sepolia-rpc.publicnode.com`. The previous
-shipped dRPC endpoint returned -32601 for `eth_blockNumber`, preventing Bunker
-authority verification. `lib/builtInRpcDefaults.ts` maps only that retired exact
-default during shared network normalization, so all consumers use the same repaired
-RPC. Existing `ensureNetworksInfo` persists the compatibility normalization once.
-Custom endpoints remain authoritative; no Bunker verification gate is relaxed.
+Public source/chain headers are safeBunkerBindingsV2; encrypted state/exposure/
+signatures are safeBunkerJournalsV2. The original phrase remains in mnemonicVault.
+The unsigned inbox and notification index grant no authority. Full formats and
+ownership are in [STORAGE.md](./STORAGE.md). No dedicated-phrase alpha reader exists;
+regular wallet data remains data-preserving.
 
-### RPC block-height compatibility and Bunker diagnostics
+Both deployment and execution publish Safe and gas-payer Activity rows, with public
+user-call/rotation metadata and correct external gas attribution. Raw bytes and
+signatures remain encrypted. The deployment hash/raw transaction are still needed
+for verification, exact retry, integrity and history repair; no separate display-
+only recovery-details record exists.
 
-The shared bounded `secureHttpTransport` retries a failed `eth_blockNumber`
-read using `eth_getBlockByNumber("latest", false)` on the same configured
-endpoint. It validates a non-null canonical block-number quantity before
-returning the height; Safe/Bunker state reads remain pinned to that number,
-and confirmation and reorg checks remain in force. Only the height read has
-this method fallback; signing and submission calls are never replayed by it.
-Existing per-request deadlines, byte limits, URL policy and credential/redirect
-restrictions apply to both reads. No RPC setting or persisted shape changes.
+Settings owns name/network/last verified owner, phrase reveal, refresh, explicit
+owner rotation and guarded removal. There is no recovery-details export or public-
+metadata backup requirement. Manual recovery matches the current owner in bounded
+local derivation pages without a genesis log scan. Add existing preserves known
+exposure and does not force a rotation. Removal requires phrase-backup acknowledgment
+through the shared AccountRemovalModal and live master access, refuses
+last-account/unresolved effects, repairs selection,
+then deletes the account, binding and journal atomically. Sync failure preserves identity
+for retry. Shared seed cleanup counts both regular and Bunker accounts: the last
+account removal clears its phrase, seed group and leftover Bunker records; other
+accounts keep the phrase available. Activity history remains independent.
 
-`network/rpcDiagnostics.ts` maps bounded structured error metadata to fixed
-public messages for timeouts, rate limits, denied access, unsupported methods,
-invalid responses and unavailable endpoints. When both height methods are
-unsupported or the latest block is missing/invalid, Bunker review explains that
-the RPC cannot provide the block height and directs users to Network settings.
-Bunker step wrappers and the trusted UI router preserve these diagnostics;
-raw remote messages, URLs/API keys, calldata and stacks are never reflected.
-Packaged browser QA uses a disposable local proxy that rejects eth_blockNumber,
-then rejects both methods to verify the visible error and disabled confirmation,
-and restores the fallback to complete deployment, execution and rotation.
-
-### Bunker pending requests use shared wallet navigation
-
-Incoming Bunker requests render the shared transaction confirmation skeleton
-while the encrypted view loads, then open transaction review directly. They
-never render the management screen as an intermediate loading state. Request
-surface identity includes account and incoming request ID. Home has no permanent
-Bunker rail: the existing PendingTxBanner counts Bunker requests as transactions;
-its action opens the Bunker queue. Mixed queues also show Bunker entries in the
-existing PendingTxList. Account-picker Settings opens dedicated Bunker settings.
-
-`safeBunker/pendingRequests.ts` owns notification-only `safeBunkerPendingV1`
-metadata. State writes atomically update this index with the encrypted journal.
-The shared toolbar badge merges the index with unsigned inbox entries by request
-ID, so inbox handoff does not double count and locked/restarted wallets retain
-notifications. Queued, reviewed, signed and ambiguous operations require attention;
-submitted pending and terminal operations do not. The trusted-UI-only
-getPendingSafeBunkerRequests command repairs older indexes from verified journals
-under the secret-storage lock, with live authorization and idempotent comparison.
-The renderer refreshes from storage changes. Index data never grants authority.
-
-### Bunker confirmation latency
-
-Review owns canonical Safe/factory/MultiSend code verification, owner discovery,
-gas estimation and fee preparation. Independent fee, gas and balance reads run
-in parallel. Review saves the existing operation.scanBlock as an exposure-scan
-anchor without adding a storage field. Historical block-anchor checks run in
-background reconciliation, never in review or Confirm.
-
-Confirm validates the live session, review/indices/call hash and origin authority
-locally, derives the owner/successor and persists the Safe signature before any
-signature-bearing RPC. It then signs the payer envelope. Local preparation fills
-only the payer nonce (explicit chain/type/gas/fees prevent eth_fillTransaction
-or re-estimation from changing reviewed values). Ledger approval precedes the
-same final preflight as local signing.
-
-safeBunker/preflight.ts chooses one fresh block and checks current chain,
-singleton/version, owner, nonce, threshold, modules, guard/fallback and owner/
-successor code/sender nonces. These reads, payer balance and one exact eth_call
-run in parallel at that block. The exact simulation uses the actual Safe
-signature, payer and reviewed gas ceiling; Confirm makes no eth_estimateGas call
-and does not re-fetch deployment bytecode or historical blocks. Auth/origin gates,
-review expiry and durable outer-byte persistence remain immediately before release.
-
-The background emits safeBunkerExecutionProgress containing only account ID,
-request ID and an allowlisted phase: signing, checking, broadcasting, submitted.
-The exact busy renderer accepts only same-extension background hints, displays
-Signing / Checking / Broadcasting, and returns to Home Activity after broadcast
-and durable pending/ambiguous status. Dapp result/history publication continues
-in the awaited background operation, with the ordinary response as a fallback
-if the hint is missed. Hints grant no authority and are not forwarded to dapps.
-
-### Submitted Bunker executions are not approvals
-
-`safeBunker/requestPolicy.ts` owns the shared approval/in-flight predicates for
-both the notification projection and the renderer queue. Queued/reviewed intents and
-signed/ambiguous intents without an outer transaction may require attention; any operation
-with a persisted outer envelope/hash, plus submitted pending/terminal states,
-is excluded from approvals immediately. Mining/three-confirmation settlement
-remains tracked separately. A stale requested ID cannot select a submitted
-execution from the pending banner or carousel.
-
-The remaining transaction opens its own call details while an earlier execution
-settles. Confirmation is disabled with a waiting message and Check status action
-until existing owner-rotation reconciliation permits preparation. Signed-exposure,
-FIFO, exact-byte retry and final authority gates are unchanged. Submitted transactions remain outside the approval carousel and are tracked
-in Activity.
-Existing authenticated index synchronization repairs old notification entries
-idempotently; no persisted key or schema changes.
-
-### Bunker rejection does not wait for fee previews
-
-Bunker confirmation tracks an action identity, so only Confirm displays execution
-phases and only Reject displays Rejecting. Rejection invalidates the fee-preview
-UI effect; late responses cannot replace a rejected request. The parent advances
-from its local queue after the durable acknowledgement without awaiting a fresh
-view read, and masks rejected IDs from any older view response.
-
-Fee review performs public RPC work outside request/global secret-operation locks.
-Seed derivation remains inside the secret-operation lock with the captured live
-access guard. A latest-review claim and signing-state snapshot are checked under
-the locks before committing prepared fees. Changes from rejection, confirmation,
-recovery, grouping or account mutation invalidate stale reviews. Delivery flags
-are excluded from that snapshot but are preserved by merging only prepared fields
-into freshly loaded state. No stale review can overwrite journal changes.
-
-Reject still refuses every signed intent. It commits rejected state and the
-pending-index update first, then the trusted router replies exactly once. Result
-delivery continues outside locks; completion flags merge into a fresh journal.
-Reconciliation retries unpublished unsigned rejections before any chain RPC.
-Unpublished rejections are retained during journal compaction. Existing optional
-resultPublished/published fields supply this outbox; keys and schemas are unchanged.
-
-Bunker Activity uses `safeBunker/history.ts` to project all public user calls
-into optional history metadata and to create the gas payer's normal Safe
-executor history row. Activity shares the imported-Safe action decoder;
-transaction details share per-call summaries. Reconciliation repairs older
-journal-backed projections idempotently. See `SAFE_BUNKER_IMPLEMENTATION.md`.
-
-Bunker transaction decision footers now reuse the normal Safe proposal's
-`RequestConfirmation/DecisionAccountSelector`. The default-payer checkbox is
-conditional on explicitly choosing another account. Idle expired reviews trigger
-a fresh review automatically; preparation failures expose Retry. Both normal and
-Bunker fee controls use `lib/gasFormatUtils.formatCompactFee`.
-
-Bunker Activity details show a compact owner rotation card below status. History projection extracts the final swapOwner addresses and review indices into optional public rotation metadata; reconciliation repairs older rows. No seed or signed envelope is exposed.
-
-### Bunker account settings
-
-AccountSettings dispatches Bunkers to `BunkerSettingsScreen`, independently of the
-request-only `BunkerAccountScreen`. Settings reuses AccountSettingsIdentity, the
-normal account-name mutation/Save treatment, and shared list/layout primitives.
-It displays network and the last verified zero-based owner index. Recovery status
-appears only during an owner scan or when recovery is required.
-The owner index is a public read-only projection of the existing journal; no
-storage schema changes. State changes reload the projection without chain polling.
-
-Recovery details exposes only public restore metadata. Phrase reveal reuses the
-existing master-password screen. Owner recovery/continuation leads to an exact
-standard transaction review and returns to its settings origin on Back/rejection.
-Recovery creation does not emit the ordinary incoming-request navigation event;
-the caller opens that review and the shared pending index/badge still updates.
-Removal is a separate backup-acknowledged/master-password confirmation, with
-last-account/unresolved-activity explanations and account-list refresh on success.
-Removal has no password input; encrypted archives remain background-owned.
-No queue or gas payer controls appear in settings.
-
-Bunker removal disconnects mapped sites, repairs sync selection, then atomically
-archives the journal and removes local account metadata. A Chrome sync-write quota
-failure occurs before identity deletion, preserves the active journal/account,
-and returns a fixed retry message. No storage schema or key changes.
-
-Back from an unsigned owner-rotation review uses the existing durable rejection
-command before leaving; it clears the shared pending projection/badge. Settings
-also rejects its exact rotation request when Back is pressed during view loading.
-Rejection failures remain visible for retry; signed/submitted operations retain
-the existing non-cancellable behavior. Ordinary transaction Back is unchanged.
-
-Owner-rotation review projects optional public old/new owner addresses and exact
-derivation indices from the prepared transaction with getBunkerHistoryRotation.
-No new seed derivation, RPC or persisted shape is added. Estimated changes reuses
-the shared OwnerRotationCard; Request details lists Remove owner and Set owner
-with address pills. Missing rotation metadata cannot enable a recovery review.
-Only genuinely outstanding signed operations show the competing-transaction notice.
-Compact native gas footers share the existing token tiny-amount notation (or wei
-for dust), avoiding long zero runs that clip the native symbol.
-
-### Bunker creation and deferred backup
-
-The Bunker entry opens a concise owner-rotation explainer, then Create new /
-Restore existing. Name + Continue uses the existing idempotent encrypted seed
-preparation and opens deployment immediately; unfinished setups remain resumable.
-Deployment shares AccountSettingsIdentity, DecisionAccountSelector, compact gas
-fees and RevealSeedPhrase. Deployment does not opt into a default transaction payer.
-RevealSeedPhrase's public backup hook recognizes Bunker vault IDs and loads only
-getSafeBunkerView.backupPending. Finish backup reuses confirmSeedBackup and
-delegates to the master-only safeBunker/backup.ts. Activation atomically projects
-a pending backup onto the account; HomeBackupReminder routes it directly to the
-same phrase screen. Reveal alone never acknowledges backup. Existing encrypted
-journals accept the optional flag without migration; existing account rows do
-not gain reminders retroactively. No signing or owner derivation policy changes.
-
-Account-add completion adopts the exact account returned by the flow in the calling tab; it does not re-read the global active account, which another tab-bound refresh may have changed. Bunker deployment/restore pass the activated account ID and resolve that exact public account before completion.
-
-Bunker restore no longer transports or re-verifies a password for an already unlocked master session. The restore form checks getPasswordType (including standard cold restoration) on entry and before each explicit submit; only expired sessions render the existing UnlockScreen with its password/biometric flow. Agent sessions cannot restore. No request is automatically replayed after unlock, and lock/expiry clears the imported phrase. The background retains captureBunkerAccess(true) and live key/role/epoch revalidation before the atomic seed/journal commit; passwordless passkey-master sessions are valid. Explicit phrase reveal retains its separate password proof; account removal uses the live master session.
-
-Bunker restore now automatically requests bounded continueSafeBunkerRecovery pages after the initial user-approved import, until the verified account is activated. A dedicated progress screen retains Back and omits mode tabs/raw block counters. The renderer checks live master authorization before every page, permits only one page at a time, stops on unmount/lock/error, and never resumes after reauthorization without an explicit Retry. The background page limits, encrypted checkpoints, and independent auth/epoch checks remain unchanged.
-
-Deployment receipt enrichment and detail backfill share history/nativeGasPayerPolicy.ts's
-isHistoryOuterGasPayer policy. The Safe deployment projection never adds outer
-gas to its native balance delta; the executor projection still excludes its own
-gas from transfer flow. This changes future enrichment only: no migration,
-history-version bump or forced recomputation of existing asset changes.
+All target chains must pass the frozen canonical EVM profile/EIP-1559 checks;
+zkSync Era is excluded. Provider signatures, EOA delegation/permissions, Shield,
+sponsorship/force inclusion and cross-chain bridges are unsupported. External Safe
+clients can bypass rotation; no post-quantum guarantee is claimed. See the detailed
+implementation reference for owner files, exact checks and validation boundaries.

@@ -5,7 +5,7 @@ import type { BunkerOperation, BunkerState } from "./types";
 /** Snapshot every contributing route before reads, then check all synchronously at release. */
 export async function authorizeBunkerOperation(state: BunkerState, op: BunkerOperation) {
   const account = await getAccountById(state.accountId);
-  if (!account || account.type !== "safeBunker" || account.seedVaultId !== state.id || account.address.toLowerCase() !== state.plan.address || account.chainId !== 11155111) throw new Error("Bunker account changed");
+  if (!account || account.type !== "safeBunker" || account.bunkerId !== state.id || account.address.toLowerCase() !== state.plan.address || account.chainId !== state.chainId || account.seedGroupId !== state.seedGroupId) throw new Error("Bunker account changed");
   const contexts = op.routes.map((r) => ({ id: r.requestId, origin: r.topic ? `walletconnect:${r.topic}` : r.origin,
     senderOrigin: r.origin, tabId: r.tabId, frameId: r.frameId,
     ...(r.kind === "wallet" ? { trustedInternal: true as const } : {}),

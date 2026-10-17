@@ -9,16 +9,21 @@ import { bunkerCommand } from "./transport";
 import { isPendingBunkerRequest, selectBunkerRequest } from "./requestQueue";
 import { BunkerTransactionConfirmation } from "./BunkerTransactionConfirmation";
 
-export function BunkerAccountScreen({ account, initialRequestId, onBack, onSubmitted, rejectOnBack = false }: { rejectOnBack?: boolean; account: SafeBunkerAccount; initialRequestId?: string | null; onBack: () => void; onSubmitted: () => void }) {
-  const [view, setView] = useState<BunkerAccountView | null>(null);
+export function BunkerAccountScreen({ account, initialRequestId, initialView, initialError = "", onBack, onSubmitted, rejectOnBack = false }: { rejectOnBack?: boolean; account: SafeBunkerAccount; initialRequestId?: string | null; initialView?: BunkerAccountView | null; initialError?: string; onBack: () => void; onSubmitted: () => void }) {
+  const seedView = initialView?.id === account.id && initialView.draftId === account.bunkerId &&
+    initialView.chainId === account.chainId && initialView.seedGroupId === account.seedGroupId &&
+    initialView.safeAddress.toLowerCase() === account.address.toLowerCase() ? initialView : null;
+  const [view, setView] = useState<BunkerAccountView | null>(seedView);
   const [requestId, setRequestId] = useState<string | null>(initialRequestId ?? null);
   const [automatic, setAutomatic] = useState(true);
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [busy, setBusy] = useState(false), [error, setError] = useState(initialError);
   const rejectedIds = useRef(new Set<string>());
-  const alive = useRef(false), claim = useRef(false), generation = useRef(0);
+  const alive = useRef(false), claim = useRef(false), generation = useRef(0), reads = useRef(0);
+  const previousRequestId = useRef(initialRequestId);
   const refresh = async () => {
-    const r = await bunkerCommand<{ view: BunkerAccountView }>({ type: "getSafeBunkerView", id: account.seedVaultId });
-    if (!alive.current) return;
+    const read = ++reads.current, revision = generation.current;
+    const r = await bunkerCommand<{ view: BunkerAccountView }>({ type: "getSafeBunkerView", id: account.bunkerId });
+    if (!alive.current || read !== reads.current || revision !== generation.current) return;
     r.view.operations = r.view.operations.map((op) => rejectedIds.current.has(op.id) ? { ...op, state: "rejected" } : op);
     setView(r.view); return r.view;
   };
@@ -30,7 +35,7 @@ export function BunkerAccountScreen({ account, initialRequestId, onBack, onSubmi
     finally { claim.current = false; if (alive.current && generation.current === revision) setBusy(false); }
   };
   useEffect(() => { alive.current = true; const revision = ++generation.current;
-    void refresh().catch((e: Error) => { if (alive.current) setError(e.message); });
+    if (!seedView && !initialError) void refresh().catch((e: Error) => { if (alive.current) setError(e.message); });
     const timer = setInterval(() => { if (!claim.current) void refresh().catch(() => {}); }, 15000);
     return () => { alive.current = false; generation.current = revision + 1; clearInterval(timer); };
   // Account ID changes remount the feature surface.
@@ -38,7 +43,8 @@ export function BunkerAccountScreen({ account, initialRequestId, onBack, onSubmi
   }, [account.id]);
   useEffect(() => {
     setRequestId(initialRequestId ?? null); setAutomatic(true);
-    if (initialRequestId) void refresh().catch(() => {});
+    if (initialRequestId && previousRequestId.current !== initialRequestId) void refresh().catch(() => {});
+    previousRequestId.current = initialRequestId;
   // Refresh newly received requests even when this account surface is already open.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRequestId]);

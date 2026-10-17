@@ -1,6 +1,6 @@
 import { getAddress, zeroAddress, type Hex, type PublicClient } from "viem";
 import { SAFE_READ_ABI, SAFE_SINGLETON_SLOT, GUARD_STORAGE_SLOT, FALLBACK_HANDLER_STORAGE_SLOT, configurationEpoch } from "../safe/onchainState";
-import { BUNKER_CHAIN_ID, BUNKER_PINS } from "./network";
+import { BUNKER_PINS } from "./network";
 import { bunkerStep } from "./errors";
 import type { BunkerReview, BunkerState } from "./types";
 
@@ -26,7 +26,7 @@ export async function preflightBunkerExecution(state: BunkerState, review: Bunke
         client.getCode({ address, blockNumber }), client.getTransactionCount({ address, blockNumber }),
       ]))),
     ]);
-    if (chainId !== BUNKER_CHAIN_ID) throw new Error("Bunker RPC is not on Sepolia");
+    if (chainId !== state.chainId) throw new Error("Bunker RPC chain mismatch");
     const singleton = addressFromWord(singletonWord), guard = addressFromWord(guardWord), fallbackHandler = addressFromWord(fallbackWord);
     if (version !== "1.4.1" || singleton !== BUNKER_PINS.singleton.address.toLowerCase() || threshold !== 1n || owners.length !== 1 ||
       modules[0].length || modules[1].toLowerCase() !== sentinel || guard !== zeroAddress || fallbackHandler !== zeroAddress) throw new Error("Bunker Safe configuration changed. Recovery required.");
@@ -41,7 +41,7 @@ export async function preflightBunkerExecution(state: BunkerState, review: Bunke
   await Promise.all([
     authority,
     bunkerStep("balance", async () => {
-      if (await client.getBalance({ address: review.payerAddress, blockNumber }) < BigInt(review.maxFee)) throw new Error("Gas payer has insufficient Sepolia ETH");
+      if (await client.getBalance({ address: review.payerAddress, blockNumber }) < BigInt(review.maxFee)) throw new Error("Gas payer has insufficient native balance");
     }),
     // Simulate once with the actual signature, payer and reviewed gas ceiling.
     bunkerStep("simulation", () => client.call({ account: review.payerAddress, to: state.plan.address, data, gas: BigInt(review.gas.gasLimit), blockNumber })),

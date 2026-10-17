@@ -1,4 +1,3 @@
-import { readBunkerDraftSeed } from "../safeBunker/drafts";
 import {
   decryptAllKeysWithVaultKey,
   handleUnlockWallet,
@@ -84,7 +83,7 @@ export async function handleRevealSeedPhrase(
         sendResponse({ success: false, error: STALE_MASTER_AUTHORIZATION_ERROR });
         return;
       }
-      const mnemonic = await readBunkerDraftSeed(seedGroupId, expectedAuthEpoch) ?? await getMnemonic(seedGroupId, {
+      const mnemonic = await getMnemonic(seedGroupId, {
         password,
         mnemonicKey: getCachedMnemonicKey(),
         legacyVaultKey: getCachedVaultKey(),

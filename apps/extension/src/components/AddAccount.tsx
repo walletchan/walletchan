@@ -476,7 +476,7 @@ function AddAccount({
     );
   }
 
-  if (accountType === "safeBunker") return <SafeBunkerDraftScreen onBack={() => setAccountType(null)} onActivated={(accountId) => { void chrome.runtime.sendMessage({ type: "getAccounts" }).then((accounts: Account[]) => { const account = accounts.find((candidate) => candidate.id === accountId); if (account) onAccountAdded(account); }); }} />;
+  if (accountType === "safeBunker") return <SafeBunkerDraftScreen ensureMnemonicAccess={ensureMnemonicAccess} needsUpgrade={needsBiometricUpgrade} onOpenBiometricSettings={onOpenBiometricSettings} onBack={() => setAccountType(null)} onActivated={(accountId) => { void chrome.runtime.sendMessage({ type: "getAccounts" }).then((accounts: Account[]) => { const account = accounts.find((candidate) => candidate.id === accountId); if (account) onAccountAdded(account); }); }} />;
   if (accountType === "safe") return <SafeEntryScreen onBack={() => setAccountType(null)} onAccountAdded={onAccountAdded} />;
   const isLocalAccount =
     accountType === "privateKey" || accountType === "seedPhrase";

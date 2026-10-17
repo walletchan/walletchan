@@ -47,7 +47,7 @@ test("Bunker Ledger preflight runs after device approval and blocks release on c
   }) as typeof fetch;
   try {
     const { submitBunkerOuter } = await server.ssrLoadModule("/src/chrome/safeBunker/payer.ts");
-    const input = { id: "request", payerId: account.id, payerAddress: account.address, to: signer.address, data: "0x", rpc: "https://fixture.example", gas: { gasLimit: "100000", maxFeePerGas: "10", maxPriorityFeePerGas: "1" },
+    const input = { chainId: 84532, id: "request", payerId: account.id, payerAddress: account.address, to: signer.address, data: "0x", rpc: "https://fixture.example", gas: { gasLimit: "100000", maxFeePerGas: "10", maxPriorityFeePerGas: "1" },
       current: () => { if (state.changed) throw Error("Authentication changed"); },
       beforeBroadcast: async () => { state.events.push("final preflight and durable save"); assert.equal(state.locked, true); assert.ok(state.events.includes("device approval")); if (state.changed) throw Error("Safe owner changed during device approval"); } };
     await submitBunkerOuter(input);

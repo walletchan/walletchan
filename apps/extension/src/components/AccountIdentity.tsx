@@ -1,4 +1,5 @@
-import { Flex, Image } from "@chakra-ui/react";
+import ChainIcon from "@/components/ChainIcon";
+import { Box, Flex, Image } from "@chakra-ui/react";
 import { blo } from "blo";
 import type { Account } from "@/chrome/types";
 import { useCachedAvatarSrc } from "@/hooks/useCachedAvatarSrc";
@@ -40,6 +41,11 @@ export function AccountAvatar({
   ensAvatar: string | null | undefined;
   size?: number;
 }) {
+  if (account.type === "safeBunker") return <Box position="relative" boxSize={`${size}px`} minW={`${size}px`}>
+    <Flex boxSize={`${size}px`} align="center" justify="center" borderRadius="md" bg="surface.raised" color="accent.highlight">
+      <SafeIcon boxSize={`${Math.round(size * 0.62)}px`} />
+    </Flex><Box position="absolute" bottom="-2px" right="-3px" bg="surface.base" borderRadius="full" p="1px"><ChainIcon chainId={account.chainId} size={`${Math.max(14, Math.round(size * 0.48))}px`} /></Box>
+  </Box>;
   if (ensAvatar) return <EnsAvatar src={ensAvatar} size={size} />;
   if (account.type === "bankr") {
     return (

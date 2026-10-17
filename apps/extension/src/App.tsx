@@ -134,6 +134,7 @@ import {
 } from "@/app/unlockRouting";
 import { SafeApprovalsSurface, SafeFeatureUnavailable, SafeHomeActivity, SafeHomeApprovalRail, SafeHomeQuickActions } from "@/app/SafeAppSurfaces";
 import { toLegacyAccountType } from "@/app/safeAccountType";
+import { SeedGroupBackupSurface } from "@/app/SeedGroupBackupSurface";
 import { HomeBackupReminder } from "@/app/home/HomeBackupReminder";
 import { PrivatePortfolioHome, useWalletHomeMode, WalletModeToggle } from "@/app/home";
 import type { UnshieldOperation } from "@/components/Shield/model/unshield";
@@ -147,6 +148,7 @@ function App() {
   const { networksInfo, reloadRequired, setReloadRequired } = useNetworks();
   const { mode: walletHomeMode, setMode: setWalletHomeMode, privateHomeEnabled } = useWalletHomeMode();
   const [view, setView] = useState<AppView>("main");
+  const [backupGroupId, setBackupGroupId] = useState<string | null>(null);
   const ledgerSetupRequestedRef = useRef(
     isLedgerSetupRoute(window.location.search),
   );
@@ -1696,7 +1698,7 @@ function App() {
     setView("main");
   }, [holdingsTabTrigger]);
 
-  const { bunkerRequestAccount, bunkerRequestId, pendingBunkerRequests, openPendingBunker, openBunker, handleBunkerSubmitted } = useBunkerNavigation({
+  const { bunkerRequestAccount, bunkerRequestId, bunkerInitialView, bunkerInitialError, pendingBunkerRequests, openPendingBunker, openBunker, handleBunkerSubmitted } = useBunkerNavigation({
     unlocked: isWalletUnlocked, accounts, setView, onSelectAccount: handleAccountSwitch,
     onActivity: () => { setWalletHomeMode("public"); returnToActivity(); },
   });
@@ -2343,6 +2345,7 @@ function App() {
     );
   }
 
+  if (view === "seedGroupBackup" && backupGroupId) return <SeedGroupBackupSurface seedGroupId={backupGroupId} fullscreen={isFullscreenTab} onBack={() => setView("main")} />;
   // Account Settings view
   if (view === "accountSettings") {
     return (
@@ -2451,7 +2454,7 @@ function App() {
     );
   }
 
-  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} initialRequestId={bunkerRequestId} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
+  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} initialRequestId={bunkerRequestId} initialView={bunkerInitialView} initialError={bunkerInitialError} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
 
   // Safe approvals view
   if (view === "safeApprovals") {
@@ -3473,7 +3476,7 @@ function App() {
               onAccountPickerOpenChange={setIsAccountPickerOpen}
               onAccountsReordered={setAccounts}
             />}
-            <HomeBackupReminder accounts={accounts} onBackup={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("backup"); setAccountSettingsInitialView("revealSeedPhrase"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} />
+            <HomeBackupReminder onBackupGroup={(id) => { setBackupGroupId(id); setView("seedGroupBackup"); }} accounts={accounts} onBackup={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("backup"); setAccountSettingsInitialView("revealSeedPhrase"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} />
 
             {walletHomeMode === "public" && activeAccount?.type === "safe" && (
               <SafeHomeApprovalRail

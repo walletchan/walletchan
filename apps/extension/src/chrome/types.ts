@@ -67,14 +67,14 @@ export interface SafeAccount extends BaseAccount {
   type: "safe";
 }
 
-/** Standard Safe controlled by a dedicated Bunker seed; pending deployment cannot execute. */
+/** Standard Safe derived from a shared saved phrase; pending deployment cannot execute. */
 export interface SafeBunkerAccount extends BaseAccount {
   type: "safeBunker";
   deploymentPending?: true;
-  backupPending?: true;
   chainId: number;
-  derivationVersion: 1;
-  seedVaultId: string;
+  derivationVersion: 2;
+  bunkerId: string;
+  seedGroupId: string;
 }
 
 export type Account =

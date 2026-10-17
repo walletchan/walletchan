@@ -2,18 +2,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Account, SafeBunkerAccount } from "@/chrome/types";
 import { bunkerCommand } from "@/components/SafeBunker/transport";
 import type { PendingBunkerRequest } from "@/chrome/safeBunker/pendingRequests";
+import type { BunkerAccountView } from "@/chrome/safeBunker/types";
+import { preloadBunkerRequest } from "@/app/bunkerRequestPreload";
 import type { AppView } from "@/components/ScreenTransition";
 
 export function useBunkerNavigation({ unlocked, accounts, setView, onSelectAccount, onActivity }: { unlocked: boolean; accounts: Account[]; setView: (view: AppView) => void; onSelectAccount: (account: Account) => Promise<void>; onActivity: () => void }) {
   const [pendingBunkerRequests, setPendingBunkerRequests] = useState<PendingBunkerRequest[]>([]);
   const [account, setAccount] = useState<SafeBunkerAccount | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [initialView, setInitialView] = useState<BunkerAccountView | null>(null);
+  const [initialError, setInitialError] = useState("");
+  const opening = useRef(0), liveAccounts = useRef(accounts); liveAccounts.current = accounts;
   const liveUnlock = useRef(unlocked); liveUnlock.current = unlocked;
   const pending = useRef<string | null>(null), checked = useRef(false);
-  const open = useCallback((next: Account | null, nextRequestId: string | null = "__pending__") => {
+  const open = useCallback(async (next: Account | null, nextRequestId: string | null = "__pending__") => {
     if (next?.type !== "safeBunker") return;
-    setRequestId(nextRequestId); setAccount(next); setView(unlocked ? "safeBunker" : "unlock");
+    const revision = ++opening.current;
+    if (!unlocked) { setView("unlock"); return; }
+    let snapshot: BunkerAccountView | null = null, error = "";
+    try { snapshot = await preloadBunkerRequest(next); }
+    catch (cause) { error = cause instanceof Error ? cause.message : "Could not load Bunker request"; }
+    const current = liveAccounts.current.find(a => a.id === next.id);
+    if (!liveUnlock.current || opening.current !== revision || current?.type !== "safeBunker" ||
+        current.bunkerId !== next.bunkerId || current.chainId !== next.chainId || current.seedGroupId !== next.seedGroupId ||
+        current.address.toLowerCase() !== next.address.toLowerCase()) return;
+    setInitialView(snapshot); setInitialError(error); setRequestId(nextRequestId); setAccount(current); setView("safeBunker");
   }, [setView, unlocked]);
+  useEffect(() => {
+    const lifecycle = opening;
+    if (!unlocked) { ++lifecycle.current; setInitialView(null); setInitialError(""); setAccount(null); }
+    return () => { ++lifecycle.current; };
+  }, [unlocked]);
   const refreshPending = useCallback(async () => {
     if (!unlocked || !accounts.some((a) => a.type === "safeBunker")) { setPendingBunkerRequests([]); return []; }
     const result = await bunkerCommand<{ requests: PendingBunkerRequest[] }>({ type: "getPendingSafeBunkerRequests" });
@@ -55,5 +74,5 @@ export function useBunkerNavigation({ unlocked, accounts, setView, onSelectAccou
     // Account selection owns address/chain state just as it does for ordinary Home navigation.
     void onSelectAccount(next).then(onActivity).catch(onActivity);
   };
-  return { bunkerRequestAccount: account, bunkerRequestId: requestId, pendingBunkerRequests, openPendingBunker, openBunker: open, handleBunkerSubmitted };
+  return { bunkerRequestAccount: account, bunkerRequestId: requestId, bunkerInitialView: initialView, bunkerInitialError: initialError, pendingBunkerRequests, openPendingBunker, openBunker: open, handleBunkerSubmitted };
 }

@@ -58,8 +58,10 @@ try {
   const warnings: string[] = [];
   page.on("console", message => { if (/Blocked aria-hidden|descendant retained focus/i.test(message.text())) warnings.push(message.text()); });
   const created = await page.evaluate(async () => {
-    const id = `bunker-draft:${crypto.randomUUID()}`;
-    const draft = await chrome.runtime.sendMessage({ type: "createSafeBunkerDraft", id, name: "Picker Focus Bunker" });
+    const source = await chrome.runtime.sendMessage({ type: "saveSeedPhraseOnly", generate: true, mnemonic: "" });
+    if (!source.success) throw new Error(source.error);
+    const draft = await chrome.runtime.sendMessage({ type: "createSafeBunkerDraft", seedGroupId: source.group.id, chainId: 11155111 });
+    const id = draft.draft?.id;
     if (!draft.success) throw new Error(draft.error);
     const preparation = await chrome.runtime.sendMessage({ type: "prepareSafeBunker", id });
     if (!preparation.success) throw new Error(preparation.error);
@@ -75,7 +77,7 @@ try {
   assert.ok(reconciled.success, JSON.stringify(reconciled));
   await page.reload();
   const trigger = page.getByRole("button", { name: "Choose account", exact: true });
-  await page.getByText("Picker Focus Bunker", { exact: true }).waitFor();
+  await page.getByText("SafeBunker - Ethereum Sepolia", { exact: true }).waitFor();
   for (const theme of ["midnight", "bauhaus"]) {
     await page.evaluate(theme => chrome.storage.local.set({ selectedThemeId: theme }), theme);
     for (const keyboard of [false, true]) {

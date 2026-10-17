@@ -68,7 +68,7 @@ export async function reconcileBunker(id: string, client: PublicClient) {
       });
       const r = op.review!;
       const expected = await withBunkerDraftSeed(await bunkerEntry(id), current(), (seed) => ({
-        old: deriveBunkerOwner(seed, r.ownerIndex), next: deriveBunkerOwner(seed, r.nextIndex),
+        old: deriveBunkerOwner(seed, state.chainId, r.ownerIndex), next: deriveBunkerOwner(seed, state.chainId, r.nextIndex),
       }));
       if (!logs.some((l) => l.eventName === "ExecutionSuccess" && l.args.txHash.toLowerCase() === r.safeTxHash) ||
           !logs.some((l) => l.eventName === "AddedOwner" && l.args.owner.toLowerCase() === expected.next) ||
@@ -117,10 +117,12 @@ export function startBunkerReconciliation() {
   let cursor = 0;
   const run = async () => {
     if (!getCachedVaultKey()) return;
-    const states = await loadStoredBunkerStates(); const client = await bunkerClient();
+    const states = await loadStoredBunkerStates();
     const page = Array.from({ length: Math.min(5, states.length) }, (_, i) => states[(cursor + i) % states.length]);
     cursor = states.length ? (cursor + page.length) % states.length : 0;
-    for (const entry of page) await reconcileBunker(entry.id, client).catch(() => undefined);
+    for (const entry of page) {
+      try { const state = await readBunkerState(entry.id); if (state) await reconcileBunker(entry.id, await bunkerClient(state.chainId)); } catch { /* Retry next alarm; preserve encrypted state. */ }
+    }
   };
   chrome.alarms.create("walletchan-bunker-reconcile", { periodInMinutes: 0.5 }).catch(() => {});
   chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === "walletchan-bunker-reconcile") void run().catch(() => {}); });

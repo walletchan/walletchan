@@ -11,9 +11,7 @@ import { getNextNonce, resetNonce } from "../forceInclusion/nonceManager";
 import type { GasOverrides } from "../transactions/localExecution";
 import { createWalletClient, keccak256, type Hex, type TransactionSerializable } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
 import type { BunkerAccess } from "./access";
-import { BUNKER_CHAIN_ID } from "./network";
 
 export async function bunkerPayer(id: string, expected?: string) {
   const account = await getAccountById(id);
@@ -21,12 +19,12 @@ export async function bunkerPayer(id: string, expected?: string) {
   return account;
 }
 export async function submitBunkerOuter(input: {
-  id: string; payerId: string; payerAddress: Hex; to: Hex; data: Hex; rpc: string;
+  chainId: number; id: string; payerId: string; payerAddress: Hex; to: Hex; data: Hex; rpc: string;
   gas: GasOverrides; current: BunkerAccess;
   beforeBroadcast: (prepared: { serializedTransaction: Hex; transactionHash: Hex }) => Promise<void>;
 }) {
   input.current(); const payer = await bunkerPayer(input.payerId, input.payerAddress);
-  const tx = { chainId: BUNKER_CHAIN_ID, from: payer.address, to: input.to, value: "0", data: input.data,
+  const tx = { chainId: input.chainId, from: payer.address, to: input.to, value: "0", data: input.data,
     gas: input.gas.gasLimit, maxFeePerGas: input.gas.maxFeePerGas, maxPriorityFeePerGas: input.gas.maxPriorityFeePerGas };
   const beforeBroadcast = async (p: { serializedTransaction: Hex; transactionHash: Hex }) => {
     input.current(); const live = await bunkerPayer(payer.id, input.payerAddress);
@@ -35,26 +33,26 @@ export async function submitBunkerOuter(input: {
   };
   if (payer.type === "ledger") {
     await ensureLedgerSigningSession(""); input.current();
-    const nonce = await getNextNonce(payer.address, BUNKER_CHAIN_ID);
+    const nonce = await getNextNonce(payer.address, input.chainId);
     let persisted = false;
     try {
-      const client = createWalletClient({ chain: sepolia, transport: secureHttpTransport(input.rpc, { timeout: 15000, retryCount: 0 }) });
-      const transaction: TransactionSerializable = { type: "eip1559", chainId: BUNKER_CHAIN_ID, to: input.to,
+      const client = createWalletClient({ transport: secureHttpTransport(input.rpc, { timeout: 15000, retryCount: 0 }) });
+      const transaction: TransactionSerializable = { type: "eip1559", chainId: input.chainId, to: input.to,
         data: input.data, value: 0n, nonce, gas: BigInt(input.gas.gasLimit), maxFeePerGas: BigInt(input.gas.maxFeePerGas), maxPriorityFeePerGas: BigInt(input.gas.maxPriorityFeePerGas) };
       const raw = await signPreparedLedgerTransaction({ account: payer, opId: `bunker:${input.id}`, transaction });
       return await withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
         await beforeBroadcast({ serializedTransaction: raw, transactionHash: keccak256(raw) }); persisted = true;
         input.current(); return broadcastBunkerBytes(client, raw);
       });
-    } catch (error) { if (!persisted) resetNonce(payer.address, BUNKER_CHAIN_ID); throw error; }
+    } catch (error) { if (!persisted) resetNonce(payer.address, input.chainId); throw error; }
   }
   const key = await getLocalPrivateKeyForAccount(payer.id, ""); input.current();
   if (!key) throw new Error("Unlock the gas payer account");
   if (privateKeyToAccount(key).address.toLowerCase() !== payer.address.toLowerCase()) throw new Error("Gas payer key does not match account");
-  const { client } = createLocalSignerClient(BUNKER_CHAIN_ID, key, input.rpc);
+  const { client } = createLocalSignerClient(input.chainId, key, input.rpc);
   return withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     input.current();
-    const prepared = await client.prepareTransactionRequest({ type: "eip1559", chainId: BUNKER_CHAIN_ID, parameters: ["nonce"], to: input.to, data: input.data, value: 0n,
+    const prepared = await client.prepareTransactionRequest({ type: "eip1559", chainId: input.chainId, parameters: ["nonce"], to: input.to, data: input.data, value: 0n,
       gas: BigInt(tx.gas), maxFeePerGas: BigInt(tx.maxFeePerGas), maxPriorityFeePerGas: BigInt(tx.maxPriorityFeePerGas) });
     const raw = await client.signTransaction(prepared);
     await beforeBroadcast({ serializedTransaction: raw, transactionHash: keccak256(raw) });

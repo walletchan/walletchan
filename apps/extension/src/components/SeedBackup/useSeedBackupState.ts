@@ -3,7 +3,6 @@ import type { SeedGroup } from "@/chrome/types";
 
 /** Public metadata only; phrase reveal stays in the master-password route. */
 export function useSeedBackupState(seedGroupId?: string) {
-  const [bunkerPending, setBunkerPending] = useState(false);
   const [groups, setGroups] = useState<SeedGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,12 +14,6 @@ export function useSeedBackupState(seedGroupId?: string) {
     const refresh = async () => {
       const requestedRevision = ++revision;
       try {
-        if (seedGroupId?.startsWith("bunker-draft:")) {
-          const response = await chrome.runtime.sendMessage({ type: "getSafeBunkerView", id: seedGroupId });
-          if (!response?.success || !response.view) throw new Error(response?.error || "Could not check Bunker backup");
-          if (!disposed && revision === requestedRevision) { setBunkerPending(response.view.backupPending === true); setError(""); }
-          return;
-        }
         const result = await chrome.runtime.sendMessage({ type: "getSeedGroups" });
         if (!Array.isArray(result)) throw new Error("Could not check wallet backup");
         if (!disposed && revision === requestedRevision) { setGroups(result); setError(""); }
@@ -31,7 +24,7 @@ export function useSeedBackupState(seedGroupId?: string) {
       }
     };
     const onStorage = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area === "local" && (changes.seedGroups || seedGroupId?.startsWith("bunker-draft:") && changes.safeBunkerStateV1)) void refresh();
+      if (area === "local" && (changes.seedGroups)) void refresh();
     };
     const onMessage = (message: { type?: string }) => {
       if (message.type === "accountsUpdated") void refresh();
@@ -52,7 +45,6 @@ export function useSeedBackupState(seedGroupId?: string) {
     try {
       const result = await chrome.runtime.sendMessage({ type: "confirmSeedBackup", seedGroupId, confirmed: true });
       if (!result?.success) throw new Error(result?.error || "Could not confirm backup");
-      setBunkerPending(false);
       setGroups((current) => current.map((group) => group.id === seedGroupId ? { ...group, backupPending: undefined } : group));
       return true;
     } catch (cause) {
@@ -60,5 +52,5 @@ export function useSeedBackupState(seedGroupId?: string) {
       return false;
     } finally { setIsSaving(false); }
   }, [seedGroupId]);
-  return { groups, pending: seedGroupId?.startsWith("bunker-draft:") ? bunkerPending : groups.some((group) => group.id === seedGroupId && group.backupPending === true), isLoading, error, isSaving, confirm };
+  return { groups, pending: groups.some((group) => group.id === seedGroupId && group.backupPending === true), isLoading, error, isSaving, confirm };
 }

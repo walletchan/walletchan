@@ -1,5 +1,5 @@
+import { buildDangerSolid } from "./dangerSolid";
 import type { ThemeTokens } from "../tokens";
-
 export function buildButton(t: ThemeTokens) {
   if (t.id !== "midnight") return buildBauhausButton(t);
 
@@ -28,15 +28,7 @@ export function buildButton(t: ThemeTokens) {
       _disabled: disabled,
     },
     variants: {
-      dangerSolid: {
-        bg: "status.error.emphasis",
-        color: "fg.inverse",
-        border: t.borders.thin,
-        borderColor: "status.error.emphasis",
-        _hover: { bg: "status.error.emphasis", opacity: 0.9, _disabled: { opacity: 0.5 } },
-        _active: pressActive,
-        _disabled: { opacity: 0.5, cursor: "not-allowed", transform: "none" },
-      },
+      dangerSolid: buildDangerSolid(t, pressActive),
       // The only filled action color in Midnight.
       primary: {
         bg: "accent.primary",
@@ -304,15 +296,7 @@ function buildBauhausButton(t: ThemeTokens) {
       },
     },
     variants: {
-      dangerSolid: {
-        bg: "status.error.emphasis",
-        color: "fg.inverse",
-        border: t.borders.thin,
-        borderColor: "status.error.emphasis",
-        _hover: { bg: "status.error.emphasis", opacity: 0.9, _disabled: { opacity: 0.5 } },
-        _active: pressActive,
-        _disabled: { opacity: 0.5, cursor: "not-allowed", transform: "none" },
-      },
+      dangerSolid: buildDangerSolid(t, pressActive),
       // Primary CTA — accent.primary background
       primary: {
         bg: "accent.primary",

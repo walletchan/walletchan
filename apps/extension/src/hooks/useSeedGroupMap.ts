@@ -7,7 +7,7 @@ export function useSeedGroupMap(accounts: Account[]): Map<string, string> {
   );
 
   useEffect(() => {
-    if (!accounts.some((account) => account.type === "seedPhrase")) return;
+    if (!accounts.some((account) => (account.type === "seedPhrase" || account.type === "safeBunker"))) return;
 
     chrome.runtime.sendMessage(
       { type: "getSeedGroups" },

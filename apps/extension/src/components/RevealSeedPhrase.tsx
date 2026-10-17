@@ -34,12 +34,12 @@ import {
 
 interface Props {
   account: Account | null;
-  bunkerDraftId?: string;
+  seedGroupIdOverride?: string;
   onBack: () => void;
 }
 
-function RevealSeedPhrase({ account, bunkerDraftId, onBack }: Props) {
-  const backup = useSeedBackupState(bunkerDraftId ?? (account?.type === "safeBunker" ? account.seedVaultId : account?.type === "seedPhrase" ? account.seedGroupId : undefined));
+function RevealSeedPhrase({ account, seedGroupIdOverride, onBack }: Props) {
+  const backup = useSeedBackupState(seedGroupIdOverride ?? (account?.type === "safeBunker" ? account.seedGroupId : account?.type === "seedPhrase" ? account.seedGroupId : undefined));
   const mountedRef = useRef(true);
   const revealRevision = useRef(0);
   const [password, setPassword] = useState("");
@@ -63,7 +63,7 @@ function RevealSeedPhrase({ account, bunkerDraftId, onBack }: Props) {
     };
     chrome.runtime.onMessage.addListener(onLock);
     return () => { mountedRef.current = false; chrome.runtime.onMessage.removeListener(onLock); };
-  }, [account?.id, bunkerDraftId]);
+  }, [account?.id, seedGroupIdOverride]);
   useEffect(() => {
     setIsCheckingSession(true);
     chrome.runtime.sendMessage(
@@ -85,7 +85,7 @@ function RevealSeedPhrase({ account, bunkerDraftId, onBack }: Props) {
   }, []);
 
   const handleReveal = () => {
-    const seedGroupId = bunkerDraftId ?? (account?.type === "safeBunker" ? account.seedVaultId : account?.type === "seedPhrase" ? account.seedGroupId : null);
+    const seedGroupId = seedGroupIdOverride ?? (account?.type === "safeBunker" ? account.seedGroupId : account?.type === "seedPhrase" ? account.seedGroupId : null);
     if (!password || !seedGroupId || isLoading || backup.isLoading || backup.error) return;
     const revision = ++revealRevision.current;
     setError("");

@@ -8,7 +8,7 @@ import type { BunkerOperation, BunkerState } from "../../src/chrome/safeBunker/t
 const safe = `0x${"11".repeat(20)}` as const, recipient = `0x${"22".repeat(20)}` as const;
 const hash = `0x${"33".repeat(32)}` as const;
 const calls = [{ to: recipient, value: "1000000000000000", data: "0x", operation: 0 }] as BunkerOperation["calls"];
-const state = { accountId: "bunker-account", plan: { address: safe } } as BunkerState;
+const state = { chainId: 11155111, chainName: "Ethereum Sepolia", accountId: "bunker-account", plan: { address: safe } } as BunkerState;
 const op = { id: "request", calls, routes: [{ origin: "https://app.uniswap.org" }], kind: "transaction", state: "confirmed",
   createdAt: 123, receipt: { hash, timestamp: 456 }, signature: "secret-signature", outer: { raw: "secret-raw" } } as unknown as BunkerOperation;
 
@@ -48,10 +48,10 @@ test("details reconstruct every user call after compaction without resolving out
 
 
 test("rotation metadata uses the exact review indices and survives history compaction", async () => {
-  const { buildBunkerTransaction } = await import("../../src/chrome/safeBunker/transaction");
+  const { buildBunkerTransaction: buildOnChain } = await import("../../src/chrome/safeBunker/transaction");
   const oldOwner = `0x${"44".repeat(20)}` as const, newOwner = `0x${"55".repeat(20)}` as const;
   for (const recovery of [false, true]) {
-    const built = buildBunkerTransaction(safe, 0n, oldOwner, newOwner, recovery ? [] : calls, recovery);
+    const built = buildOnChain(safe, 0n, oldOwner, newOwner, recovery ? [] : calls, recovery, 11155111);
     const review = { transaction: built.transaction, ownerIndex: 7, nextIndex: 12 } as BunkerOperation["review"];
     const entry = buildBunkerHistory(state, { ...op, review })!;
     assert.deepEqual(compactHistoryTransaction(entry).transaction.safeBunkerMeta?.rotation,

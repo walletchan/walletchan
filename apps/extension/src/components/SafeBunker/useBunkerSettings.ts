@@ -16,10 +16,10 @@ export function useBunkerSettings(account: SafeBunkerAccount, onAccountUpdated: 
   const toast = useThemedToast();
   const load = useCallback(async () => {
     const revision = ++read.current;
-    const result = await bunkerCommand<{ view: BunkerAccountView }>({ type: "getSafeBunkerView", id: account.seedVaultId });
+    const result = await bunkerCommand<{ view: BunkerAccountView }>({ type: "getSafeBunkerView", id: account.bunkerId });
     if (alive.current && revision === read.current) setView(result.view);
     return result.view;
-  }, [account.seedVaultId]);
+  }, [account.bunkerId]);
   useEffect(() => {
     alive.current = true;
     void load().catch((e: Error) => { if (alive.current) setError(e.message); });
@@ -27,7 +27,7 @@ export function useBunkerSettings(account: SafeBunkerAccount, onAccountUpdated: 
       if (alive.current) setRole(result?.passwordType ?? null);
     }).catch(() => {});
     const changed = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area === "local" && changes.safeBunkerStateV1) void load().catch(() => {});
+      if (area === "local" && changes.safeBunkerJournalsV2) void load().catch(() => {});
     };
     chrome.storage.onChanged.addListener(changed);
     return () => { alive.current = false; chrome.storage.onChanged.removeListener(changed); };
@@ -54,7 +54,7 @@ export function useBunkerSettings(account: SafeBunkerAccount, onAccountUpdated: 
     await onAccountUpdated();
   });
   const refresh = () => run("refresh", async () => {
-    await bunkerCommand({ type: "reconcileSafeBunker", id: account.seedVaultId });
+    await bunkerCommand({ type: "reconcileSafeBunker", id: account.bunkerId });
     await load();
     if (alive.current) toast({ title: "Bunker details refreshed", status: "success", duration: 2000 });
   });

@@ -8,13 +8,13 @@ import { loadBunkerDraftVault } from "./repository";
 import { decodeBunkerState } from "./stateCodec";
 import type { BunkerState } from "./types";
 
-export const BUNKER_STATE_KEY = "safeBunkerStateV1";
+export const BUNKER_STATE_KEY = "safeBunkerJournalsV2";
 interface StoredState { id: string; revision: number; cipher: BunkerCipher }
 export async function loadStoredBunkerStates(): Promise<StoredState[]> {
   const raw = (await chrome.storage.local.get(BUNKER_STATE_KEY))[BUNKER_STATE_KEY];
   if (raw === undefined) return [];
   const v = exactRecord(raw, ["version", "entries"]);
-  if (v.version !== 1 || !Array.isArray(v.entries) || v.entries.length > 100) throw new Error("Invalid Bunker state vault");
+  if (v.version !== 2 || !Array.isArray(v.entries) || v.entries.length > 100) throw new Error("Invalid Bunker state vault");
   const ids = new Set();
   return v.entries.map((candidate) => {
     const e = exactRecord(candidate, ["id", "revision", "cipher"]); assertBunkerDraftId(e.id);
@@ -30,7 +30,7 @@ export async function readBunkerState(id: string, key = getCachedVaultKey()): Pr
   const stored = states.find((s) => s.id === id); if (!stored) return null;
   const entry = vault.entries.find((e) => e.header.id === id); if (!entry) throw new Error("Bunker seed is missing");
   const state = decodeBunkerState(await decryptBunkerState(entry, key, stored.revision, stored.cipher));
-  if (state.id !== id) throw new Error("Bunker journal identity mismatch");
+  if (state.id !== id || state.chainId !== entry.header.chainId || state.seedGroupId !== entry.header.seedGroupId) throw new Error("Bunker journal identity mismatch");
   return state;
 }
 /** Caller holds the wallet operation lock; repository lock serializes accounts/state together. */
@@ -43,7 +43,7 @@ export async function writeBunkerState(state: BunkerState, current: () => Crypto
     const cipher = await encryptBunkerState(entry, key, revision, checked);
     const pending = (await readBunkerPendingIndex()).filter((item) => item.accountId !== state.accountId);
     current();
-    await chrome.storage.local.set({ ...extra, [BUNKER_PENDING_KEY]: [...pending, ...projectBunkerPending(checked)], [BUNKER_STATE_KEY]: { version: 1,
+    await chrome.storage.local.set({ ...extra, [BUNKER_PENDING_KEY]: [...pending, ...projectBunkerPending(checked)], [BUNKER_STATE_KEY]: { version: 2,
       entries: [...stored.filter((e) => e.id !== state.id), { id: state.id, revision, cipher }] } });
     current();
     notifyBunkerPendingChanged();

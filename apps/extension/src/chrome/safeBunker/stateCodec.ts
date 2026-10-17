@@ -1,3 +1,4 @@
+import { assertBunkerChainId } from "./chainIdentity";
 import { isAddress } from "viem";
 import { exactRecord, assertBunkerDraftId } from "./record";
 import type { BunkerState } from "./types";
@@ -23,13 +24,14 @@ function optionalKeys(value: unknown, required: string[], optional: string[]) {
   return value as Record<string, any>;
 }
 export function decodeBunkerState(value: unknown): BunkerState {
-  const s = optionalKeys(value, ["version", "id", "accountId", "plan", "activated", "archived", "ownerIndex", "nextIndex", "exposureUnknown", "usedOwners", "defaultPayer", "operations", "recovery"], ["backupConfirmed"]);
-  if (s.version !== 1 || typeof s.activated !== "boolean" || typeof s.archived !== "boolean" || typeof s.exposureUnknown !== "boolean") throw new Error("Unsupported Bunker state");
-  if (s.backupConfirmed !== undefined && s.backupConfirmed !== true) throw new Error("Invalid Bunker backup confirmation");
+  const s = optionalKeys(value, ["version", "chainId", "chainName", "seedGroupId", "id", "accountId", "plan", "activated", "archived", "ownerIndex", "nextIndex", "exposureUnknown", "usedOwners", "defaultPayer", "operations", "recovery"], []);
+  if (s.version !== 2 || typeof s.activated !== "boolean" || typeof s.archived !== "boolean" || typeof s.exposureUnknown !== "boolean") throw new Error("Unsupported Bunker state");
+  assertBunkerChainId(s.chainId); boundedString(s.seedGroupId, 128); boundedString(s.chainName, 128);
   assertBunkerDraftId(s.id); boundedString(s.accountId); index(s.ownerIndex); index(s.nextIndex);
-  const p = optionalKeys(s.plan, ["address", "initializer", "salt", "fromBlock"], ["deploymentHash", "raw"]);
+  const p = optionalKeys(s.plan, ["address", "initializer", "salt", "fromBlock"], ["deploymentHash", "raw", "verifiedBlock"]);
   hex(p.address, 20); hex(p.initializer); uint(p.salt); uint(p.fromBlock);
   if (p.raw !== undefined) hex(p.raw);
+  if (p.verifiedBlock !== undefined) { const anchor = exactRecord(p.verifiedBlock, ["number", "hash"]); uint(anchor.number); hex(anchor.hash, 32); }
   if (!Array.isArray(s.usedOwners) || s.usedOwners.length > 4096) throw new Error("Bunker historical owner limit");
   s.usedOwners.forEach((a) => hex(a, 20));
   if (p.deploymentHash !== undefined) hex(p.deploymentHash, 32);

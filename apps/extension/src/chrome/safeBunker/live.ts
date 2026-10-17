@@ -2,7 +2,7 @@ import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLoc
 import type { BunkerAccess } from "./access";
 import { getAddress, zeroAddress, type PublicClient } from "viem";
 import { verifySafeOnchainState } from "../safe/onchainState";
-import { BUNKER_CHAIN_ID, BUNKER_PINS, verifyBunkerInfrastructure } from "./network";
+import { BUNKER_PINS, verifyBunkerInfrastructure } from "./network";
 import { deriveBunkerOwner } from "./derivation";
 import { withBunkerDraftSeed } from "./crypto";
 import { loadBunkerDraftVault } from "./repository";
@@ -12,9 +12,10 @@ export async function bunkerEntry(id: string) {
   const entry = (await loadBunkerDraftVault()).entries.find((e) => e.header.id === id);
   if (!entry) throw new Error("Bunker seed is missing"); return entry;
 }
-export async function readBunkerLive(state: BunkerState, client: PublicClient) {
-  await verifyBunkerInfrastructure(client);
-  const live = await verifySafeOnchainState({ chainId: BUNKER_CHAIN_ID, safeAddress: state.plan.address, client });
+export async function readBunkerLive(state: BunkerState, client: PublicClient, blockNumber?: bigint) {
+  await verifyBunkerInfrastructure(client, state.chainId);
+  if (state.plan.verifiedBlock && (await client.getBlock({ blockNumber: BigInt(state.plan.verifiedBlock.number) })).hash !== state.plan.verifiedBlock.hash) throw new Error("Chain reorganization detected. Recovery required.");
+  const live = await verifySafeOnchainState({ chainId: state.chainId, safeAddress: state.plan.address, client, blockNumber });
   if (live.version !== "1.4.1" || live.singleton !== BUNKER_PINS.singleton.address.toLowerCase() ||
       live.threshold !== 1 || live.owners.length !== 1 || live.modules.length || live.guard !== zeroAddress ||
       live.fallbackHandler !== zeroAddress || live.contractOwners.length) throw new Error("Bunker Safe configuration changed. Recovery required.");
@@ -29,8 +30,8 @@ export async function verifyBunkerOwner(state: BunkerState, key: CryptoKey, clie
       if (reservedNextIndex !== undefined) {
         if (!state.operations.some((o) => o.signature && o.review?.nextIndex === reservedNextIndex && o.review.ownerIndex === state.ownerIndex)) throw new Error("Unbound reserved successor");
         nextIndex = reservedNextIndex;
-      } else while (state.usedOwners.includes(deriveBunkerOwner(seed, nextIndex))) nextIndex++;
-      return { owner: deriveBunkerOwner(seed, state.ownerIndex), next: deriveBunkerOwner(seed, nextIndex), nextIndex };
+      } else while (state.usedOwners.includes(deriveBunkerOwner(seed, state.chainId, nextIndex))) nextIndex++;
+      return { owner: deriveBunkerOwner(seed, state.chainId, state.ownerIndex), next: deriveBunkerOwner(seed, state.chainId, nextIndex), nextIndex };
     });
     access?.(); return owners;
   };

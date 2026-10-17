@@ -1,45 +1,46 @@
 # Safe Bunker
 
-Standard Sepolia Safe 1.4.1 with a dedicated fully hardened seed owner. WalletChan
-appends an atomic owner rotation to each execution. Another local/seed/Ledger
-account pays native outer gas. No custom contract, guard, relay or reimbursement.
+A standard Safe 1.4.1 per ordinary mnemonic group and chain. Fully hardened,
+domain-separated owner derivation uses the chain ID; Safe addresses differ
+between chains and remain stable across rotations. No custom deployment contract.
 
-Review in this order:
+All commands, source access, review/signing, retries and recovery require a live
+master session. Agent passwords cannot execute Bunker operations. `sources.ts`
+reads the original phrase through the existing mnemonic capability. No separate
+phrase, xpriv, branch key or wrapped Bunker signing capability is persisted.
+Password and biometric master sessions use the normal mnemonic vault.
 
-1. `record`, `derivation`, `crypto`, `repository`, `drafts`, `integrity`: dedicated
-   seed, purpose-bound per-entry DEK, master reveal and vault lifecycle integrity.
-2. `types`, `stateCodec`, `stateRepository`: encrypted revision-bound journal and
-   public projections. Signed envelopes never enter UI DTOs or normal pending storage.
-3. `network`, `deployments.json`, `deployment`, `live`: chain/runtime pins,
-   deterministic standard factory setup, creation receipts, live Safe authority.
-4. `ingress`, `inbox`, `authorization`, `barrier`, `cancellation`: unsigned intake,
-   pinned account/origin/topic checks, reset claims and revocation handling.
-5. `transaction`, `operations`, `payer`, `broadcast`: CALL-only batches, mandatory
-   rotation, exact review, durable-before-RPC signatures, exact payer simulation,
-   local/hardware final release under wallet-secret operation lock. RPC errors
-   containing signed calldata are never logged or returned by Bunker transport.
-6. `reconciliation`, `recovery`, `publication`, `management`, `view`: canonical
-   confirmed execution/owner evidence, same-byte retries, current-owner recovery with local derivation,
-   master recovery rotations, result fanout, activity and guarded local removal.
+Audit order:
 
-Only Sepolia is enabled. WalletConnect/injected signatures, EOA delegation,
-permissions, sponsored/force-included execution and Shield are unsupported.
-Same-chain swap CALLs use the coordinator; cross-chain bridges remain unavailable
-because no destination Safe is verified and current providers do not quote Sepolia.
-A standard Safe can be used externally without rotating: client policy is not an
-onchain restriction or post-quantum guarantee. Phrase restore requires the Safe
-address and original factory deployment transaction; copy public recovery details.
+1. `access`, `sources`, `chainIdentity`, `chainOwnerDerivation`, `deploymentIdentity`:
+   authority, exact derivation, scoped keys, deterministic standard-factory identity.
+2. `record`, `repository`, `drafts`, `crypto`, `integrity`: public source/chain
+   bindings and authenticated journal lifecycle, no duplicate phrase encryption.
+3. `types`, `stateCodec`, `stateRepository`: revision-bound encrypted operation
+   journal; no signatures/exact envelopes in public projections.
+4. `network`, `deployments.json`, `deployment`, `deploymentPublication`, `live`:
+   per-chain code/chain pins, deterministic setup, canonical receipts/authority,
+   pending-account Activity and Safe/payer history publication.
+5. `discovery`: read-only confirmed probes and bounded local owner search;
+   explicit Add existing rechecks ownership, preserves exposure, requires no tx.
+6. `ingress`, `inbox`, `authorization`, `barrier`, `cancellation`: unsigned intake,
+   pinned account/chain/origin/topic, reset and revocation gates.
+7. `transaction`, `operations`, `preflight`, `payer`, `broadcast`: CALL-only
+   execution with final rotation, durable-before-RPC signatures, exact gas-capped
+   simulation and final authority gate after local/hardware payer approval.
+8. `reconciliation`, `recovery`, `publication`, `management`, `view`: canonical
+   confirmation/reorg proof, same-byte retries, exposure-aware recovery,
+   result delivery and guarded removal. `accounts/seedRemoval.ts` owns shared
+   last-account phrase cleanup and deletion of Bunker bindings/journals.
 
-`preflight.ts` owns the single block-pinned mutable-state and gas-capped exact simulation check after payer signing. Review verifies deployment infrastructure. `progress.ts` emits fixed public stage hints; no secrets or raw bytes. Historical checks stay in reconciliation.
+Storage: `safeBunkerBindingsV2` public headers, `safeBunkerJournalsV2` encrypted
+state, existing unsigned inbox/notification keys. Source and backup belong to
+normal mnemonic groups, including zero-EOA groups. No alpha compatibility reader.
+See `_docs/SAFE_BUNKER_DERIVATION.md`, `_docs/STORAGE.md` and `_docs/SAFE_BUNKER_IMPLEMENTATION.md`.
 
-`requestPolicy.ts` is the single approval/in-flight classification used by both
-notification metadata and renderer selection. Outer-enveloped executions leave
-approvals immediately; settlement and explicit same-byte retry stay separate.
-
-`backup.ts` owns the master-only explicit backup acknowledgment used by the existing confirmSeedBackup route. It atomically retains the encrypted acknowledgment and clears the public account reminder; no phrase is returned.
-
-`deploymentPublication.ts` validates signed factory identity, publishes an explicit
-pending account after broadcast, and repairs both Safe/payer deployment history
-rows without releasing signed calldata. integrity.ts accepts the bound pending
-account during hydration; stateForAccount still denies owner execution until
-canonical deployment activation clears deploymentPending.
+Only chains with verified frozen canonical EVM infrastructure work; unsupported
+profiles fail closed. Bunkers are bound to one chain, never direct signers or gas
+payers. Local PK/seed/Ledger accounts pay outer native gas. Provider signatures,
+delegation, permissions, sponsored/force-included execution and Shield remain
+unsupported. External Safe tooling can bypass rotation; this is client policy,
+not an onchain restriction or post-quantum guarantee.

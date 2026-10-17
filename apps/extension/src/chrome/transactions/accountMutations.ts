@@ -3,15 +3,13 @@ import {
   getAccountById,
   getAccounts,
   removeAccount,
-  removeSeedGroup,
-  updateSeedGroupCount,
 } from "../accountStorage";
 import { deriveAddress } from "../localSigner";
 import {
   assertCurrentMasterAuthorization,
   hasCurrentMasterAuthorization,
 } from "../masterAuthorization";
-import { removeMnemonic } from "../mnemonicStorage";
+import { cleanupRemovedSeedAccount } from "../accounts/seedRemoval";
 import { clearNoncesForAddress } from "../forceInclusion/nonceManager";
 import {
   getCachedVault,
@@ -118,18 +116,6 @@ export async function handleRemoveAccount(
         return { success: false, error: "Cannot remove the last account" };
       }
 
-      let seedGroupId: string | null = null;
-      let remainingSeedAccounts: Account[] = [];
-      if (account.type === "seedPhrase") {
-        seedGroupId = account.seedGroupId;
-        remainingSeedAccounts = allAccounts.filter(
-          (candidate) =>
-            candidate.type === "seedPhrase" &&
-            candidate.seedGroupId === seedGroupId &&
-            candidate.id !== accountId,
-        );
-      }
-
       if (account.type === "safeBunker") throw new Error("Use Bunker security to remove this account");
       if (account.type === "safe") {
         await removeSafeAccountRecord(accountId, { walletSecretLockHeld: true });
@@ -160,16 +146,8 @@ export async function handleRemoveAccount(
         );
       }
 
-      if (seedGroupId) {
-        if (remainingSeedAccounts.length === 0) {
-          await removeMnemonic(seedGroupId);
-          await removeSeedGroup(seedGroupId);
-        } else {
-          await updateSeedGroupCount(
-            seedGroupId,
-            remainingSeedAccounts.length,
-          );
-        }
+      if (account.type === "seedPhrase") {
+        await cleanupRemovedSeedAccount(account.seedGroupId, { expectedAuthEpoch });
       }
 
       chrome.runtime.sendMessage({ type: "accountsUpdated" }).catch(() => {});

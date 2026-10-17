@@ -24,7 +24,7 @@ export function BunkerSetupIntro({ onBack, onProceed }: { onBack: () => void; on
           <HStack spacing={3}><Box p={2} bg="surface.raised" borderRadius="md" color="fg.secondary"><KeyIcon boxSize={4} aria-hidden="true" /></Box><Text fontSize="sm" color="fg.secondary" fontWeight="500">One recovery phrase</Text></HStack>
           <HStack spacing={3}><Box p={2} bg="surface.raised" borderRadius="md" color="fg.secondary"><SeedIcon boxSize={4} aria-hidden="true" /></Box><Text fontSize="sm" color="fg.secondary" fontWeight="500">Gas paid by another account</Text></HStack>
         </VStack>
-        <Text fontSize="xs" color="fg.muted">Available on Sepolia testnet</Text>
+        <Text fontSize="xs" color="fg.muted">A separate Safe Bunker account for each network</Text>
       </VStack>
     </ScreenBody>
     <StickyActionBar primaryAction={<Button variant="brand" onClick={onProceed}>Proceed</Button>} />

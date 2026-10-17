@@ -2,7 +2,7 @@ import type { Hex } from "viem";
 import type { SafeCall, SafeTransactionData } from "../safe/types";
 import type { GasOverrides } from "../transactions/localExecution";
 
-export interface BunkerPlan { address: Hex; initializer: Hex; salt: string; fromBlock: string; deploymentHash?: Hex; raw?: Hex }
+export interface BunkerPlan { address: Hex; initializer: Hex; salt: string; fromBlock: string; deploymentHash?: Hex; raw?: Hex; verifiedBlock?: { number: string; hash: Hex } }
 export interface BunkerRoute {
   kind: "wallet" | "injected" | "walletConnect" | "batch";
   origin: string;
@@ -32,8 +32,7 @@ export interface BunkerOperation {
   members?: { id: string; calls: SafeCall[]; routes: BunkerRoute[]; createdAt: number }[];
 }
 export interface BunkerState {
-  version: 1; id: string; accountId: string; plan: BunkerPlan;
-  backupConfirmed?: true;
+  version: 2; chainId: number; chainName: string; seedGroupId: string; id: string; accountId: string; plan: BunkerPlan;
   activated: boolean; archived: boolean; ownerIndex: number; nextIndex: number;
   exposureUnknown: boolean; usedOwners: Hex[];
   defaultPayer: { id: string; address: Hex } | null;
@@ -48,10 +47,10 @@ export interface BunkerOperationSummary {
   payerId?: string; payerAddress?: Hex; maxFee?: string; gas?: GasOverrides; reviewDigest?: Hex; reviewExpiresAt?: number;
 }
 export interface BunkerAccountView {
-  id: string; draftId: string; name: string; safeAddress: Hex; chainId: number;
+  id: string; draftId: string; name: string; safeAddress: Hex; chainId: number; chainName: string; explorer: string; nativeCurrencySymbol: string;
   deployed: boolean; archived: boolean; exposureUnknown: boolean; ownerIndex?: number;
   defaultPayer: BunkerState["defaultPayer"]; operations: BunkerOperationSummary[];
-  backupPending?: boolean;
+  seedGroupId: string;
   deploymentPayerId?: string; deploymentGas?: GasOverrides;
   deploymentHash?: Hex; recovering: boolean; recoveryProgress?: string;
 }

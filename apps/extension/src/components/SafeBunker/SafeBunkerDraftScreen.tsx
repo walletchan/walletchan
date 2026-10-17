@@ -1,83 +1,57 @@
-import { BunkerDeploymentScreen } from "./BunkerDeploymentScreen";
-import { BunkerRestoreScreen } from "./BunkerRestoreScreen";
+import { ChevronRightIcon } from "@chakra-ui/icons";
 import { useEffect, useRef, useState } from "react";
-import { Button, FormControl, FormLabel, Input, Text, VStack } from "@chakra-ui/react";
-import { AppHeader, AppScreen, ScreenBody, ScreenSection, StickyActionBar } from "@/components/ui";
+import { Button, HStack, Spinner, Text, VStack } from "@chakra-ui/react";
+import type { SeedGroup } from "@/chrome/types";
+import { AppHeader, AppScreen, ListItem, ListItemActions, ListItemContent, ListItemMedia, ListItemTitle, ListSurface, ScreenBody, ScreenSection } from "@/components/ui";
+import { SeedIcon } from "@/components/shared/AccountTypeIcons";
+import { LocalAccountBiometricGateStatus } from "@/components/AddAccount/LegacyBiometricUpgradeNotice";
 import { BunkerSetupIntro } from "./BunkerSetupIntro";
-import { BunkerSetupTabs } from "./BunkerSetupTabs";
-import { sendDraftCommand } from "./client";
+import { BunkerSourceSetup } from "./BunkerSourceSetup";
+import { BunkerNetworkSetup } from "./BunkerNetworkSetup";
+import { BunkerChainPills } from "./BunkerChainPills";
+import { useBunkerDiscovery } from "./useBunkerDiscovery";
 
-export function SafeBunkerDraftScreen({ onBack, onActivated = onBack }: { onBack: () => void; onActivated?: (accountId: string) => void }) {
-  const [intro, setIntro] = useState(true);
-  const [deploymentId, setDeploymentId] = useState<string | null>(null);
-  const [restore, setRestore] = useState(false);
-  const [name, setName] = useState("SafeBunker");
-  const [error, setError] = useState("");
-  const [unavailable, setUnavailable] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const alive = useRef(false);
-  const revision = useRef(0);
-  const busy = useRef(false);
-  const completedSetup = useRef<{ id: string; name: string } | null>(null);
-  const creation = useRef<{ id: string; name: string } | null>(null);
-  useEffect(() => {
-    alive.current = true;
-    ++revision.current;
-    const invalidate = (message: { type?: string }) => {
-      if (message.type === "walletLockedExternal" || message.type === "walletLockFailedExternal") {
-        revision.current++; setDeploymentId(null); setName("");
-        setError("Wallet locked. Reopen setup after unlocking."); setUnavailable(true);
-      }
-    };
-    chrome.runtime.onMessage.addListener(invalidate);
-    return () => { alive.current = false; revision.current++; chrome.runtime.onMessage.removeListener(invalidate); };
-  }, []);
-
-  const create = async () => {
-    if (busy.current || unavailable || !name.trim()) return;
-    if (completedSetup.current?.name === name.trim()) { setDeploymentId(completedSetup.current.id); return; }
-    busy.current = true; setSaving(true); setError("");
-    const generation = revision.current;
-    // Retain the same ID and exact inputs after uncertain responses.
-    creation.current ??= { id: `bunker-draft:${crypto.randomUUID()}`, name: name.trim() };
-    try {
-      const result = await sendDraftCommand({ type: "createSafeBunkerDraft", ...creation.current });
-      if (!result.draft || result.draft.id !== creation.current.id || result.draft.name !== creation.current.name)
-        throw new Error("Setup response did not match this request. Reopen setup to check.");
-      if (alive.current && revision.current === generation) {
-        const draft = result.draft;
-        completedSetup.current = { id: draft.id, name: draft.name };
-        setDeploymentId(draft.id); creation.current = null;
-      }
-    } catch (e) {
-      if (alive.current && revision.current === generation) setError(e instanceof Error ? e.message : "Could not create Bunker");
-    } finally {
-      busy.current = false;
-      if (alive.current && revision.current === generation) setSaving(false);
-    }
+function SourceSelection({ onBack, onActivated }: { onBack: () => void; onActivated: (id: string) => void }) {
+  const [group, setGroup] = useState<SeedGroup | null>(null), [create, setCreate] = useState(false);
+  const [addedSeedGroupIds, setAddedSeedGroupIds] = useState<string[]>([]);
+  const discovery = useBunkerDiscovery(!create ? group?.id : undefined);
+  if (create) return <BunkerSourceSetup onBack={() => setCreate(false)} onSaved={(saved) => { setAddedSeedGroupIds(ids => [...ids, saved.id]); setCreate(false); discovery.refresh(); setGroup(saved); }} />;
+  if (group) return <BunkerNetworkSetup group={group} isNewSource={addedSeedGroupIds.includes(group.id)} discovery={discovery} onBack={() => { setGroup(null); discovery.refresh(); }} onAdded={onActivated} />;
+  return <AppScreen><AppHeader title="Safe Bunker" onBack={onBack} /><ScreenBody pt={5}>
+    <VStack align="stretch" spacing={5}>
+      <ScreenSection title="Saved seed phrases"><ListSurface>{discovery.groups.map(saved => <ListItem key={saved.id} flexDirection="column" alignItems="stretch" gap={2}>
+        <HStack spacing={3} w="full" minW={0}>
+          <ListItemMedia><SeedIcon boxSize="18px" color="accent.primary" /></ListItemMedia>
+          <ListItemContent><ListItemTitle>{saved.name}</ListItemTitle></ListItemContent>
+          <ListItemActions><Button variant="secondary" size="sm" onClick={() => setGroup(saved)} rightIcon={<ChevronRightIcon aria-hidden="true" />}>Proceed</Button></ListItemActions>
+        </HStack>
+        <BunkerChainPills iconsOnly networks={discovery.networks} results={discovery.localResults[saved.id] ?? {}} />
+      </ListItem>)}</ListSurface></ScreenSection>
+      {discovery.loading && <HStack role="status"><Spinner size="sm" /><Text fontSize="sm" color="fg.secondary">Loading seed phrases…</Text></HStack>}
+      {!discovery.loading && discovery.groups.length === 0 && !discovery.error && <Text color="fg.secondary" fontSize="sm">Create or import a seed phrase to get started.</Text>}
+      {discovery.error && <VStack align="stretch"><Text role="alert" fontSize="sm" color="status.error.emphasis">{discovery.error}</Text><Button variant="secondary" onClick={discovery.refresh}>Retry</Button></VStack>}
+      <Button variant="secondary" onClick={() => setCreate(true)}>Create or import a seed phrase</Button>
+    </VStack>
+  </ScreenBody></AppScreen>;
+}
+export function SafeBunkerDraftScreen({ onBack, onActivated = onBack, ensureMnemonicAccess, needsUpgrade = false, onOpenBiometricSettings = onBack }: {
+  onBack: () => void; onActivated?: (accountId: string) => void;
+  ensureMnemonicAccess?: () => Promise<{ ready: boolean }>; needsUpgrade?: boolean | null;
+  onOpenBiometricSettings?: () => void;
+}) {
+  const [intro, setIntro] = useState(true), [ready, setReady] = useState(false), [checking, setChecking] = useState(false);
+  const generation = useRef(0);
+  useEffect(() => () => { ++generation.current; }, []);
+  const proceed = async () => {
+    const revision = ++generation.current; setIntro(false); setChecking(true);
+    try { const access = ensureMnemonicAccess ? await ensureMnemonicAccess() : { ready: true }; if (generation.current === revision) setReady(access.ready); }
+    catch { if (generation.current === revision) setReady(false); }
+    finally { if (generation.current === revision) setChecking(false); }
   };
-  if (intro) return <BunkerSetupIntro onBack={onBack} onProceed={() => setIntro(false)} />;
-  if (deploymentId) return <BunkerDeploymentScreen id={deploymentId} onBack={() => setDeploymentId(null)} onActivated={onActivated} />;
-  if (restore) return <BunkerRestoreScreen onBack={() => setIntro(true)} onCreate={() => setRestore(false)} onActivated={onActivated} />;
-  return <AppScreen>
-    <AppHeader title="Safe Bunker" onBack={() => setIntro(true)} />
-    <ScreenBody pt={5}>
-      <BunkerSetupTabs mode="create" onChange={() => setRestore(true)} disabled={saving} />
-      <VStack align="stretch" spacing={5}>
-        <ScreenSection>
-          <FormControl isRequired>
-            <FormLabel htmlFor="bunker-name">Name</FormLabel>
-            <Input id="bunker-name" value={name} maxLength={64} isDisabled={unavailable || saving || !!creation.current}
-              placeholder="My Bunker" onChange={(e) => setName(e.target.value)} />
-          </FormControl>
-        </ScreenSection>
-        {error && <Text role="alert" color="status.error.emphasis" fontSize="sm">{error}</Text>}
-
-      </VStack>
-    </ScreenBody>
-    <StickyActionBar primaryAction={<Button variant="brand" onClick={() => void create()}
-      isLoading={saving} loadingText="Creating…" isDisabled={unavailable || !name.trim()}>
-      {creation.current ? "Retry" : "Continue"}
-    </Button>} />
-  </AppScreen>;
+  if (intro) return <BunkerSetupIntro onBack={onBack} onProceed={() => void proceed()} />;
+  if (!ready) return <AppScreen><AppHeader title="Safe Bunker" onBack={() => setIntro(true)} /><ScreenBody pt={5}>
+    <LocalAccountBiometricGateStatus needsUpgrade={needsUpgrade} onOpenBiometricSettings={onOpenBiometricSettings} />
+    <Button variant="secondary" isLoading={checking} onClick={() => void proceed()}>Continue</Button>
+  </ScreenBody></AppScreen>;
+  return <SourceSelection onBack={() => setIntro(true)} onActivated={onActivated} />;
 }

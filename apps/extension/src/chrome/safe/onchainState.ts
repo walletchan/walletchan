@@ -127,6 +127,7 @@ export function configurationEpoch(input: {
 }
 
 export interface VerifySafeOnchainStateInput {
+  blockNumber?: bigint;
   chainId: number;
   safeAddress: SafeAddress;
   /** Canonical fallback for recognized testnets not yet saved by the user. */
@@ -183,7 +184,7 @@ export async function verifySafeOnchainState(
       transport: secureHttpTransport(rpcUrl!, { timeout: 12_000, retryCount: 1 }),
     });
   const safeAddress = getAddress(input.safeAddress) as Address;
-  const blockNumber = await client.getBlockNumber();
+  const blockNumber = input.blockNumber ?? await client.getBlockNumber();
   const [proxyCode, singletonWord] = await Promise.all([
     client.getCode({ address: safeAddress, blockNumber }),
     client.getStorageAt({ address: safeAddress, slot: SAFE_SINGLETON_SLOT, blockNumber }),

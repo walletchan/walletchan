@@ -74,8 +74,8 @@ const accountTypes = [
     title: "Safe Bunker",
     description: "with automatic owner rotation",
     icon: SafeIcon,
-    iconBg: "status.info.bg",
-    iconColor: "status.info.fg",
+    iconBg: "surface.raised",
+    iconColor: "accent.highlight",
   },
   {
     type: "bankr" as const,

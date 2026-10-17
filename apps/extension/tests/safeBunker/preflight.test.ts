@@ -26,7 +26,7 @@ function fixture(change: Record<string, unknown> = {}) {
   const review = { nonce: 7, payerAddress: next, maxFee: "1000", gas: { gasLimit: "80000" }, configEpoch: configurationEpoch({
     chainId: 11155111, safeAddress: safe, singleton, version: "1.4.1", owners: [owner], contractOwners: [], threshold: 1, modules: [], guard: zeroAddress, fallbackHandler: zeroAddress,
   }) };
-  return { run: () => preflightBunkerExecution({ plan: { address: safe } } as never, review as never, owner, next, "0x1234", client as never), reads };
+  return { run: () => preflightBunkerExecution({ chainId: 11155111, plan: { address: safe } } as never, review as never, owner, next, "0x1234", client as never), reads };
 }
 
 test("one preflight pins all mutable reads and the gas-capped exact simulation to one block", async () => {
@@ -38,7 +38,7 @@ test("one preflight pins all mutable reads and the gas-capped exact simulation t
 });
 
 for (const [name, change, error] of [
-  ["wrong chain", { chainId: 1 }, /not on Sepolia/],
+  ["wrong chain", { chainId: 1 }, /chain mismatch/],
   ["owner changed", { getOwners: [next] }, /owner or nonce changed/],
   ["nonce changed", { nonce: 8n }, /owner or nonce changed/],
   ["threshold changed", { getThreshold: 2n }, /configuration changed/],

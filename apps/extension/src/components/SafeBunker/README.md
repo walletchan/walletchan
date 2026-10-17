@@ -1,67 +1,79 @@
 # Safe Bunker UI
 
-- `BunkerSetupIntro`, `BunkerSetupTabs`, `SafeBunkerDraftScreen`: illustrated intro, shared-style Create/Restore modes and idempotent preparation that opens deployment directly. No saved-setup list is shown; the account is published pending after broadcast, while execution requires verified deployment.
-- `BunkerDeploymentScreen`: account identity/address, footer deployment payer using the shared compact decision-account selector, automatic gas estimation with the shared footer loader/editable fees, direct Deploy-to-Activity and optional shared recovery-phrase backup. Stale payer estimates are discarded; failed estimates can retry.
-- `BunkerDeploymentScreen`: deterministic Safe address, payer, native gas review,
-  deploy/status/exact retry. Account publication opens Activity immediately; execution activation waits for verified confirmations.
-- `BunkerAccountScreen`: request-only confirmation coordinator. No settings or queue list.
-- `BunkerSettingsScreen`: settings identity/name, public Bunker details, refresh,
-  recovery tools and guarded removal. No request queue or gas payer controls.
-- `useBunkerSettings`: public view reads, storage refresh, action-specific busy/error
-  state and existing background mutations.
-- `BunkerRecoveryDetails`: compact Safe-address pill, network and deployment rows;
-  shared advanced disclosure for derivation metadata and a fixed public-details copy action.
-- `BunkerSensitiveAction`: focused recovery review/scan and removal destinations;
-  removal resets backup acknowledgement on exit and uses live master-session authorization without a password field. The removal button opens a themed confirmation modal with account identity; only its final action dispatches removal, and Cancel/Escape leave the account intact.
-- `BunkerTransactionConfirmation`: shared confirmation composition, call decoding,
-  asset preview, payer/fee footer, exact review/Confirm and durable retry.
-- `BunkerAssetPreview`: shared Safe-owned asset preview; explicit unavailable
-  acknowledgement. Background checks the signed execution and rotation separately.
-- `BunkerRestoreScreen`: phrase/public details/master proof and paged recovery.
-- `PayerFields`, `GasFields`: shared eligible executor policy and fee controls.
-  Payer selection reuses SafeOwnerAccountPicker and the shared avatar/identity
-  account rows, with Bunker-specific labels and the existing default checkbox.
-- `client`, `transport`: trusted UI commands. No signing key or signed journal DTO.
+Current flow and background contract:
+[_docs/SAFE_BUNKER_IMPLEMENTATION.md](../../../../../_docs/SAFE_BUNKER_IMPLEMENTATION.md).
+Use shared semantic tokens/primitives. Bunker request/view DTOs contain no source
+phrases, signing keys, signatures or serialized journal transactions. Phrase
+import and explicit reveal retain their ordinary trusted-UI/master boundaries.
 
-App composes a lazy Bunker surface; the shared Home pending banner/list and badge expose requests; `useBunkerNavigation` handles
-pinned incoming/cold-start requests. Send keeps the existing transfer form. Signing,
-provenance, gas validity and persistence belong to `chrome/safeBunker`, not React.
-Use the existing semantic theme primitives and concise copy; no setup essay.
+## Setup
 
-Transaction intents now render individually through `BunkerTransactionConfirmation`
-using the shared Safe/EOA confirmation composition. Account settings owns recovery and removal; requests stay in the Home pending
-banner and standard confirmation. Confirmed history belongs to Home Activity. The footer owns payer selection/default preference and automatically
-prepares a digest-bound review. Actual signing, simulation, persistence and retry
-continue through the existing background commands.
+- BunkerSetupIntro / SafeBunkerDraftScreen: info then saved phrase cards. The top
+  row aligns icon/name/Proceed; known-chain logos sit below with hover/focus names.
+- BunkerSourceSetup: ordinary create/import with zero implicit EOAs. Deferred backup
+  and later EOA derivation use the normal phrase group/vault lifecycle.
+- BunkerNetworkSetup: source name/new badge, Deploy on selector, determined-address
+  loader/copy, manual Find, known deployments and explicit Add existing checkboxes.
+- useBunkerDiscovery / discoveryModel / BunkerChainPills: source-bound manual probes,
+  bounded workers/pages, known deployment retention and canceled late results.
+  Unknown/failed chains stay selectable; actual preparation verifies separately.
+- BunkerDeploymentFooter: shared payer/gas/Deploy on the network screen as soon as
+  a chain is selected. Source/chain changes reset controls. No extra review screen.
+- BunkerDeploymentScreen: pending deployment actions from settings only.
 
-`requestQueue` keeps incoming notifications on the oldest pending operation and
-allows explicit recovery. Shared `QueueNavigation` exposes earlier/later requests;
-only wholly unsigned queues offer Reject all. Reject advances to the next request.
-Later ordinary requests cannot prepare fees before their predecessor settles.
+Find runs only on button press, including for imported/new phrases. Chain selection
+hides or/Find/search response. Fully absent successful search has useful empty copy;
+errors never become proof of absence. Add existing sends no tx or forced rotation.
+Broadcast selects the pending Bunker and opens Activity; verification enables spending.
+No Continue setup list, dedicated phrase ceremony or account-name form exists.
 
-Incoming requests use the shared transaction skeleton during load. Home uses the shared pending banner/list and toolbar badge; account-picker Settings opens BunkerSettingsScreen. No permanent Bunker Home rail remains.
+## Requests and payer
 
-Compact request payers use the shared `RequestConfirmation/DecisionAccountSelector`
-anchored menu, not the setup picker. Only an explicitly selected non-default payer
-shows “set default payer for future”; selection clears that checkbox. Fee review
-expiry refreshes automatically while idle and errors offer Retry.
+- app/bunkerRequestPreload / useBunkerNavigation: preload code/fresh public view
+  before navigation, bind identity and reject superseded/locked/removed opens.
+  Only code is cached; request/default-payer data is freshly loaded.
+- BunkerAccountScreen: seeded confirmation, no duplicate mount fetch, ordered
+  refreshes and local rejection masking. Unseeded/recovery entry has a fallback.
+- BunkerTransactionConfirmation / requestQueue: shared ConfirmationScreen adapter,
+  FIFO navigation, exact review and explicit decisions. Submitted outer effects
+  leave approvals and stay in Activity; later execution waits for settlement.
+- BunkerAssetPreview / BunkerRotationReview: Safe-owned user intent and exact public
+  rotation metadata using the shared owner card/call rows. No derived-address guesses.
+- PayerFields / usePayerBalances: one deployment/transaction account picker and
+  chain-native balance renderer. Eligibility comes from safe/accountTypePolicy.
+  Bounded configured RPC, chain checks and cancellation prevent stale/false-zero
+  labels. Default preference uses a square amber checkbox and belongs to one Bunker.
+- GasFields / GasEstimate/GasFeeLoading: existing compact fee editor and section
+  loading; retain editor state through review. Payer/gas changes invalidate review.
+- transport: trusted UI commands; background owns auth, provenance, fees, signing,
+  durable exposure, exact retry and settlement.
 
-Fee preparation renders the shared `GasEstimate/GasFeeLoading` row used by single
-and batch confirmations. The animated loader replaces the fee row while preparing;
-the fee editor stays mounted so its tier/custom state survives re-review.
+The renderer stores only an explicit payer override. Otherwise it uses the
+operation-bound payer or latest saved default, so refresh can hydrate selection
+without undoing user choice. Remember is persisted by the worker with exact outer
+bytes before broadcast. Visible balances/preferences/preload snapshots grant no
+authority. Only live master sessions may perform Bunker secret/execution commands.
 
-The compact default-payer checkbox uses the shared `commitment` amber variant,
-24px row height, secondary small text and no added gap below the account row.
+Reject commits before result delivery and does not wait for fee preview. Back from
+unsigned settings rotation rejects that exact request; ordinary transaction Back
+preserves it. Signed/submitted operations cannot be canceled through rejection.
 
-Back from an unsigned owner-rotation review durably rejects that exact request,
-including settings-initiated loading, before returning. It uses the same
-rejection claim/error handling as Reject; signed/submitted operations are never
-rejected by Back. Ordinary dapp transaction Back still preserves its request.
+## Settings and shared integration
 
-`BunkerRotationReview` renders exact prepared public owner metadata in a shared
-OwnerRotationCard and two semantic action rows. `shared/OwnerRotationCard` is also
-used by Activity details. Projection adds no signer secrets or persisted shape.
+BunkerSettingsScreen / useBunkerSettings own name, network, last verified owner,
+refresh, normal phrase reveal, explicit rotation and guarded removal. Scroll is
+restored through useScreenScrollRestoration with component-local state. There is
+no request queue or gas-payer form here. BunkerRotationScreen owns recovery and
+owner rotation only. Removal opens the shared AccountRemovalModal directly over
+settings; both warning steps count regular and Bunker seed references.
 
-BunkerRestoreScreen reuses live master authorization, checking it before submission. Expired authorization uses the shared UnlockScreen; agent sessions are blocked and no restore is replayed after unlock. Lock clears phrase state and invalidates late UI results.
+Recovery details/export is absent. Phrase plus chain reproduces identity; Find
+locates existing accounts/current owners. Removal requires only seed-backup
+acknowledgment through final modal confirmation and live master access. While the
+account exists, operational evidence stays encrypted for verification and retry.
+Removal clears Bunker records; last-source-account removal also clears the phrase
+and seed group. Normal Activity history remains.
 
-`restoreProgress.ts` drives bounded restore scan pages sequentially while the screen is mounted and master-authorized. Normal restore has one action and a status screen, without tabs or raw scan counters. Errors pause for explicit Retry; Back/unmount or authorization loss stops future pages and suppresses late UI results.
+Home reuses the ordinary pending banner/list and badge. AccountIdentity supplies
+amber Safe logo plus chain badge; source name · Bunker identifies source groups
+in Choose account. Account settings remains a separate route from requests.

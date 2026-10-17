@@ -19,7 +19,7 @@ export function getWalletTypeLabel(
     return getSeedAccountLabel(account, seedGroupMap) || "Seed phrase";
   }
   if (account.type === "ledger") return `Ledger · Account ${account.hdIndex + 1}`;
-  if (account.type === "safeBunker") return "Safe Bunker";
+  if (account.type === "safeBunker") return `${seedGroupMap.get(account.seedGroupId) || "Seed phrase"} · Bunker`;
   if (account.type === "safe") return "Safe multisig";
   return "View only";
 }

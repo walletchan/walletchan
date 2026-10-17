@@ -1,3 +1,4 @@
+import { assertBunkerChainId } from "./chainIdentity";
 import { notifyBunkerPendingChanged } from "./pendingRequests";
 import { runBunkerEffect } from "./barrier";
 import { getAccountById } from "../accountStorage";
@@ -17,8 +18,8 @@ export async function readBunkerInbox(): Promise<BunkerInboxEntry[]> {
   for (const r of value) {
     if (!r || Object.keys(r).some((k) => !["id", "accountId", "chainId", "calls", "routes"].includes(k))) throw new Error("Invalid Bunker inbox entry");
     boundedString(r.id); boundedString(r.accountId);
-    if (ids.has(r.id) || r.chainId !== 11155111 || !Array.isArray(r.calls) || r.calls.length > 99 || !Array.isArray(r.routes) || r.routes.length !== 1) throw new Error("Invalid Bunker inbox identity");
-    ids.add(r.id); encodeMultiSendTransactions(r.calls);
+    if (ids.has(r.id) || !Array.isArray(r.calls) || r.calls.length > 99 || !Array.isArray(r.routes) || r.routes.length !== 1) throw new Error("Invalid Bunker inbox identity");
+    assertBunkerChainId(r.chainId); ids.add(r.id); encodeMultiSendTransactions(r.calls);
     for (const route of r.routes) {
       if (!route || !["wallet", "injected", "walletConnect", "batch"].includes(route.kind)) throw new Error("Invalid Bunker request route");
       boundedString(route.origin, 2048); boundedString(route.requestId);
@@ -32,6 +33,8 @@ async function enqueue(input: BunkerInboxEntry) {
   const account = await getAccountById(input.accountId);
   if (account?.type !== "safeBunker" || account.chainId !== input.chainId) throw new Error("Bunker chain/account mismatch");
   return withStorageLock(`local:${KEY}`, async () => {
+    const live = await getAccountById(input.accountId);
+    if (live?.type !== "safeBunker" || live.chainId !== input.chainId) throw new Error("Bunker chain/account mismatch");
     const inbox = await readBunkerInbox(); const old = inbox.find((r) => r.id === input.id);
     if (old && JSON.stringify(old) !== JSON.stringify(input)) throw new Error("Bunker request ID conflict");
     if (!old) {

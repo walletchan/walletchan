@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "@chakra-ui/icons";
-import { Button, HStack, Menu, MenuButton, MenuItem, MenuList, Portal } from "@chakra-ui/react";
+import { Box, Button, HStack, Menu, MenuButton, MenuItem, MenuList, Portal } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 import { FromAccountDisplay } from "@/components/FromAccountDisplay";
 
@@ -21,7 +21,7 @@ export function DecisionAccountSelector({ accounts, selectedAccount, chainId, on
       {accounts.map((account) => <MenuItem key={account.id} minH="48px" onClick={() => onSelect(account.id)}
         aria-current={account.id === selectedAccount?.id ? "true" : undefined}>
         <HStack w="full" minW={0} justify="space-between" spacing={3}>
-          <FromAccountDisplay chainId={chainId} address={account.address} />{renderBadge?.(account)}
+          <Box flex={1} minW={0} overflow="hidden"><FromAccountDisplay chainId={chainId} address={account.address} /></Box>{renderBadge?.(account)}
         </HStack>
       </MenuItem>)}
     </MenuList></Portal>

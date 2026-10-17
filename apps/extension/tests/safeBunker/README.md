@@ -1,10 +1,19 @@
 # Safe Bunker tests
 
-`foundation.test.ts` covers hardened derivation against ethers, seed/journal crypto,
-strict storage and master/agent/factor boundaries. `execution.integration.test.ts`
-starts loopback Anvil with disposable synthetic funds and exact upstream runtimes;
+Shared-phrase foundation: `chainIdentity.test.ts` checks the frozen independent
+v2 derivation/address vectors and strict selector/identity validation.
+`chainDeployment.integration.test.ts` verifies actual standard-factory deployment
+on two independent disposable chains, deterministic reimport and duplicate
+rejection. These pure identity checks are complemented by the full runtime tests below.
+
+`foundation.test.ts` covers normal zero-EOA mnemonic groups, journal encryption,
+strict source bindings, master-only access, stale auth, backup and password/passkey
+transitions. No stored branch key or duplicate Bunker phrase exists. `execution.integration.test.ts`
+runs against two separate loopback chains (11155111/84532), disposable synthetic
+funds and exact upstream runtimes;
 checks standard deployment, payer-funded atomic rotation, external nonrotating
-transactions, failure rollback and phrase recovery plus mandatory recovery rotation.
+transactions, failure rollback and exposure-aware manual recovery. Explicit Add
+existing revalidates the source/current owner without forcing recovery rotation.
 Recovery tests reject any getLogs call, exercise multi-page local derivation and
 owner changes during activation, and retain known exposure/reserved indices.
 Run with `anvil` on PATH; no real chain broadcast is performed.
@@ -15,7 +24,23 @@ Run with `anvil` on PATH; no real chain broadcast is performed.
 not authored contracts. Upstream Safe contracts are LGPL-3.0; provenance is
 https://github.com/safe-global/safe-smart-account/tree/v1.4.1.
 
-Browser scripts use a fresh temporary Chromium profile and synthetic keys. Never
-log, screenshot or retain recovery words or signed calldata in QA output.
+UI regressions in tests/ui/bunker*.test.ts cover source discovery states,
+default-payer hydration and preloading. The preloading suite checks parallel code/
+view reads, code-only caching, identity mismatch, late opens after lock/removal,
+error routing and immediate seeded confirmation without duplicate mount reads.
+The full execution integration also checks a remembered payer through encrypted
+persistence and the next request's public projection.
 
-`pnpm exec tsx scripts/bunker-setup-qa.ts` runs disposable Chromium + Anvil checks for the intro, Create/Restore modes, deployment address/payer, and deferred phrase backup through Home (both themes at 320/420px). It never uses the real browser profile or funded accounts.
+From apps/extension:
+
+```sh
+pnpm exec tsx --test tests/safeBunker/*.test.ts
+pnpm exec tsx --test tests/ui/bunker*.test.ts tests/ui/architecture.test.ts tests/ui/moduleSizeBudget.test.ts
+```
+
+Real Chrome acceptance is assigned to the user. Browser QA scripts are maintenance
+helpers; their existence is not evidence that the latest UI has passed browser
+acceptance. Use only disposable profiles, synthetic keys and local chains when
+updating/running them. Never log, screenshot or retain recovery words or signed
+calldata. Physical Ledger and public-network acceptance are separate from these
+synthetic tests. This checkout has no implemented Trezor Bunker payer path.

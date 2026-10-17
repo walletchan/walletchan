@@ -1,3 +1,4 @@
+import { cleanupRemovedSeedAccount } from "../accounts/seedRemoval";
 import { repairSelectionAfterRemoval } from "../accounts/selectionStorage";
 import { removeAccountWithDappPrivacyBoundary } from "../dapp/accountRemovalPrivacy";
 import { handleRevokeDappPermission } from "../dapp/connectionHandlers";
@@ -36,20 +37,19 @@ export async function separateBunkerOperation(accountId: string, id: string) {
   });
 }
 export async function removeBunkerAccount(accountId: string, backedUp: boolean) {
-  const current = captureBunkerAccess(true); current(); const initial = await stateForAccount(accountId);
+  const current = captureBunkerAccess(); current(); const initial = await stateForAccount(accountId);
   return withStorageLock(`bunker:${initial.id}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     if (!backedUp) throw new Error("Confirm seed backup");
     current();
     const state = await stateForAccount(accountId);
     if (state.operations.some((o) => outstanding(o) || ["queued", "reviewed"].includes(o.state))) throw new Error("Resolve Bunker requests before removal");
-    state.archived = true;
     const accounts = await getAccounts();
     if (accounts.length <= 1) throw new Error("Cannot remove the last account");
     const remaining = accounts.filter((a) => a.id !== accountId);
     await removeAccountWithDappPrivacyBoundary({ accountId, revokeOrigin: handleRevokeDappPermission,
       removeAccount: async () => {
         current();
-        // Sync can reject writes at its browser quota. Keep the account and archive
+        // Sync can reject writes at its browser quota. Keep the account and journal
         // unchanged until selection repair succeeds; mapped sites are already disconnected.
         try { await repairSelectionAfterRemoval(accountId, remaining); }
         catch (error) {
@@ -57,10 +57,12 @@ export async function removeBunkerAccount(accountId: string, backedUp: boolean) 
             throw new Error("Browser sync is busy. Wait a minute and try again.");
           throw error;
         }
-        current(); await writeBunkerState(state, current, { accounts: remaining });
+        await cleanupRemovedSeedAccount(state.seedGroupId, {
+          remainingAccounts: remaining, bunkerId: state.id, authorize: current,
+        });
       } });
     chrome.runtime.sendMessage({ type: "accountsUpdated" }).catch(() => {});
-    // Preserve encrypted seed and settlement archives. Local removal does not revoke onchain ownership.
+    // Local removal does not revoke onchain ownership. Activity history is independent.
   }));
 }
 export async function assertBunkerResetSafe() {

@@ -1,3 +1,4 @@
+import { getStoredResolvedChainById } from "@/lib/chains";
 import { readSignedBunkerDeployment } from "./deploymentPublication";
 import { getBunkerHistoryRotation } from "./historyRotation";
 import { WALLET_SECRET_STORAGE_LOCK_KEY, withStorageLock } from "../storageLock";
@@ -12,12 +13,13 @@ import { acknowledgeBunkerInbox, readBunkerInbox } from "./inbox";
 import type { BunkerAccountView, BunkerState } from "./types";
 export async function projectBunkerView(state: BunkerState): Promise<BunkerAccountView> {
   const entry = await bunkerEntry(state.id);
+  const network = await getStoredResolvedChainById(state.chainId);
   const deployment = state.plan.raw && state.plan.deploymentHash ? await readSignedBunkerDeployment(state) : null;
   const payer = deployment ? (await getAccounts()).find(a => a.address.toLowerCase() === deployment.sender) : null;
-  return { id: state.accountId, draftId: state.id, name: entry.header.name, safeAddress: state.plan.address, chainId: 11155111,
+  return { id: state.accountId, draftId: state.id, name: entry.header.name, safeAddress: state.plan.address, chainId: state.chainId, chainName: network?.name ?? state.chainName, explorer: network?.explorer ?? "", nativeCurrencySymbol: network?.nativeCurrency.symbol ?? "",
     ownerIndex: state.ownerIndex, deployed: state.activated, archived: state.archived, exposureUnknown: state.exposureUnknown, defaultPayer: state.defaultPayer,
     ...(deployment && payer ? { deploymentPayerId: payer.id, deploymentGas: { gasLimit: deployment.tx.gas!.toString(), maxFeePerGas: (deployment.tx.maxFeePerGas ?? 0n).toString(), maxPriorityFeePerGas: (deployment.tx.maxPriorityFeePerGas ?? 0n).toString() } } : {}),
-    backupPending: state.backupConfirmed !== true, deploymentHash: state.plan.deploymentHash, recovering: !!state.recovery,
+    seedGroupId: state.seedGroupId, deploymentHash: state.plan.deploymentHash, recovering: !!state.recovery,
     ...(state.recovery ? { recoveryProgress: `${state.recovery.deriveIndex} owner addresses checked` } : {}),
     operations: state.operations.map((o) => ({ id: o.id, calls: o.calls, origins: o.routes.map((r) => r.origin), kind: o.kind,
       rotation: getBunkerHistoryRotation(state.plan.address, o.review), state: o.state, createdAt: o.createdAt, txHash: o.receipt?.hash ?? o.outer?.hash, error: o.error,
@@ -26,7 +28,7 @@ export async function projectBunkerView(state: BunkerState): Promise<BunkerAccou
 export async function drainBunkerInbox(accountId: string) {
   captureBunkerAccess()();
   const account = (await getAccounts()).find((a) => a.id === accountId);
-  if (account?.type === "safeBunker") await cancelUnauthorizedBunkerRequests(account.seedVaultId);
+  if (account?.type === "safeBunker") await cancelUnauthorizedBunkerRequests(account.bunkerId);
   const entries = (await readBunkerInbox()).filter((e) => e.accountId === accountId);
   for (const entry of entries) {
     try { await queueBunkerOperation(entry); await acknowledgeBunkerInbox(entry.id); }

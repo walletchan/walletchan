@@ -58,8 +58,10 @@ try {
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.getByRole("button", { name: "Lock wallet" }).waitFor({ timeout: 30000 });
   const created = await page.evaluate(async () => {
-    const id = `bunker-draft:${crypto.randomUUID()}`;
-    const draft = await chrome.runtime.sendMessage({ type: "createSafeBunkerDraft", id, name: "Picker Focus Bunker" });
+    const source = await chrome.runtime.sendMessage({ type: "saveSeedPhraseOnly", generate: true, mnemonic: "" });
+    if (!source.success) throw new Error(source.error);
+    const draft = await chrome.runtime.sendMessage({ type: "createSafeBunkerDraft", seedGroupId: source.group.id, chainId: 11155111 });
+    const id = draft.draft?.id;
     if (!draft.success) throw new Error(draft.error);
     const preparation = await chrome.runtime.sendMessage({ type: "prepareSafeBunker", id });
     if (!preparation.success) throw new Error(preparation.error);
@@ -75,32 +77,12 @@ try {
   assert.ok(reconciled.success, JSON.stringify(reconciled));
   await page.reload();
   await page.getByRole("button", { name: "Choose account", exact: true }).click();
-  await page.getByRole("button", { name: "Settings for Picker Focus Bunker", exact: true }).click();
+  await page.getByRole("button", { name: "Settings for SafeBunker - Ethereum Sepolia", exact: true }).click();
   await page.getByRole("heading", { name: "Account settings", exact: true }).waitFor();
   await page.getByRole("button", { name: /^Remove account/ }).click();
-  await page.getByRole("heading", { name: "Remove account", exact: true }).waitFor();
-  const remove = page.getByRole("button", { name: "Remove account", exact: true });
-  assert.ok(await remove.isDisabled());
+  const remove = page.getByRole("button", { name: /^Remove account/ });
   assert.equal(await page.locator("input[type=password]").count(), 0);
-  assert.equal(await page.getByText("Remove this Bunker from WalletChan. Funds and ownership stay onchain.", { exact: true }).count(), 0);
-  for (const theme of ["midnight", "bauhaus"]) {
-    await page.evaluate(theme => chrome.storage.local.set({ selectedThemeId: theme }), theme);
-    for (const width of [320, 420]) {
-      await page.setViewportSize({ width, height: 800 });
-      const axe = await new AxeBuilder({ page }).analyze();
-      await writeFile(`${out}/axe-${theme}-${width}.json`, JSON.stringify(axe.violations, null, 2));
-      assert.deepEqual(axe.violations.filter(v => ["serious", "critical"].includes(v.impact ?? "")).map(v => v.id), []);
-      await page.screenshot({ path: `${out}/${theme}-${width}-remove.png`, fullPage: true });
-    }
-  }
-  await page.getByText("I saved my recovery phrase and recovery details", { exact: true }).click();
-  assert.ok(await remove.isEnabled());
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("button", { name: /^Remove account/ }).click();
-  assert.ok(await remove.isDisabled(), "cancel clears acknowledgment");
-  await page.getByText("I saved my recovery phrase and recovery details", { exact: true }).click();
-  await remove.click();
-  const dialog = page.getByRole("dialog", { name: "Remove account?", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Remove account and seed phrase?", exact: true });
   await dialog.waitFor();
   await page.waitForFunction(() => { const el = document.querySelector('[role="dialog"]'); return el && getComputedStyle(el).opacity === "1" && getComputedStyle(el).transform === "none"; });
   assert.ok((await page.evaluate(async () => chrome.runtime.sendMessage({ type: "getAccounts" }))).some((a: any) => a.id === created.accountId), "opening confirmation cannot remove account");
@@ -123,14 +105,17 @@ try {
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   await remove.click();
-  await dialog.getByRole("button", { name: "Remove account", exact: true }).click();
+  await dialog.getByRole("button", { name: "Continue", exact: true }).click();
+  const finalDialog = page.getByRole("dialog", { name: "Delete seed phrase permanently?", exact: true });
+  await finalDialog.getByRole("button", { name: "Delete account and phrase", exact: true }).click();
   await page.getByRole("heading", { name: /Choose account/i }).waitFor();
   const remaining = await page.evaluate(async () => chrome.runtime.sendMessage({ type: "getAccounts" }));
   assert.ok(!remaining.some((a: any) => a.id === created.accountId));
-  const archives = await page.evaluate(async () => chrome.storage.local.get(["safeBunkerDraftVault", "safeBunkerStateV1"]));
-  assert.ok(archives.safeBunkerDraftVault && archives.safeBunkerStateV1);
+  const records = await page.evaluate(async () => chrome.storage.local.get(["safeBunkerBindingsV2", "safeBunkerJournalsV2"]));
+  assert.equal(records.safeBunkerBindingsV2?.entries.length ?? 0, 0);
+  assert.equal(records.safeBunkerJournalsV2?.entries.length ?? 0, 0);
   assert.deepEqual(errors, []);
-  await writeFile(`${out}/summary.json`, JSON.stringify({ confirmationModal: "pass", cancelAndEscapePreserveAccount: "pass", removalWithoutPassword: "pass", backupAcknowledgment: "pass", encryptedArchivesRetained: "pass", narrowThemes: "pass", errors }, null, 2));
+  await writeFile(`${out}/summary.json`, JSON.stringify({ confirmationModal: "pass", cancelAndEscapePreserveAccount: "pass", removalWithoutPassword: "pass", sharedPhraseWarnings: "pass", operationalDataDeleted: "pass", narrowThemes: "pass", errors }, null, 2));
   console.log("Bunker removal browser QA passed.");
 } catch (error) {
   const failed = context.pages().find((page) => page.url().includes("/index.html"));

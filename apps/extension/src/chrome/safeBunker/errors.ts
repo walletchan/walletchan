@@ -8,7 +8,7 @@ const STEPS = {
   save: "Could not save the prepared Bunker review",
   authority: "Could not verify the Bunker owner and Safe configuration",
   estimate: "Could not estimate gas for this Bunker transaction",
-  fees: "Could not load Sepolia gas prices",
+  fees: "Could not load network gas prices",
   balance: "Could not check the gas payer or Bunker balance",
   simulation: "The exact Bunker execution could not be simulated",
 } as const;
@@ -36,9 +36,10 @@ export function bunkerStepMessage(error: unknown): string | null {
 }
 
 const POLICY_MESSAGES = new Set([
+  "Bunker already deployed. Add the existing account.", "Unsupported Bunker network", "Unlock the source seed phrase", "Seed phrase not found", "Enter a valid 12-word seed phrase", "Bunker discovery changed. Retry the network check.",
   "Authentication changed. Unlock and retry.",
   "Wallet is locked",
-  "Bunker RPC is not on Sepolia",
+  "Bunker RPC chain mismatch",
   "Bunker Safe infrastructure could not be verified",
   "Bunker owner or nonce changed",
   "Bunker reviewed transaction changed",
@@ -52,7 +53,7 @@ const POLICY_MESSAGES = new Set([
   "Bunker owner address has been used as a transaction sender",
   "Bunker call targets protected authority",
   "Choose a private-key, seed-phrase or Ledger gas payer",
-  "Gas payer has insufficient Sepolia ETH",
+  "Gas payer has insufficient native balance",
   "Bunker has insufficient native balance",
   "Review this Bunker operation again",
   "Earlier Bunker requests must settle first",

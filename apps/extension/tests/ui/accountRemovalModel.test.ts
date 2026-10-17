@@ -92,3 +92,38 @@ test("other wallet types retain account-only removal copy", () => {
     assert.equal(final.successTitle, "Account removed");
   }
 });
+
+
+test("a remaining Bunker keeps regular-account removal copy account-only", () => {
+  const bunker: Account = {
+    id: "bunker", type: "safeBunker", address: seedAccount.address, createdAt: 5,
+    seedGroupId: "seed-group-a", bunkerId: "binding", chainId: 84532, derivationVersion: 2,
+  };
+  const accounts = [seedAccount, bunker, bankrAccount];
+  assert.equal(willDeleteSeedPhrase(seedAccount, accounts), false);
+  for (const step of ["review", "final"] as const) {
+    const copy = getAccountRemovalCopy(seedAccount, accounts, step);
+    const ordinary = getAccountRemovalCopy(seedAccount, [seedAccount, siblingSeedAccount], step);
+    assert.deepEqual(copy, ordinary);
+  }
+  assert.equal(willDeleteSeedPhrase(seedAccount, [seedAccount, { ...bunker, seedGroupId: "another-seed" }]), true);
+});
+
+
+test("Bunker modals warn about phrase deletion only for the final shared-seed account", () => {
+  const bunker: Account = {
+    id: "bunker", type: "safeBunker", address: seedAccount.address, createdAt: 5,
+    seedGroupId: "seed-group-a", bunkerId: "binding", chainId: 84532, derivationVersion: 2,
+  };
+  const otherChain: Account = { ...bunker, id: "other-chain", chainId: 11155111 };
+  for (const step of ["review", "final"] as const) {
+    assert.deepEqual(getAccountRemovalCopy(bunker, [bunker, bankrAccount], step),
+      getAccountRemovalCopy(seedAccount, [seedAccount, bankrAccount], step));
+    for (const remaining of [seedAccount, otherChain]) {
+      assert.equal(willDeleteSeedPhrase(bunker, [bunker, remaining]), false);
+      assert.deepEqual(getAccountRemovalCopy(bunker, [bunker, remaining], step),
+        getAccountRemovalCopy(seedAccount, [seedAccount, siblingSeedAccount], step));
+    }
+  }
+  assert.equal(willDeleteSeedPhrase(bunker, [bunker, { ...otherChain, seedGroupId: "another-seed" }]), true);
+});

@@ -3,7 +3,7 @@ import { encodeMultiSendTransactions } from "../safe/multiSend";
 import { computeSafeTransactionHash } from "../safe/transactionHash";
 import { buildSafeTransaction } from "../safe/transactionBuilder";
 import type { SafeCall, SafeTransactionData } from "../safe/types";
-import { BUNKER_CHAIN_ID, BUNKER_PINS } from "./network";
+import { BUNKER_PINS } from "./network";
 
 export const BUNKER_EXEC_ABI = parseAbi(["function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns(bool)"]);
 export function bunkerExecutionData(tx: SafeTransactionData, signature: Hex): Hex {
@@ -11,7 +11,7 @@ export function bunkerExecutionData(tx: SafeTransactionData, signature: Hex): He
     tx.operation, BigInt(tx.safeTxGas), BigInt(tx.baseGas), BigInt(tx.gasPrice), tx.gasToken, tx.refundReceiver, signature] });
 }
 export function bunkerPreviewSignature(owner: Hex): Hex { return `0x${owner.slice(2).padStart(64, "0")}${"0".repeat(64)}01`; }
-export function buildBunkerTransaction(safe: Hex, nonce: bigint, owner: Hex, next: Hex, calls: SafeCall[], recovery = false) {
+export function buildBunkerTransaction(safe: Hex, nonce: bigint, owner: Hex, next: Hex, calls: SafeCall[], recovery: boolean, chainId: number) {
   if ((!calls.length && !recovery) || calls.length > 99 || owner === next) throw new Error("Invalid Bunker calls");
   const protectedTargets = [zeroAddress, safe, owner, next, ...[BUNKER_PINS.factory, BUNKER_PINS.singleton, BUNKER_PINS.multiSend].map((p) => p.address.toLowerCase())];
   const normalized = calls.map((c) => {
@@ -23,12 +23,12 @@ export function buildBunkerTransaction(safe: Hex, nonce: bigint, owner: Hex, nex
   const rotation: SafeCall = { to: safe, value: "0", operation: 0, data: encodeFunctionData({
     abi: parseAbi(["function swapOwner(address prevOwner,address oldOwner,address newOwner)"]), functionName: "swapOwner",
     args: ["0x0000000000000000000000000000000000000001", owner, next] }) };
-  const built = buildSafeTransaction({ chainId: BUNKER_CHAIN_ID, safeAddress: safe, safeVersion: "1.4.1", nonce, calls: [...normalized, rotation] });
+  const built = buildSafeTransaction({ chainId, safeAddress: safe, safeVersion: "1.4.1", nonce, calls: [...normalized, rotation] });
   // Bunker pins CALL-only MultiSend; the general Safe builder uses MultiSend.
   if (built.calls.length > 1) {
     built.transaction.to = BUNKER_PINS.multiSend.address.toLowerCase() as Hex;
     built.transaction.data = encodeFunctionData({ abi: parseAbi(["function multiSend(bytes transactions) payable"]), functionName: "multiSend", args: [encodeMultiSendTransactions(built.calls)] });
-    built.safeTxHash = computeSafeTransactionHash({ chainId: BUNKER_CHAIN_ID, safeAddress: safe, safeVersion: "1.4.1", transaction: built.transaction });
+    built.safeTxHash = computeSafeTransactionHash({ chainId, safeAddress: safe, safeVersion: "1.4.1", transaction: built.transaction });
   }
   return { ...built, userCalls: normalized };
 }

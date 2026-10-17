@@ -362,3 +362,39 @@ updates both rows; canonical three-confirmation verification clears pending stat
 without stealing the selected account. Missing history repairs idempotently. Check
 reverted/uncertain submission, exact retry, gas payer history attribution and old
 confirmed accounts with no deploymentPending field.
+
+
+## Safe Bunker release checks
+
+Current behavior is specified in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md) and
+[SAFE_BUNKER_DERIVATION.md](./SAFE_BUNKER_DERIVATION.md). No dedicated-phrase alpha
+reader, dual derivation fallback or automatic conversion exists. Do not silently
+wipe user data or advertise current discovery as recovery of incompatible alpha
+identities. Ordinary released mnemonic/account/auth data remains data-preserving.
+
+Before releasing Bunker changes:
+
+- Audit source-group retention, zero-EOA derivation/backup, password/passkey
+  hydration, reset/onboarding ownership and current storage formats in STORAGE.md.
+- Preserve master-only Bunker operations; do not infer authority from an unlocked
+  general key, notification index, initial public snapshot or a UI checkbox.
+- Run Bunker identity/runtime/history tests, account/auth/request/Safe regressions
+  appropriate to the change, UI checks, typecheck and full pnpm build:extension.
+  Disposable Anvil tests prove synthetic behavior, not all public RPC networks.
+- Manually accept create/import/shared backup, manual Find/Add existing, same-page
+  deployment, both Activity histories, per-account default payer, exact retry,
+  owner recovery/removal, lock/restart and network restrictions. Physical Ledger
+  approval/rejection needs device QA. Do not claim an unimplemented Trezor path.
+- Preserve encrypted deployment evidence and exposure journals when removing
+  display surfaces or Activity rows. Explicit account removal deletes its Bunker
+  records; last-source-account removal clears the phrase/group too. Verify both
+  removal orders with mixed regular/Bunker accounts and Bunkers across chains.
+  No extra recovery-details backup is required.
+- Disclose chain/infrastructure restrictions and incompatible-alpha limitations.
+  Do not downgrade to a build unaware of the current identity/journal keys.
+
+safeBunkerBindingsV2 stores public source/chain references; safeBunkerJournalsV2
+stores encrypted operations/exposure and operational deployment evidence. Source
+phrases and backup reminders remain in the ordinary mnemonic/seed-group lifecycle.
+This documentation cleanup does not migrate storage or publish a release.

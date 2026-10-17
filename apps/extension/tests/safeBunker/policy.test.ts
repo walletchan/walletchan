@@ -2,13 +2,14 @@ import { decodeBunkerState } from "../../src/chrome/safeBunker/stateCodec";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { decodeFunctionData, parseAbi, keccak256 } from "viem";
-import { buildBunkerTransaction } from "../../src/chrome/safeBunker/transaction";
+import { buildBunkerTransaction as buildOnChain } from "../../src/chrome/safeBunker/transaction";
 import { decodeMultiSendTransactions } from "../../src/chrome/safe/multiSend";
 import { BUNKER_PINS } from "../../src/chrome/safeBunker/network";
 import { broadcastBunkerBytes } from "../../src/chrome/safeBunker/broadcast";
 import { normalizeBunkerIngressTransaction } from "../../src/chrome/safeBunker/ingress";
 import { isSafeExecutorAccount } from "../../src/chrome/safe/accountTypePolicy";
 
+const buildBunkerTransaction = (safe: `0x${string}`, nonce: bigint, owner: `0x${string}`, next: `0x${string}`, calls: any[], recovery = false) => buildOnChain(safe, nonce, owner, next, calls, recovery, 11155111);
 const safe = `0x${"11".repeat(20)}` as const, owner = `0x${"22".repeat(20)}` as const;
 const next = `0x${"33".repeat(20)}` as const, target = `0x${"44".repeat(20)}` as const;
 const call = { to: target, value: "7" as const, data: "0x" as const, operation: 0 as const };
@@ -32,7 +33,7 @@ test("canonical CALL-only envelope preserves user order and appends exactly one 
   assert.throws(() => buildBunkerTransaction(safe, 81n, owner, next, [{ ...call, operation: 1 }]));
 });
 test("Bunker ingress binds chain/sender and never admits EOA authorization or creation", () => {
-  const account = { id: "bunker:test", type: "safeBunker" as const, address: safe, chainId: 11155111 as const, seedVaultId: "bunker-draft:test", derivationVersion: 1 as const, createdAt: 1 };
+  const account = { id: "bunker:test", type: "safeBunker" as const, address: safe, chainId: 11155111 as const, bunkerId: "bunker-draft:test", derivationVersion: 2, seedGroupId: "group" as const, createdAt: 1 };
   assert.deepEqual(normalizeBunkerIngressTransaction(account, { chainId: 11155111, from: safe, to: target, value: "0x7" }), [call]);
   for (const tx of [{ chainId: 1, to: target }, { chainId: 11155111, from: owner, to: target }, { chainId: 11155111 }, { chainId: 11155111, to: target, authorizationList: [] }]) assert.throws(() => normalizeBunkerIngressTransaction(account, tx));
   for (const type of ["bankr", "impersonator", "safe", "safeBunker"]) assert.equal(isSafeExecutorAccount({ ...account, type } as any), false);
@@ -63,22 +64,14 @@ test("Bunker RPC diagnostics identify the failed step without exposing the RPC p
   assert.equal(bunkerStepMessage(new Error("untrusted RPC error")), null);
 });
 
-test("Bunker journals preserve optional backup confirmation and accept legacy states", () => {
-  const legacy = { version: 1, id: "bunker-draft:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", accountId: "bunker:test",
+test("Bunker journals require the new source/chain identity and reject alpha backup state", () => {
+  const state = { version: 2, chainId: 84532, chainName: "Base Sepolia", seedGroupId: "group",
+    id: `bunker-source:84532:${safe}`, accountId: "bunker:test",
     plan: { address: safe, initializer: "0x", salt: "0", fromBlock: "0" }, activated: false, archived: false,
     ownerIndex: 0, nextIndex: 1, exposureUnknown: false, usedOwners: [], defaultPayer: null, operations: [], recovery: null };
-  assert.equal(decodeBunkerState(legacy).backupConfirmed, undefined);
-  assert.equal(decodeBunkerState({ ...legacy, backupConfirmed: true }).backupConfirmed, true);
-  assert.throws(() => decodeBunkerState({ ...legacy, backupConfirmed: "true" }));
-  assert.throws(() => decodeBunkerState({ ...legacy, backupConfirmed: false }));
-});
-
-test("recovery target owner is optional for legacy journals and strictly validated", () => {
-  const state = { version: 1, id: "bunker-draft:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", accountId: "bunker:test",
-    plan: { address: safe, initializer: "0x", salt: "0", fromBlock: "0" }, activated: false, archived: false,
-    ownerIndex: 0, nextIndex: 1, exposureUnknown: true, usedOwners: [], defaultPayer: null, operations: [],
-    recovery: { scanBlock: "100", targetBlock: "200", deriveIndex: 64, matchedIndex: null, usedOwners: [] } };
-  assert.equal(decodeBunkerState(state).recovery?.targetOwner, undefined);
-  assert.equal(decodeBunkerState({ ...state, recovery: { ...state.recovery, targetOwner: safe } }).recovery?.targetOwner, safe);
-  assert.throws(() => decodeBunkerState({ ...state, recovery: { ...state.recovery, targetOwner: "0x01" } }));
+  assert.equal(decodeBunkerState(state).chainId, 84532);
+  assert.throws(() => decodeBunkerState({ ...state, version: 1 }));
+  assert.throws(() => decodeBunkerState({ ...state, backupConfirmed: true }));
+  assert.throws(() => decodeBunkerState({ ...state, chainId: 0 }));
+  assert.throws(() => decodeBunkerState({ ...state, seedGroupId: "" }));
 });

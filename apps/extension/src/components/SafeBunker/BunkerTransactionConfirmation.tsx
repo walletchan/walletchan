@@ -34,7 +34,9 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
   const earlier = earlierBunkerRequest(queue, operation);
   const index = queue.findIndex((item) => item.id === operation.id);
   const iconChipBg = useIconChipBg();
-  const [payer, setPayer] = useState(operation.payerId ?? view.defaultPayer?.id ?? "");
+  // Keep only a deliberate override in state so refreshed persisted defaults hydrate.
+  const [chosenPayer, setPayer] = useState<string | null>(null);
+  const payer = chosenPayer ?? operation.payerId ?? view.defaultPayer?.id ?? "";
   const [payerAccount, setPayerAccount] = useState<Account | null>(null);
   const [remember, setRemember] = useState(false);
   const [gas, setGas] = useState<GasOverrides | null>(null);
@@ -144,9 +146,9 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
     trailing={<CopyButton label="Copy transaction JSON" value={JSON.stringify(operation.calls, null, 2)} />}
     outcome={<RequestIdentity origin={origin} originHostname={hostname} favicon={null} iconChipBg={iconChipBg}
       isInternalWalletChan={operation.kind === "recovery" || origin === "WalletChan"} labelOverride={operation.kind === "recovery" ? "Owner rotation" : undefined} originInitials="SAFE" />}
-    financialImpactTitle={<EstimatedChangesHeading chainId={view.chainId} chainName="Sepolia" />}
+    financialImpactTitle={<EstimatedChangesHeading chainId={view.chainId} chainName={view.chainName} />}
     financialImpact={operation.calls.length ? <Box px={3} bg="surface.raised" border="1px solid" borderColor="border.subtle" borderRadius="lg">
-      <BunkerAssetPreview key={operation.id} safe={view.safeAddress} operation={operation} onValidityChange={setPreviewValid} />
+      <BunkerAssetPreview chainId={view.chainId} chainName={view.chainName} key={operation.id} safe={view.safeAddress} operation={operation} onValidityChange={setPreviewValid} />
     </Box> : <BunkerRotationPreview chainId={view.chainId} rotation={rotation} explorer={explorer} loading={preparing} />}
     context={<VStack align="stretch" spacing={3}>
       {operation.calls.length > 0 && <BatchCallsList chainId={view.chainId} calls={operation.calls.map((call) => ({ to: call.to, value: numberToHex(BigInt(call.value)), data: call.data }))} />}
@@ -156,19 +158,19 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
       {operation.txHash && <Text fontSize="xs" fontFamily="mono" overflowWrap="anywhere">{operation.txHash}</Text>}
     </VStack>}
     actionSummary={<VStack align="stretch" spacing={2}>
-      <PayerFields compact defaultAccountId={view.defaultPayer?.id} onAccountChange={setPayerAccount} value={payer} onChange={(id) => { setPayer(id); setGas(null); setReview(null); }} remember={remember} onRemember={setRemember} disabled={busy || !canPrepare} />
+      <PayerFields chainId={view.chainId} compact defaultAccountId={view.defaultPayer?.id} onAccountChange={setPayerAccount} value={payer} onChange={(id) => { setPayer(id); setGas(null); setReview(null); }} remember={remember} onRemember={setRemember} disabled={busy || !canPrepare} />
       {preparing && !rejecting && <GasFeeLoading />}
       {(gas ?? review?.gas) && <Box display={preparing && !rejecting ? "none" : undefined}>
-        <BunkerGasFields compact key={`${operation.id}:${payer}`} value={(gas ?? review?.gas)!} onChange={(next) => { setGas(next); setReview(null); }} disabled={busy} />
+        <BunkerGasFields symbol={view.nativeCurrencySymbol} compact key={`${operation.id}:${payer}`} value={(gas ?? review?.gas)!} onChange={(next) => { setGas(next); setReview(null); }} disabled={busy} />
       </Box>}
       <LedgerSigningStatus active={action === "confirm" && phase === "signing" && payerAccount?.type === "ledger"} />
       {waitingForExecution && <><Text role="status" fontSize="sm" color="fg.secondary">Waiting for the previous transaction to confirm.</Text>
-        <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => void run(async () => { await bunkerCommand({ type: "reconcileSafeBunker", id: account.seedVaultId }); await onReload(); })}>Check status</Button></>}
+        <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => void run(async () => { await bunkerCommand({ type: "reconcileSafeBunker", id: account.bunkerId }); await onReload(); })}>Check status</Button></>}
       {earlier && <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => onSelect(earlier.id)}>Review earlier request</Button>}
     </VStack>}
     actionNotice={(error || operation.error) ? <HStack align="center" spacing={3} minW={0}>
       <Text role="alert" color="status.error.emphasis" fontSize="sm" flex="1" minW={0} overflowWrap="anywhere">{error || operation.error}</Text>
-      {!busy && !preparing && canPrepare && payer && !fresh && error && error !== "Gas payer has insufficient Sepolia ETH" && <Button
+      {!busy && !preparing && canPrepare && payer && !fresh && error && error !== "Gas payer has insufficient native balance" && <Button
         flexShrink={0} size="sm" variant="secondary" bg="surface.raisedHover" leftIcon={<RepeatIcon boxSize={3.5} />}
         onClick={() => { setError(""); setRevision((v) => v + 1); }}>Retry</Button>}
     </HStack> : undefined}

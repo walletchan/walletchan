@@ -18,7 +18,7 @@ export async function publishBunkerRoutes(state: BunkerState, op: BunkerOperatio
       } else if (stage === "rejected") {
         await updateBundleStatus(route.requestId, { status: BUNDLE_STATUS.OFFCHAIN_FAILURE, error: "Bunker intent invalidated by owner recovery", completedAt: Date.now() });
       } else {
-        if (!await getBundleStatus(route.requestId)) await saveBundleStatus({ id: route.requestId, chainId: 11155111, status: BUNDLE_STATUS.PENDING, atomic: true, createdAt: op.createdAt,
+        if (!await getBundleStatus(route.requestId)) await saveBundleStatus({ id: route.requestId, chainId: state.chainId, status: BUNDLE_STATUS.PENDING, atomic: true, createdAt: op.createdAt,
           origin: route.origin, ...(route.topic && route.remoteId !== undefined ? { walletConnect: { topic: route.topic, requestId: route.remoteId, method: "wallet_sendCalls" } } : {}) });
         if (!op.resultPublished) await writeResultToStorage(`batchTxAck:${route.requestId}`, { success: true, id: route.requestId });
         await updateBundleStatus(route.requestId, { txHash: hash, ...(stage === "confirmed" ? { status: BUNDLE_STATUS.CONFIRMED, completedAt: Date.now(), ...(receipt ? { receipts: [{ status: "0x1" as const, transactionHash: receipt.transactionHash,

@@ -495,118 +495,89 @@ required field changes. New Safe records are review/reject-only; direct-signer
 confirmation and release remain denied. No migration is needed for this additive
 account type value.
 
-## Safe Bunker seed vault and lifecycle journal (next)
+## Safe Bunker source bindings and operation journals
 
-`chrome.storage.local.safeBunkerDraftVault` is optional additive wallet identity
-storage: `{ version: 1, entries: [{ header, seed, wrappedKey }] }`, at most 100.
-Header is `{ id: "bunker-draft:<UUIDv4>", name, chainId: 11155111,
-derivationVersion: 1, firstOwner, createdAt }`; names are 1–64 trimmed characters.
-Cipher fields are base64 `{ iv, ciphertext }`, with exact 12-byte IVs, exact
-48-byte wrapped-key ciphertext and bounded seed ciphertext. Each seed is a
-12-word BIP39 phrase encrypted with a random 32-byte per-draft DEK, wrapped by the
-general vault key; purpose/header/format AAD prevents cross-draft substitution.
-No plaintext seed, child key, xpub or chain code is persisted.
+These are the current shared-source formats; UI flow is specified in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md). This documentation
+cleanup changes no stored shape and requires no migration.
 
-`safeBunker/repository.ts` owns reads; `drafts.ts` owns idempotent writes under the
-wallet-secret operation lock. `integrity.ts` verifies recovery on session hydration
-and general master recovery/factor transitions. `secrets/revealHandlers.ts`
-authorizes phrase release with explicit master proof. Public list/create responses
-contain ID/name/chain/time only, not the initial hidden owner or ciphertext.
-Reset removes the key and fresh onboarding treats any present record as
-identity data. Missing storage is empty with no write; null, malformed, unknown
-versions and duplicate identities fail closed and are preserved. No eager
-migration is needed; ordinary accounts/vaults are unchanged. The old experimental
-`safeBunkerVault` format in the reference checkout is not imported or overwritten.
-Do not downgrade a profile containing Bunker drafts to a binary unaware of this
-key without first preserving recovery material; older reset code cannot know it.
-
-`safeBunkerStateV1` is optional `{ version: 1, entries: [{ id, revision, cipher }] }`.
-Each state ciphertext is bound to the seed entry and `journal:<revision>` AAD.
-It contains deterministic factory setup/address/hash, activation/archive flags,
-owner/next indices, known used successor addresses, payer preference, bounded
-operations and recovery scan progress. Inner signatures and serialized outer
-transactions are encrypted here, never normal pending storage or UI responses.
-Atomic restore writes the encrypted seed and first journal together; activation
-writes the account row and journal together. Per-Bunker and wallet secret locks
-serialize changes; revisions do not provide protection against full storage rollback.
-
-`safeBunkerInboxV1` is an optional bounded public unsigned queue of id/account/chain,
-CALLs and worker-authored routes. It accepts intents while locked, then drains into
-the encrypted journal after live authorization. It contains no signature or key.
-All three keys are reset/onboarding identity keys; no migration from older research
-formats is performed. Active Account metadata uses type safeBunker, chainId,
-derivationVersion and seedVaultId. Read every binding before secret use.
-
-Limits: 100 seed entries, 100 operations per journal, 99 user CALLs per operation,
-512 KiB plaintext journal, 4,096 known owner addresses. Settled published operations
-are compacted while retaining ten recent receipt anchors and unresolved signatures.
-Limits fail closed without deleting recoverable data; they are storage bounds,
-not a 256-owner protocol limit. Recovery reads the current Safe owner and checks up to 64 locally derived addresses per
-continuation (the restore screen drives pages sequentially), without event-log scans.
-The optional recovery.targetOwner pins that address; legacy checkpoints without it
-restart local derivation on their next continuation. Legacy scanBlock/targetBlock
-fields remain readable but are unused by recovery. Existing usedOwners and nextIndex
-reservations are retained; no eager storage migration is required. Local account removal preserves encrypted seed/journal;
-reset is blocked for unresolved signatures or submitted undeployed Safes.
-
-### Bunker pending-notification index (unreleased)
-
-| Local key | Shape | Owner and compatibility |
+| Local key | Shape and purpose | Owner |
 | --- | --- | --- |
-| `safeBunkerPendingV1` | Array of `{ id: string, accountId: string, createdAt: number }` | `chrome/safeBunker/pendingRequests.ts`; notification hints only, merged with safeBunkerInboxV1 by request ID. |
+| safeBunkerBindingsV2 | Optional `{ version: 2, entries: [{ header }] }`, at most 100 public source/chain identities. | safeBunker/record.ts, repository.ts, drafts.ts |
+| safeBunkerJournalsV2 | Optional `{ version: 2, entries: [{ id, revision, cipher: { iv, ciphertext } }] }`; encrypted operations, exposure, deployment evidence and payer preference. | safeBunker/stateRepository.ts, stateCodec.ts, crypto.ts |
+| safeBunkerInboxV1 | Bounded unsigned public request queue, with account/chain/CALLs and worker-authored provenance. | safeBunker/inbox.ts |
+| safeBunkerPendingV1 | Array of `{ id, accountId, createdAt }`, merged with inbox by request ID; notification hints only. | safeBunker/pendingRequests.ts |
 
-Missing means no indexed notifications. Existing encrypted journals are unchanged.
-The next authenticated pending-request load reconstructs the index idempotently
-under the existing secret-storage lock; journal ciphertext/revisions are not
-rewritten. Every subsequent journal write commits its notification projection
-in the same storage.local.set. Reset removes the index. It is readable while
-locked, carries no transaction/signing material, and never grants authority.
+The strict binding header contains id `bunker-source:<chainId>:<lowercaseFirstOwner>`,
+seedGroupId, name, chainId, derivationVersion: 2, firstOwner and createdAt.
+Missing binding/journal stores mean empty; malformed/future versions fail closed
+without rewriting. The stable account ID is bunker:<chainId>:<lowercaseSafeAddress>.
 
-Bunker pending-index projection now excludes every operation with a persisted
-outer envelope/hash, including ambiguous submissions. The key/shape are unchanged;
-existing authenticated synchronizeBunkerPendingIndex repairs legacy entries
-idempotently from journals. Execution records and retry bytes are preserved.
+The source phrase stays in normal mnemonicVault under seedGroupId. Normal
+seedGroups.backupPending owns backup; no Bunker phrase/DEK/branch key/xpriv,
+account backup flag or encrypted acknowledgment exists. savePhraseOnly supports
+accountCount: 0 and deduplicates imports. Shared removal counts live regular and
+Bunker accounts together. Either type preserves a referenced phrase; removing the
+last account deletes the phrase and group. accountCount continues to count EOAs.
 
-Bunker unsigned rejection commits before response delivery. Existing optional
-resultPublished/published journal fields track delivery; rejected/unpublished
-entries survive compaction and are retried by reconciliation before chain reads.
-No new key, schema or migration is required. Older missing flags mean pending
-delivery and are handled idempotently; delivered-state updates merge into fresh
-journals rather than overwriting concurrently prepared reviews.
+The general vault key encrypts journals with fresh 12-byte AES-GCM IVs and
+AAD WalletChan.BunkerJournal.v2:<headerJson>:<revision>. State binds source,
+chain, plan/address, owner/next indices, used/reserved owners, operations, recovery
+and defaultPayer `{ id, address } | null`. Default payer is per Bunker account;
+remembering it commits with the signed outer envelope before broadcast. Revisions
+do not prevent full storage rollback. The general key alone does not authorize
+mnemonic access or signing; those operations require live master authority.
 
-Bunker history additionally accepts optional `safeBunkerMeta: { kind, calls }`.
-It retains only the bounded public user calls already accepted by Bunker
-intake (never automatic rotation calldata, signatures, or raw envelopes).
-IndexedDB compaction includes this snapshot in its existing byte/retention
-budget. Safe executor rows reuse the released `safeExecutionMeta` shape.
-Existing records remain readable; unlocked Bunker journal reconciliation
-idempotently enriches old projections before its first chain read. This is
-an optional feature-history repair, not an unlock-blocking storage migration.
+Signatures and exact serialized deployment/execution bytes stay encrypted. The
+plan's deploymentHash/raw/verifiedBlock are operational integrity, verification,
+exact-retry and history-repair evidence. There is no separate recovery-details
+record/export to back up or delete. Ordinary Activity deletion must not remove
+these journals or exposure reservations.
 
-Safe Bunker history accepts optional `safeBunkerMeta.rotation` with public old/new owner addresses and zero-based seed derivation indices. Missing is valid; journal reconciliation idempotently backfills from the exact reviewed transaction. No secret data or new storage key is introduced.
+Account rows carry type: safeBunker, bunkerId, seedGroupId, positive safe integer
+chainId and derivationVersion: 2. Only a broadcast attempt may publish a new
+pending row with optional deploymentPending: true. Hydration requires that exact
+marker, account/header/source bindings and the authenticated signed factory
+transaction. Canonical activation writes account/journal together and clears the
+flag. Public pending metadata never enables owner execution.
 
-Bunker setup backup metadata (unreleased): encrypted `safeBunkerStateV1` payloads
-accept optional `backupConfirmed?: true`. Older payloads remain valid unchanged;
-missing means not acknowledged. New activation projects `backupPending?: true`
-onto its public safeBunker account row unless backup was completed beforehand.
-Existing account rows without the flag retain their previous reminder behavior.
-Restoring from a user-supplied phrase sets backupConfirmed because the phrase is
-already supplied, matching seed imports. The existing confirmSeedBackup route
-recognizes Bunker vault IDs and delegates to safeBunker/backup.ts, which requires
-a live master session, serializes under the wallet operation lock, and atomically
-writes the encrypted journal plus cleared account reminder. No new storage key,
-secret format, reset hook or eager migration is required. The seed-vault header
-and its authenticated encryption data are unchanged.
+Find existing is read-only; owner-search hints expire in memory after ten minutes.
+Explicit Add existing verifies source/current owner/full configuration at a
+confirmed block and stores a canonical block anchor, without requiring the
+original deployment hash or forcing a rotation. Known exposure/operations and
+reserved successors are retained. Discovery checks up to 64 owner indices per
+page without historical log scanning or signing.
 
-Safe Bunker deployment publication (unreleased): accounts may carry optional
-`deploymentPending?: true` after a signed factory deployment broadcast attempt.
-The encrypted journal remains unactivated and all execution gates still require
-activation. Hydration permits a pending row only when its account/seed/address
-bindings and exact authenticated signed factory transaction match. Confirmation
-atomically clears the flag and activates the journal. Existing accounts without
-the flag and older deployment journals remain readable unchanged; no install-time
-migration or secret rewrite is needed. Generic history additionally accepts
-`safeDeploymentMeta?: { safeAddress, payerAddress }`. Two rows share the hash but
-have separate owner addresses, IDs and receipt status; Safe gas attribution stays
-external. Reconciliation idempotently repairs missing history from encrypted raw
-deployment bytes. Raw bytes and initializer are never projected into history.
+Every journal write atomically projects safeBunkerPendingV1 under the existing
+secret-storage lock. The index omits submitted outer envelopes/hashes, including
+ambiguous submissions. An authenticated load rebuilds it idempotently without
+rewriting journal ciphertext. The locked badge may read hints but receives no
+calls/origins/payer/signature data or authority.
+
+Unsigned rejection commits before acknowledgment/result delivery. Existing
+optional resultPublished/published flags retain pending delivery across restart
+and compaction; reconciliation retries before chain reads. Updates merge into
+fresh state rather than overwriting concurrent reviews. Missing flags mean pending
+delivery, handled idempotently.
+
+History accepts optional safeBunkerMeta with kind, public user calls and public
+old/new-owner/index rotation metadata. Payer execution rows reuse safeExecutionMeta.
+Deployment rows carry optional safeDeploymentMeta `{ safeAddress, payerAddress }`.
+Safe/payer rows share transaction hash but retain separate account IDs/status and
+external gas attribution. Initializer, signatures and raw envelopes are never
+projected. IndexedDB retention includes these additive snapshots; missing metadata
+remains readable and can be repaired from authenticated journals.
+
+Limits are 100 bindings, 100 operations per journal, 99 user CALLs, 512 KiB
+plaintext state and 4,096 known owners. Compaction retains unresolved effects,
+unpublished results and ten recent receipt anchors. Explicit Bunker removal deletes
+its binding and journal, with its account in the same local-storage commit. The
+shared accounts/seedRemoval.ts coordinator clears leftover source bindings/journals,
+seedGroups metadata and mnemonicVault entry on the last regular-or-Bunker account
+removal, preserving V2 vault wrappers and incrementing its revision. Pending hints
+for deleted journals are removed; Activity history remains. No key/shape migration
+or automatic sweeping of previously orphaned phrases is performed. Reset blocks
+unresolved exposure or submitted
+unactivated deployment. All Bunker keys belong to reset/onboarding manifests.
+Normal mnemonic/auth/recovery-factor formats remain unchanged. Incompatible
+dedicated-phrase alpha data has no dual reader or conversion.

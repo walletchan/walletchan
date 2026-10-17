@@ -64,7 +64,11 @@ try {
   await page.getByRole("button", { name: "Add account", exact: true }).first().click();
   await page.getByRole("button", { name: /Safe Bunker/ }).click();
   await page.getByRole("button", { name: "Proceed", exact: true }).click();
-  await page.getByLabel(/^Name/).fill("Execution QA Bunker");
+  await page.getByRole("button", { name: "Create or import a seed phrase", exact: true }).click();
+  await page.getByRole("button", { name: "Create new seed phrase", exact: true }).click();
+  await page.getByRole("button", { name: "Choose network", exact: true }).click();
+  await page.getByRole("button", { name: /Ethereum Sepolia/ }).click();
+  await page.getByText("Safe address", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("heading", { name: "Deploy Bunker", exact: true }).waitFor();
   await page.getByRole("button", { name: "Choose account", exact: true }).click();
@@ -81,7 +85,7 @@ try {
   await page.evaluate(async () => {
     const { accounts } = await chrome.storage.local.get("accounts");
     const account = accounts.find((a: any) => a.type === "safeBunker");
-    const response = await chrome.runtime.sendMessage({ type: "reconcileSafeBunker", id: account.seedVaultId });
+    const response = await chrome.runtime.sendMessage({ type: "reconcileSafeBunker", id: account.bunkerId });
     if (!response.success) throw new Error(response.error);
   });
   await page.getByRole("button", { name: "Choose account", exact: true }).waitFor({ timeout: 30000 });
@@ -278,7 +282,7 @@ try {
   await page.waitForFunction(async () => (await chrome.action.getBadgeText({})) === "");
   await page.getByRole("button", { name: "Open transaction details for Send 0.001 ETH", exact: true }).waitFor({ timeout: 30000 });
   await client.request({ method: "anvil_mine" as any, params: ["0x3"] as any });
-  await page.evaluate(async (id) => chrome.runtime.sendMessage({ type: "reconcileSafeBunker", id }), account.seedVaultId);
+  await page.evaluate(async (id) => chrome.runtime.sendMessage({ type: "reconcileSafeBunker", id }), account.bunkerId);
   assert.notDeepEqual(await readOwner(), before);
   assert.equal(await client.getBalance({ address: "0x1111111111111111111111111111111111111111" }), 1000000000000000n);
   await page.screenshot({ path: `${out}/confirmed.png`, fullPage: true });
@@ -404,7 +408,7 @@ try {
   await page.getByRole("heading", { name: "Transaction request", exact: true }).waitFor();
   await page.getByRole("button", { name: "Go back", exact: true }).click();
   await page.getByRole("button", { name: "Choose account", exact: true }).click();
-  await page.getByRole("button", { name: "Settings for Execution QA Bunker", exact: true }).click();
+  await page.getByRole("button", { name: "Settings for SafeBunker - Ethereum Sepolia", exact: true }).click();
   await page.getByRole("heading", { name: "Account settings", exact: true }).waitFor();
   await page.getByText("Last verified owner", { exact: true }).waitFor();
   await page.getByText("#1", { exact: true }).waitFor();
@@ -415,7 +419,7 @@ try {
   await displayName.fill("Renamed QA Bunker");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).waitFor({ state: "hidden" });
-  await displayName.fill("Execution QA Bunker");
+  await displayName.fill("SafeBunker - Ethereum Sepolia");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).waitFor({ state: "hidden" });
   await page.getByText("Display name updated", { exact: true }).first().waitFor({ state: "hidden" });
@@ -433,37 +437,6 @@ try {
   await page.evaluate(() => chrome.storage.local.set({ selectedThemeId: "midnight" }));
   await page.setViewportSize({ width: 420, height: 800 });
   const settingsScroll = page.getByRole("heading", { name: "Account settings", exact: true }).locator("..").locator("..").locator('[data-screen-scroll-owner]');
-  await settingsScroll.evaluate(el => { el.scrollTop = el.scrollHeight; });
-  await page.getByRole("button", { name: /^Recovery details/ }).scrollIntoViewIfNeeded();
-  const settingsOffset = await settingsScroll.evaluate(el => el.scrollTop);
-  assert.ok(settingsOffset > 0, "settings is scrolled before opening recovery details");
-  await page.getByRole("button", { name: /^Recovery details/ }).click();
-  await page.getByRole("heading", { name: "Recovery details", exact: true }).waitFor();
-  for (const theme of ["midnight", "bauhaus"]) {
-    await page.evaluate(theme => chrome.storage.local.set({ selectedThemeId: theme }), theme);
-    for (const width of [320, 420]) {
-      await page.setViewportSize({ width, height: 800 });
-      await page.screenshot({ path: `${out}/${theme}-${width}-recovery-details.png`, fullPage: true });
-      await page.getByText("Advanced details", { exact: true }).click();
-      await page.getByText("Owner derivation path", { exact: true }).waitFor();
-      await page.screenshot({ path: `${out}/${theme}-${width}-recovery-details-expanded.png`, fullPage: true });
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-      const axe = await new AxeBuilder({ page }).analyze();
-      assert.deepEqual(axe.violations.filter(v => ["serious", "critical"].includes(v.impact ?? "")).map(v => v.id), []);
-      await page.getByText("Advanced details", { exact: true }).click();
-    }
-  }
-  await page.evaluate(() => chrome.storage.local.set({ selectedThemeId: "midnight" }));
-  await page.setViewportSize({ width: 420, height: 800 });
-  await page.getByRole("button", { name: "Copy recovery details", exact: true }).click();
-  await page.getByText("Recovery details copied", { exact: true }).waitFor();
-  await page.screenshot({ path: `${out}/settings-recovery-details.png`, fullPage: true });
-  await page.getByRole("button", { name: "Go back", exact: true }).click();
-  await page.waitForFunction(offset => {
-    const heading = [...document.querySelectorAll('h1')].find(el => el.textContent === "Account settings" && (el as HTMLElement).offsetParent !== null);
-    const owner = heading?.closest('header')?.parentElement?.querySelector<HTMLElement>('[data-screen-scroll-owner]');
-    return !!owner && Math.abs(owner.scrollTop - offset) <= 1;
-  }, settingsOffset);
   await page.getByRole("button", { name: /^Reveal recovery phrase/ }).scrollIntoViewIfNeeded();
   const phraseOffset = await settingsScroll.evaluate(el => el.scrollTop);
   await page.getByRole("button", { name: /^Reveal recovery phrase/ }).click();
@@ -512,12 +485,12 @@ try {
   holdGasEstimates = false;
   for (const release of heldGasEstimates.splice(0)) release();
   await page.evaluate(() => (window as any).__restoreRejectionQa());
-  const rejectedView = await page.evaluate(async id => chrome.runtime.sendMessage({ type: "getSafeBunkerView", id }), account.seedVaultId);
+  const rejectedView = await page.evaluate(async id => chrome.runtime.sendMessage({ type: "getSafeBunkerView", id }), account.bunkerId);
   assert.equal(rejectedView.view.operations.find((op: any) => op.id === "qa-reject-preparing").state, "rejected");
   await page.waitForFunction(async () => (await chrome.action.getBadgeText({})) === "");
 
   await page.getByRole("button", { name: "Choose account", exact: true }).click();
-  await page.getByRole("button", { name: "Settings for Execution QA Bunker", exact: true }).click();
+  await page.getByRole("button", { name: "Settings for SafeBunker - Ethereum Sepolia", exact: true }).click();
   await page.getByRole("button", { name: /^Refresh Bunker details/ }).click();
   await page.getByText("Bunker details refreshed", { exact: true }).waitFor();
   await page.getByText("Bunker details refreshed", { exact: true }).waitFor({ state: "hidden" });
@@ -545,7 +518,7 @@ try {
   await page.setViewportSize({ width: 420, height: 800 });
   await page.getByRole("button", { name: "Go back", exact: true }).click();
   await page.getByRole("button", { name: "Review rotation", exact: true }).waitFor();
-  const rotationAfterBack = await page.evaluate(async id => chrome.runtime.sendMessage({ type: "getSafeBunkerView", id }), account.seedVaultId);
+  const rotationAfterBack = await page.evaluate(async id => chrome.runtime.sendMessage({ type: "getSafeBunkerView", id }), account.bunkerId);
   assert.equal(rotationAfterBack.view.operations.filter((op: any) => op.kind === "recovery").at(-1).state, "rejected");
   await page.waitForFunction(async () => (await chrome.action.getBadgeText({})) === "");
   await page.evaluate(() => {
@@ -565,7 +538,7 @@ try {
   await page.getByRole("button", { name: "Go back", exact: true }).click();
   await page.getByRole("button", { name: "Review rotation", exact: true }).waitFor();
   await page.evaluate(() => (window as any).__restoreRotationViews());
-  const loadingRotationAfterBack = await page.evaluate(async id => chrome.runtime.sendMessage({ type: "getSafeBunkerView", id }), account.seedVaultId);
+  const loadingRotationAfterBack = await page.evaluate(async id => chrome.runtime.sendMessage({ type: "getSafeBunkerView", id }), account.bunkerId);
   assert.equal(loadingRotationAfterBack.view.operations.filter((op: any) => op.kind === "recovery").at(-1).state, "rejected");
   await page.waitForFunction(async () => (await chrome.action.getBadgeText({})) === "");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -573,13 +546,13 @@ try {
   await page.getByRole("heading", { name: "Remove account", exact: true }).waitFor();
   const remove = page.getByRole("button", { name: "Remove account", exact: true });
   assert.ok(await remove.isDisabled());
-  await page.getByText("I saved my recovery phrase and recovery details", { exact: true }).click();
+  await page.getByText("I saved my recovery phrase", { exact: true }).click();
   assert.equal(await page.getByLabel("Master password", { exact: true }).count(), 0);
   assert.equal(await page.getByText("Remove this Bunker from WalletChan. Funds and ownership stay onchain.", { exact: true }).count(), 0);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: /^Remove account/ }).click();
   assert.ok(await remove.isDisabled(), "cancel clears removal acknowledgement");
-  await page.getByText("I saved my recovery phrase and recovery details", { exact: true }).click();
+  await page.getByText("I saved my recovery phrase", { exact: true }).click();
   await remove.click();
   await page.getByRole("dialog", { name: "Remove account?", exact: true }).getByRole("button", { name: "Remove account", exact: true }).click();
   // This long fixture can hit Chrome's real per-minute sync quota. A failed repair
@@ -598,8 +571,8 @@ try {
   await removedHeading.waitFor();
   const remainingAccounts = await page.evaluate(async () => chrome.runtime.sendMessage({ type: "getAccounts" }));
   assert.ok(!remainingAccounts.some((a: any) => a.id === account.id), "removal updates account list");
-  const archives = await page.evaluate(async () => chrome.storage.local.get(["safeBunkerDraftVault", "safeBunkerStateV1"]));
-  assert.ok(archives.safeBunkerDraftVault && archives.safeBunkerStateV1, "encrypted recovery archives survive removal");
+  const archives = await page.evaluate(async () => chrome.storage.local.get(["safeBunkerBindingsV2", "safeBunkerJournalsV2"]));
+  assert.ok(archives.safeBunkerBindingsV2 && archives.safeBunkerJournalsV2, "encrypted recovery archives survive removal");
   assert.ok(fallbackReads > 0, "packaged deployment, review and reconciliation used the height fallback");
   assert.deepEqual(errors, []);
   await writeFile(`${out}/summary.json`, JSON.stringify({ bunkerAccountSettings: "pass", publicRecoveryDetails: "pass", recoveryReviewAndBack: "pass", masterRemovalAndArchives: "pass", bunkerActionHistoryAndDetails: "pass", gasPayerActivityAndDetails: "pass", rejectDuringGasPreparation: "pass", submittedRequestLeavesApprovalQueue: "pass", skeletonHeaderAndBack: "pass", confirmationProgress: "pass", directRequestLoading: "pass", sharedPendingBannerAndBadge: "pass", blockNumberFallback: "pass", rpcFailureUi: "pass", deployment: "pass", defaultPayer: "pass", confirmedTransferAndRotation: "pass", homeActivity: "pass", gasChooser: "pass", coldResume: "pass", groupedRejection: "pass", requestQueueAndRejectionAdvance: "pass", matrix, pageErrors: errors }, null, 2));

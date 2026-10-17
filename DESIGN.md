@@ -2102,127 +2102,48 @@ Browser acceptance covered named active and clean cards, responsive layout,
 three trophy ranks, contract/incomplete and fewer-rank fixtures, stable hover,
 PNG clipboard copy, countdown/focus/Escape and the colored Chrome header icon.
 
-## Safe Bunker local drafts (2026-10-16)
+## Safe Bunker extension
 
-A compact wallet setup surface, positioned as local preparation with honest
-undeployed status. Adjectives: calm, precise, compact. Essence: familiar wallet
-setup. Reuse the established Warm Midnight typography, spacing, surfaces and
-accent tokens plus the Bauhaus alternate projection; no new palette, shadows,
-animation or typography. One named-draft input and primary create action lead
-into a persistent list and the existing master-password recovery-phrase screen.
-The signature treatment is the existing Safe identity paired with explicit
-"Not deployed" copy. Drafts expose no receive address or hidden-owner account.
-Loading, uncertain retry, lock, disabled and inline error states retain inputs and
-stable controls. Validate narrow widths, both themes, keyboard access and axe in
-the packaged extension; evidence is recorded in `_docs/SAFE_BUNKER_PHASE1.md`.
-Self-audit: the draft surface follows existing wallet hierarchy and tokens, has
-one primary action, stable error/loading/disabled states and no new decorative
-visual system. Six theme/width states passed axe serious/critical and overflow
-checks; the 420px Warm Midnight rendering was visually inspected.
+Current flow: [_docs/SAFE_BUNKER_IMPLEMENTATION.md](./_docs/SAFE_BUNKER_IMPLEMENTATION.md).
+Use existing Warm Midnight/Bauhaus semantic tokens and shared list, header,
+confirmation, address/copy, fee and account-menu primitives.
 
-Safe Bunker draft copy is reduced to the name field and “Sepolia draft · Not deployed”.
-Saved drafts appear only when present; the action reads “Create draft”.
+- Add-account Bunker option and Bunker avatars use the info page's amber Safe
+  logo. Account avatars retain a bound-chain badge; account-picker subtitles are
+  source name · Bunker, and Send contacts label the type Bunker.
+- Saved-source cards align wallet icon, phrase name and Proceed on one top row.
+  Known-chain logos sit below the name, increasing card height, with hover/focus
+  tooltips and no text pills. Only these Proceed buttons have a right chevron.
+- Network selection has a compact primary-foreground Deploy on label and full-width
+  selector. The selected source name sits top-right; a created or imported source gets a
+  small amber superscript new pill during this flow. Created/imported sources
+  share normal deferred backup rather than a dedicated Bunker phrase ceremony.
+- Before network selection, centered or separates deployment from Find already
+  deployed Bunkers. This explicit button owns search progress; absence has useful
+  copy, failed checks have compact Retry, and neither starts automatically.
+  Add existing results and their Add selected accounts action sit below the search
+  button. Each result row is one full-width checkbox label with amber selection.
+  Header pills and seed-card logos represent stored accounts only; finding an
+  onchain Bunker does not add either indicator until the account is imported.
+- Selecting a network hides that search alternative and reveals determining-address
+  feedback, Safe-address copy, and the same screen's payer/gas/Deploy footer.
+  There is no separate deployment/name/review page or Continue setup card.
+- Deployment and transaction requests use the same compact account menu, right-
+  aligned chain-native balances, animated gas loader and fee popover. Failed
+  balances show a dash. Per-account default payer uses a square amber checkbox.
+- Requests preload before navigation and open directly into shared confirmation;
+  loaders stay in gas/asset sections. Owner rotation shows the shared exact old/new
+  owner card and Remove owner / Set owner rows. Activity reuses those projections.
+- Settings contains name/network/owner metadata, phrase reveal, refresh, rotation
+  and removal. No recovery-details/export page or extra metadata backup. Removal
+  uses the existing themed destructive confirmation with account identity and
+  seed-backup acknowledgment; Cancel/Escape do not remove the account.
 
-### Bunker deployment and requests
+Preserve native gas dust notation, contrast, keyboard focus/tooltips, scrolling
+restoration and narrow-width behavior. Confirm/signing authority remains in the
+background; loaders, preference checkboxes and displayed balances are not gates.
 
-The initial Sepolia feature now adds payer/default selection, canonical deployment,
-requests, grouped CALL review, shared asset preview/fee picker, status/retry and
-master recovery/security. Keep user-call decoding and assets primary; no hidden
-owner address or journal is rendered. Remove duplicate explanatory/fee paragraphs.
-Gas tier accents use semantic warning emphasis for readable Fast labels in both
-themes. New screens use existing AppHeader/ScreenBody/ScreenSection primitives.
-Browser execution QA covers deployment through confirmed transfer/rotation plus
-320/420/1280 widths in Midnight/Bauhaus; no overflow, serious/critical axe findings
-or page errors. Hardware/native sidepanel checks remain manual acceptance items.
-
-Bunker gas payer selection reuses the existing full-screen account picker with
-avatars, account names, addresses and wallet-type labels. Native select controls
-are not used for wallet-account choices.
-
-Bunker transactions follow the established calm, compact, inspectable confirmation
-layout: requesting app, estimated changes with chain context, call details, then a
-sticky fee/payer/decision footer. Reuse `ConfirmationScreen` and existing typography,
-semantic colors and account picker. Automatic fee preparation removes the separate
-Review step and duplicate review checkbox; simulation-unavailable acknowledgement
-remains explicit. A compact account-picker trigger keeps the payer visible without
-turning the footer into a setup form. Submission returns to normal Home Activity.
-
-Bunker request queues reuse the ordinary previous/next counter strip. Incoming
-requests start at the first unresolved operation; later requests provide a compact
-Review earlier request action rather than hiding the blocker behind an RPC error.
-Reject advances the review. Reject all appears only for entirely unsigned queues.
-
-## Bunker owner rotation details
-
-Compact, calm, precise: the Activity detail card uses the existing raised surface, border, radius and typography. Old/new labels and zero-based seed indices sit above the shared Send-page address pills and their address actions, connected by a quiet arrow. It appears immediately below transaction status, with no extra heading or decorative emphasis.
-
-## Bunker account settings — 2026-10-16
-
-Mobile wallet settings remains trustworthy, precise and approachable: warm
-financial confidence through the existing product typography, intent-token
-neutral surfaces, blue focus and amber Save commitments. Reuse the normal
-identity header, name editor and separator-based ListSurface rows. Network,
-last verified derivation index and recovery status are compact read-only facts.
-Recovery and removal use focused destinations with standard sticky actions;
-passwords and backup acknowledgement never clutter the main screen. Requests and
-gas payer preferences stay outside settings. The design audit passes existing
-settings hierarchy, restrained iconography, token colors and narrow-width wrapping;
-no new palette, typography, ornamental cards or motion system.
-
-The shared account-type identity badge explicitly consumes surface.raisedHover
-and fg.secondary so the label remains readable in both Midnight and Bauhaus.
-
-Healthy Bunker settings omits the recovery-status row entirely; show it only for
-an owner scan in progress or a required recovery.
-
-## Bunker recovery details — 2026-10-16
-
-Use one compact list of aligned label/value rows for Safe address, network and
-deployment. The Safe identity uses the shared Send-page address pill; the network
-uses the shipped chain icon. Truncate the deployment hash and provide existing
-copy/explorer controls. Chain ID, derivation version and path belong in the shared
-Advanced details disclosure, not repeated large headings. Keep one short lead-in
-and a fixed brand-amber Copy recovery details action, as the screen’s primary
-action. Follow existing Warm Midnight/Bauhaus tokens,
-24px copy targets, 44px actions, keyboard disclosure and narrow-width wrapping.
-
-Owner-rotation review uses the same compact old-owner → new-owner box as Activity
-details, with seed indices and shared address pills. Request details uses two
-compact action rows, Remove owner and Set owner. Skeletons preserve box geometry
-until exact prepared addresses are available; no derivation guesses. Tiny fee
-footers reuse subscript-zero notation and exact dust wei labels across single,
-batch, cross-dapp and swap/bridge fee consumers.
-
-## Safe Bunker account setup
-
-Setup follows Warm Midnight's compact account flow: an explanatory Safe/owner
-diagram and Proceed, then the private-key-style Create new / Restore existing
-mode control. Name entry leads directly to deployment. Encrypted preparation and submitted-deployment tracking stay internal; setup
-shows only Create new / Restore existing, with no saved-setup list. A Bunker
-appears as a pending account after deployment broadcast, immediately selected on
-Home Activity; owner execution remains unavailable until verified confirmation.
-Deployment reuses AccountSettingsIdentity for address/copy/explorer, the anchored
-account selector in the sticky footer: Pay for deployment using on the left,
-with the shared compact payer popup on the right above the primary action.
-Selecting a deployment payer automatically estimates gas in the footer, below
-the payer row and above Deploy. The shared animated gas loader gives way to
-the compact editable fee control; Deploy broadcasts directly once estimation
-succeeds. Payer changes discard stale estimates and failures offer Retry gas
-estimate. There is no separate deployment-review step.
-Phrase backup is optional here and uses the shared explicit Finish backup flow;
-an uncompleted backup appears in the existing amber Home reminder after activation.
-No default-payer checkbox appears during deployment.
-
-## Bunker removal confirmation
-
-Bunker removal follows the existing account-settings modal treatment: compact
-centered dialog, warning icon, account name and truncated address in the existing neutral
-account-summary surface, and Cancel/Remove account actions. The final removal action uses the solid semantic
-red dangerSolid button variant, with the theme inverse foreground; earlier
-removal entry points keep their existing treatment. Existing typography, spacing,
-geometry and theme tokens remain authoritative. Cancel receives initial focus;
-Escape and Cancel preserve the account, and busy removal prevents dismissal.
-The backup acknowledgment remains on the underlying removal screen. No password
-field, new palette, decorative motion or additional layout system is introduced.
-Audit: existing modal hierarchy and restrained semantic emphasis retained; narrow
-layout, keyboard dismissal, focus and both themes are checked in browser QA.
+Bunker removal reuses the regular two-step AccountRemovalModal over account
+settings. There is no dedicated removal destination or backup checkbox. Both
+steps explicitly name phrase deletion only for the last regular-or-Bunker account
+using that phrase; cancel leaves settings and account data intact.

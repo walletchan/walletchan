@@ -16,7 +16,6 @@ import { readBunkerState, writeBunkerState } from "./stateRepository";
 import { buildBunkerTransaction, bunkerExecutionData, bunkerPreviewSignature } from "./transaction";
 import { authorizeBunkerOperation } from "./authorization";
 import { bunkerPayer, submitBunkerOuter } from "./payer";
-import { BUNKER_CHAIN_ID } from "./network";
 import { validateSafeGasOverrides } from "../safe/executionGas";
 import { normalizeTransactionValue } from "../transactionValidation";
 import { publishBunkerRejection, publishBunkerRoutes } from "./publication";
@@ -28,16 +27,16 @@ export const outstanding = (o: BunkerOperation) => !!o.signature && !["confirmed
 export async function stateForAccount(accountId: string) {
   const account = await getAccountById(accountId);
   if (!account || account.type !== "safeBunker") throw new Error("Bunker account not found");
-  const state = await readBunkerState(account.seedVaultId);
-  if (!state || !state.activated || state.archived || state.accountId !== accountId || state.plan.address !== account.address.toLowerCase() || account.chainId !== BUNKER_CHAIN_ID) throw new Error("Bunker account identity changed");
+  const state = await readBunkerState(account.bunkerId);
+  if (!state || !state.activated || state.archived || state.accountId !== accountId || state.plan.address !== account.address.toLowerCase() || account.chainId !== state.chainId || account.seedGroupId !== state.seedGroupId) throw new Error("Bunker account identity changed");
   return state;
 }
 export async function queueBunkerOperation(input: { accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[]; id?: string; recovery?: boolean }) {
-  if (input.chainId !== BUNKER_CHAIN_ID) throw new Error("Bunker transactions are bound to Sepolia");
   const account = await getAccountById(input.accountId); if (!account || account.type !== "safeBunker") throw new Error("Bunker account not found");
+  if (input.chainId !== account.chainId) throw new Error("Bunker chain mismatch");
   // Ingress queues public calls while locked; no seed or signing capability is needed.
-  return withStorageLock(`bunker:${account.seedVaultId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
-    const current = captureBunkerAccess(input.recovery === true); current();
+  return withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
+    const current = captureBunkerAccess(); current();
     const state = await stateForAccount(input.accountId);
     const id = input.id ?? crypto.randomUUID();
     const previous = state.operations.find((o) => o.id === id);
@@ -79,7 +78,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     const baseline = reviewSnapshot(state); const op = state.operations.find((o) => o.id === id);
     if (!op || ["confirmed", "rejected", "invalidated"].includes(op.state)) throw new Error("Bunker operation is unavailable");
     if (state.recovery) throw new Error("Complete recovery scan first");
-    if (op.kind === "recovery") captureBunkerAccess(true)();
+    if (op.kind === "recovery") captureBunkerAccess()();
     if (state.exposureUnknown && op.kind !== "recovery") throw new Error("Rotate the restored owner before spending");
     const blockers = state.operations.filter((o) => outstanding(o) && o.id !== id);
     if (blockers.some(isBunkerExecutionInFlight) && op.kind !== "recovery") throw new Error("Waiting for the previous transaction to confirm.");
@@ -90,7 +89,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     const { live, owner, next, nextIndex } = await bunkerStep("authority", () => verifyBunkerOwner(state, current(), client, op.signature ? op.review?.nextIndex : undefined, current));
     state.nextIndex = nextIndex;
     if (!op.signature) op.scanBlock = live.verifiedAtBlock;
-    const built = await bunkerStep("calls", async () => buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, op.kind === "recovery"));
+    const built = await bunkerStep("calls", async () => buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, op.kind === "recovery", state.chainId));
     if (op.signature && op.review?.safeTxHash !== built.safeTxHash) throw new Error("Signed Safe transaction is stale. Reconcile or recover.");
     const payer = await bunkerPayer(payerId);
     const data = bunkerExecutionData(built.transaction, op.signature ?? bunkerPreviewSignature(owner));
@@ -105,7 +104,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     validateSafeGasOverrides(gas);
     if (BigInt(gas.gasLimit) < estimate || BigInt(gas.gasLimit) > 10000000n) throw new Error("Gas limit cannot cover this execution");
     const maxFee = (BigInt(gas.gasLimit) * BigInt(gas.maxFeePerGas)).toString();
-    if (payerBalance < BigInt(maxFee)) throw new Error("Gas payer has insufficient Sepolia ETH");
+    if (payerBalance < BigInt(maxFee)) throw new Error("Gas payer has insufficient native balance");
     const value = op.calls.reduce((sum, c) => sum + BigInt(c.value), 0n);
     if (safeBalance < value) throw new Error("Bunker has insufficient native balance");
     const base = { expiresAt: Date.now() + 5 * 60000, payerId, payerAddress: payer.address.toLowerCase() as Hex,
@@ -113,7 +112,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
       transaction: built.transaction, safeTxHash: built.safeTxHash, gas, maxFee };
     op.review = { ...base, digest: keccak256(stringToHex(JSON.stringify({ id, calls: op.calls, routes: op.routes, ...base }))) };
     if (!op.signature) op.state = "reviewed";
-    return await withStorageLock(`bunker:${account.seedVaultId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
+    return await withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
       routeGate(); current();
       const latest = await stateForAccount(accountId);
       if (activeReviews.get(reviewKey) !== claim || reviewSnapshot(latest) !== baseline) throw new Error("Bunker review changed");
@@ -127,10 +126,10 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
 export async function confirmBunkerOperation(accountId: string, id: string, digest: string, remember: boolean, client: PublicClient) {
   const current = captureBunkerAccess(); current();
   const account = await getAccountById(accountId); if (account?.type !== "safeBunker") throw new Error("Bunker not found");
-  return withStorageLock(`bunker:${account.seedVaultId}`, async () => {
+  return withStorageLock(`bunker:${account.bunkerId}`, async () => {
     let state = await stateForAccount(accountId); let op = state.operations.find((o) => o.id === id);
     if (!op?.review || op.review.digest !== digest || op.review.expiresAt < Date.now() || ["confirmed", "rejected", "invalidated"].includes(op.state)) throw new Error("Review this Bunker operation again");
-    if (op.kind === "recovery") captureBunkerAccess(true)();
+    if (op.kind === "recovery") captureBunkerAccess()();
     if (state.recovery) throw new Error("Complete recovery scan first");
     if (op.outer) throw new Error("Check the submitted transaction before retrying");
     if (state.exposureUnknown && op.kind !== "recovery" || state.operations.some((o) => outstanding(o) && o.id !== id) && op.kind !== "recovery") throw new Error("Bunker owner exposure is unresolved");
@@ -139,11 +138,11 @@ export async function confirmBunkerOperation(accountId: string, id: string, dige
     bunkerExecutionProgress(accountId, id, "signing");
     const entry = await bunkerEntry(state.id);
     const prepared = await withBunkerDraftSeed(entry, current(), async (seed) => {
-      const owner = deriveBunkerOwner(seed, state.ownerIndex), next = deriveBunkerOwner(seed, review.nextIndex);
+      const owner = deriveBunkerOwner(seed, state.chainId, state.ownerIndex), next = deriveBunkerOwner(seed, state.chainId, review.nextIndex);
       if (!op!.signature && state.usedOwners.includes(next)) throw new Error("Bunker review changed");
-      const rebuilt = buildBunkerTransaction(state.plan.address, BigInt(review.nonce), owner, next, op!.calls, op!.kind === "recovery");
+      const rebuilt = buildBunkerTransaction(state.plan.address, BigInt(review.nonce), owner, next, op!.calls, op!.kind === "recovery", state.chainId);
       if (rebuilt.safeTxHash !== review.safeTxHash || JSON.stringify(rebuilt.transaction) !== JSON.stringify(review.transaction)) throw new Error("Bunker reviewed transaction changed");
-      const signature = op!.signature ?? await withBunkerOwnerKey(seed, state.ownerIndex, (key) => privateKeyToAccount(key).sign({ hash: review.safeTxHash }));
+      const signature = op!.signature ?? await withBunkerOwnerKey(seed, state.chainId, state.ownerIndex, (key) => privateKeyToAccount(key).sign({ hash: review.safeTxHash }));
       return { owner, next, signature };
     });
     if (!op.signature) {
@@ -161,7 +160,7 @@ export async function confirmBunkerOperation(accountId: string, id: string, dige
     // The persisted signature precedes every signature-bearing RPC request.
     const data = bunkerExecutionData(review.transaction, op!.signature!);
     try {
-      const result = await submitBunkerOuter({ id, payerId: review.payerId, payerAddress: review.payerAddress,
+      const result = await submitBunkerOuter({ chainId: state.chainId, id, payerId: review.payerId, payerAddress: review.payerAddress,
         to: state.plan.address, data, rpc: client.transport.url as string, gas: review.gas, current,
         beforeBroadcast: async ({ serializedTransaction, transactionHash }) => {
           bunkerExecutionProgress(accountId, id, "checking");
@@ -195,11 +194,11 @@ export async function confirmBunkerOperation(accountId: string, id: string, dige
 export async function rejectBunkerOperation(accountId: string, id: string, onCommitted?: () => void) {
   const current = captureBunkerAccess(); current(); const account = await getAccountById(accountId);
   if (account?.type !== "safeBunker") throw new Error("Bunker not found");
-  await withStorageLock(`bunker:${account.seedVaultId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
+  await withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     const state = await stateForAccount(accountId); const op = state.operations.find((o) => o.id === id);
     if (!op || op.signature || !["queued", "reviewed"].includes(op.state)) throw new Error("Signed Bunker operations require a recovery rotation");
     op.state = "rejected"; await writeBunkerState(state, current);
   }));
   current(); onCommitted?.();
-  await publishBunkerRejection(account.seedVaultId, id, current);
+  await publishBunkerRejection(account.bunkerId, id, current);
 }
