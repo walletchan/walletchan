@@ -31,12 +31,14 @@ from this authority boundary.
 ## Add account
 
 1. Add account → Safe Bunker opens the information screen, then saved seed phrases.
-2. Each source card has its wallet icon, name and Proceed button on the top row.
-   Known Bunker chain logos appear below, with names in hover/focus tooltips.
-   They are informational. Only these source-card Proceed buttons have chevrons.
+2. Each saved source is a compact, fully clickable row with its wallet icon,
+   name, adjacent known-chain logos and a right-edge chevron. The row owns keyboard
+   focus; informational chain logos retain hover tooltips. There is no separate
+   Proceed button. The regular Add account screen lists the ordinary EOA count and,
+   when present, a separate lowercase `1 safe bunker` / `N safe bunkers` count.
 3. Users may create or import a normal phrase. Newly generated phrases use the
    existing deferred backup reminder; creation/import does not add an EOA account.
-4. Proceed opens network selection. The header shows the selected phrase name;
+4. Selecting a source opens network selection. The header shows the selected phrase name;
    a phrase created or imported during this flow has a small amber superscript `new` pill.
    This marker is flow-local, not persisted or inferred from backup status.
 5. `Deploy on` labels the shared network selector. Choosing a chain determines the
@@ -242,7 +244,8 @@ succeeds; going back never promotes search results to saved-account indicators.
 Discovery results appear directly below Find already deployed Bunkers, with the
 Add existing heading, selectable network list and Add selected accounts action.
 The whole result row toggles its checkbox, including row padding. Checked boxes
-use the shared amber commitment variant; selecting a deployment network hides
+use the shared amber commitment variant, and Add selected accounts uses the amber
+brand button variant; selecting a deployment network hides
 this search/result section.
 
 ## Source map and validation
