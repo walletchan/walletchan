@@ -90,9 +90,9 @@ export function validateEIP712TypedData(
   // Graph traversal and delegation inspection assume well-formed field objects.
   const typeDefinitions = validateEip712TypeDefinitions(data.types);
   if (!typeDefinitions.valid) return typeDefinitions;
-  // A declared domain field with no value makes the hash undefined, so reject before any device prompt.
+  // A declared domain field that is absent, undefined or null cannot be hashed, so reject before any device prompt.
   const missing = (data.types.EIP712Domain ?? []).find(
-    (field: { name: string }) => !Object.prototype.hasOwnProperty.call(data.domain, field.name) || data.domain[field.name] === undefined,
+    (field: { name: string }) => !Object.prototype.hasOwnProperty.call(data.domain, field.name) || data.domain[field.name] == null,
   );
   if (missing) {
     return { valid: false, error: `Domain is missing declared field '${missing.name}'` };

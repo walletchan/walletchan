@@ -66,4 +66,7 @@ test("EIP-712 rejects a domain that omits a declared field (would hash undefined
     domain: {},
   });
   assert.equal(inherited.valid, false);
+  const nulled = validateEIP712TypedData("eth_signTypedData_v4", { ...base, domain: { chainId: null } });
+  assert.equal(nulled.valid, false);
+  assert.match(nulled.error!, /missing declared field 'chainId'/);
 });
