@@ -17,8 +17,11 @@ one day; toggling Clear signing off and on clears the local cache for QA.
 Descriptors come from the public registry at [`ethereum/clear-signing-erc7730-registry`](https://github.com/ethereum/clear-signing-erc7730-registry). **Nothing is bundled** in the extension. The website acts as a thin proxy + cache:
 
 - `walletchan.eth.sh/api/clearsigning/descriptor?chainId=…&address=0x…&kind=calldata|eip712&selector=0x…|formatKey=…` → descriptor JSON, or 404.
-- The proxy uses a committed `(chainId, address) → registry path[]` snapshot (`apps/website/data/clearsigning-index.json`). When multiple registry descriptors share the same address, the route fetches candidates and returns the one whose `display.formats` matches the calldata selector or EIP-712 encoded type.
-- Regenerate the snapshot with `pnpm tsx apps/website/scripts/snapshot-clearsigning-index.ts`.
+- The proxy automatically builds a `(chainId, address) → registry path[]` index from the upstream `master` archive. It reads descriptors directly rather than the upstream generated indexes, which can lag descriptor merges. `lib/clearSigningRegistry.ts` resolves registry/ERC-template includes and preserves multiple candidates for each deployment and descriptor kind. The route selects the candidate whose `display.formats` matches the calldata selector or EIP-712 encoded type.
+- `app/api/clearsigning/descriptor/registry.ts` stores successful indexes in Next's persistent Data Cache with daily (24-hour), traffic-triggered revalidation. Cold requests await the first refresh. After expiry, a request serves the previous index while Next completes the refresh within the request lifecycle. Failed refreshes leave the previous successful index intact; a cold failure falls back to `apps/website/data/clearsigning-index.json`. New coverage needs no scheduled job, credentials, website redeploy, or extension release.
+- Refresh is all-or-nothing: invalid JSON, missing/cyclic includes, malformed deployments, or resource-limit failures never publish a partial index. The archive has a 5-second fetch deadline, 8 MiB compressed / 32 MiB unpacked ceilings, and a 512 KiB per-descriptor ceiling. Parsing is in memory and writes no archive files to disk. Descriptor fetches retain the same fixed upstream origin and bounded JSON policy.
+- Existing response caches still apply: API misses may be cached for one hour, API hits for one day, and extension descriptor hits/misses for one day. These caches can delay visibility beyond the daily index refresh. Toggle Clear signing off and on to purge extension descriptor caches for QA.
+- The committed snapshot remains an offline fallback. To refresh it optionally: `pnpm --filter @walletchan/website exec tsx scripts/snapshot-clearsigning-index.ts`. This uses the same atomic builder; runtime index updates do not modify repository files.
 
 ## Resolution flow
 
@@ -246,7 +249,7 @@ We don't host our own registry. To get a new contract covered:
 
 1. Author a descriptor following the [ERC-7730 spec](https://github.com/ethereum/clear-signing-erc7730-registry/tree/master/specs).
 2. Submit a PR to [`ethereum/clear-signing-erc7730-registry`](https://github.com/ethereum/clear-signing-erc7730-registry).
-3. Once merged, regenerate our snapshot (`pnpm tsx apps/website/scripts/snapshot-clearsigning-index.ts`) and ship a website redeploy. No extension release required.
+3. Once merged, the website API picks up the new descriptor through its automatic daily index revalidation on traffic. No website redeploy or extension release is required. Allow for the API/extension caches described above when testing an address that previously missed.
 
 ## Shared address-label cache (`lib/ethShLabelsCache.ts`)
 
