@@ -351,3 +351,88 @@ Before every release that touches `chrome.storage`:
 - **Never commit the .pem file** to the repository (it's in `.gitignore`)
 - The website API caches GitHub responses for 5 minutes to avoid rate limits
 - CWS publishing info and permission justifications are in `CHROME_WEBSTORE.md`
+
+### Sepolia default RPC compatibility (next release)
+
+Ethereum Sepolia now defaults to the live-verified PublicNode endpoint. The shared
+network normalizer upgrades only exact saved copies of the retired shipped dRPC
+default; background reads work before the UI opens, and the existing locked
+`ensureNetworksInfo` path persists the change once. This changes no key or record
+shape and needs no secret access or eager install-time migration. Check trailing
+slashes, old chain-name aliases, custom RPC preservation and repeated startup.
+
+### Bunker notification-index compatibility
+
+The additive safeBunkerPendingV1 key holds only account/request IDs and creation
+time. Older journals remain readable without migration or ciphertext changes.
+On the next authenticated pending-request load, synchronizeBunkerPendingIndex
+reconstructs the index under the owning domain lock and skips unchanged writes.
+Before first unlock, the existing unsigned inbox still contributes to the badge.
+Check missing-index repair twice, unchanged encrypted journal bytes, inbox/index
+deduplication, badge persistence while locked, removal after submission/rejection,
+account deletion and reset cleanup. Never use notification hints for authority.
+
+Bunker history rotation metadata is additive and optional: older rows render
+without the card until unlocked journal reconciliation backfills public
+addresses and indices from each operation's review. No install-time seed
+access or encrypted-journal rewrite is needed.
+
+Bunker pending-deployment checks: verify an unsigned preparation adds no account;
+a broadcast attempt publishes a selectable pending account and both Activity rows.
+Lock/restart preserves it without permitting owner execution. A mined success
+updates both rows; canonical three-confirmation verification clears pending state
+without stealing the selected account. Missing history repairs idempotently. Check
+reverted/uncertain submission, exact retry, gas payer history attribution and old
+confirmed accounts with no deploymentPending field.
+
+
+## Safe Bunker release checks
+
+Current behavior is specified in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md) and
+[SAFE_BUNKER_DERIVATION.md](./SAFE_BUNKER_DERIVATION.md). No dedicated-phrase alpha
+reader, dual derivation fallback or automatic conversion exists. Do not silently
+wipe user data or advertise current discovery as recovery of incompatible alpha
+identities. Ordinary released mnemonic/account/auth data remains data-preserving.
+
+Before releasing Bunker changes:
+
+- Audit source-group retention, zero-EOA derivation/backup, password/passkey
+  hydration, reset/onboarding ownership and current storage formats in STORAGE.md.
+- Preserve master-only Bunker operations; do not infer authority from an unlocked
+  general key, notification index, initial public snapshot or a UI checkbox.
+- Run Bunker identity/runtime/history tests, account/auth/request/Safe regressions
+  appropriate to the change, UI checks, typecheck and full pnpm build:extension.
+  Disposable Anvil tests prove synthetic behavior, not all public RPC networks.
+- Manually accept create/import/shared backup, manual Find/Add existing, same-page
+  deployment, both Activity histories, per-account default payer, exact retry,
+  owner recovery/removal, lock/restart and network restrictions. Physical Ledger
+  approval/rejection needs device QA. Do not claim an unimplemented Trezor path.
+- Preserve encrypted deployment evidence and exposure journals when removing
+  display surfaces or Activity rows. Explicit account removal deletes its Bunker
+  records; last-source-account removal clears the phrase/group too. Verify both
+  removal orders with mixed regular/Bunker accounts and Bunkers across chains.
+  No extra recovery-details backup is required.
+- Verify canonical onchain reverts show the red Home rotation shortcut and badge,
+  survive reload/lock, permit a new request with the same n+1, and clear only after
+  successful confirmed spending or manual rotation. Check multiple accounts,
+  approval-count coexistence, failed Activity/bundle receipts and index repair.
+- Disclose chain/infrastructure restrictions and incompatible-alpha limitations.
+  Do not downgrade to a build unaware of the current identity/journal keys.
+
+safeBunkerBindingsV2 stores public source/chain references; safeBunkerJournalsV2
+stores encrypted operations/exposure and operational deployment evidence. Source
+phrases and backup reminders remain in the ordinary mnemonic/seed-group lifecycle.
+This documentation cleanup does not migrate storage or publish a release.
+
+### Safe Bunker ERC-4337 release checks
+
+- Deploy the Safe-aware Pimlico proxy before enabling the matching extension.
+- Verify module/setup/EntryPoint runtime pins on each target chain.
+- Verify module-required v3 deployment, rediscovery, import and restart/recovery;
+  module-free Bunkers have no supported compatibility or upgrade path.
+- Run Safe Bunker, shared fee-payment, proxy and account/auth/hardware regressions.
+- Complete live Pimlico native/ERC-20 billing acceptance and Ledger/Trezor device
+  QA. Disposable-node and mocked-provider results do not replace those checks.
+- Rollback must retain the new optional journal fields and required module
+  configuration; an older binary that rejects the module is not a safe rollback.

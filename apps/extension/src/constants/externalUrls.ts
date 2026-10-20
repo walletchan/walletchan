@@ -198,6 +198,9 @@ export const BASE_RECONCILIATION_RPCS = [
   "https://base.drpc.org",
 ] as const;
 
+// Retired shipped defaults recognized only for exact legacy-default upgrades.
+export const RETIRED_SEPOLIA_RPC_URL = "https://sepolia.drpc.org";
+
 // Built-in chain endpoints; chainRegistry.ts owns capabilities and metadata.
 export const BUILT_IN_CHAIN_URLS = {
   1: { rpc: "https://eth.drpc.org", explorer: ETHERSCAN_URL },

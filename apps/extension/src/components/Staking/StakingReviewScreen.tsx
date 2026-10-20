@@ -107,7 +107,7 @@ export function StakingReviewScreen(props: {
               },
               label: entry.origin,
             }))}
-            accountType={props.accountType}
+            accountType={props.accountType === "safeBunker" ? "safe" : props.accountType}
             batchedTx={batchedTx ? { tx: { ...batchedTx, from: props.owner, chainId: STAKING_CHAIN_ID }, label: "Staking batch" } : undefined}
             eip7702Delegate={props.plan.delegation?.needsAuth ? props.plan.delegation.delegate : undefined}
             onGasEstimates={props.onGasEstimates}

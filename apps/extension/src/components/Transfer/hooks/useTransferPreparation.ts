@@ -8,6 +8,7 @@ import { formatTokenAmount } from "../formatting";
 import { useNativeMaxAmount } from "./useNativeMaxAmount";
 
 interface UseTransferPreparationOptions {
+  accountType?: string;
   token: PortfolioToken | null;
   fromAddress: string;
   recipient: string;
@@ -15,6 +16,7 @@ interface UseTransferPreparationOptions {
 }
 
 export function useTransferPreparation({
+  accountType,
   token,
   fromAddress,
   recipient,
@@ -41,13 +43,13 @@ export function useTransferPreparation({
     Boolean(isNativeToken) && !hexDataIsEmpty && isHexDataValid;
 
   const nativeMaxAmount = useNativeMaxAmount({
-    token,
+    token: accountType === "safeBunker" ? null : token,
     fromAddress,
     resolvedAddress,
     data: hasNativeCalldata ? trimmedHexData : "0x",
     isContractDeployment,
   });
-  const effectiveMaxAmount = isNativeToken ? nativeMaxAmount : token?.balance;
+  const effectiveMaxAmount = accountType === "safeBunker" ? token?.balance : isNativeToken ? nativeMaxAmount : token?.balance;
   const isMaxAmountReady = Boolean(token && effectiveMaxAmount !== null);
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export function useTransferPreparation({
   }, [hasNativeCalldata, isContractDeployment]);
 
   const canShowDeployToggle =
-    Boolean(isNativeToken) &&
+    accountType !== "safeBunker" && Boolean(isNativeToken) &&
     (isContractDeployment || !recipient.trim());
   const hasPrice = token ? token.priceUsd > 0 : false;
   const balanceNum = token ? parseFloat(token.balance) : 0;
@@ -65,7 +67,7 @@ export function useTransferPreparation({
   const tokenAmount = useMemo(() => {
     if (!token) return "";
     if (isNativeToken && isMaxSelected) {
-      return nativeMaxAmount ?? "";
+      return effectiveMaxAmount ?? "";
     }
     if (!amount) return hasNativeCalldata ? "0" : "";
     const numericAmount = parseFloat(amount);
@@ -85,7 +87,7 @@ export function useTransferPreparation({
     isMaxSelected,
     isNativeToken,
     isUsdMode,
-    nativeMaxAmount,
+    effectiveMaxAmount,
     token,
   ]);
 

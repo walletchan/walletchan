@@ -1,3 +1,4 @@
+import { resolveBuiltInRpcUrl } from "./builtInRpcDefaults";
 import type { NetworksInfo, NetworkEntry } from "@/types";
 import {
   CHAIN_REGISTRY,
@@ -18,7 +19,8 @@ export type ChainAccountType =
   | "ledger"
   | "trezor"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 export interface ResolvedChain {
   name: string;
@@ -188,7 +190,7 @@ export function normalizeNetworksInfo(
     const explorer = sanitizeCustomExplorerUrl(stored?.explorer)?.replace(/\/+$/, "");
     normalized[chain.name] = {
       chainId: chain.chainId,
-      rpcUrl: stored?.rpcUrl ?? chain.rpcUrl,
+      rpcUrl: resolveBuiltInRpcUrl(chain, stored?.rpcUrl),
       ...(explorer && explorer !== chain.explorer ? { explorer } : {}),
       // A stored entry represents an existing user choice. Only apply the
       // registry default when this built-in chain has never been persisted.
@@ -267,8 +269,10 @@ export function getResolvedChains(
 export function getVisibleChains(
   networksInfo: NetworksInfo | undefined,
   accountType?: ChainAccountType | null,
+  boundChainId?: number,
 ): ResolvedChain[] {
   return getResolvedChains(networksInfo).filter((chain) => {
+    if (accountType === "safeBunker") return chain.chainId === boundChainId;
     if (chain.hidden) return false;
     if (accountType === "bankr") return chain.isBankrSupported;
     return true;

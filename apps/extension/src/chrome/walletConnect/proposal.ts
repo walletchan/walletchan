@@ -53,7 +53,7 @@ export async function buildProposalRejection(
 ): Promise<WalletConnectProposalRejection> {
   const networksInfo = await getStoredNetworksInfo();
   const allChains = getResolvedChains(networksInfo);
-  const visibleChains = getVisibleChains(networksInfo, accountType);
+  const visibleChains = accountType === "safeBunker" ? [] : getVisibleChains(networksInfo, accountType);
   const requestedChainIds = getProposalRequestedChainIds(proposal.params);
   const requestedChains = requestedChainIds.map((chainId) =>
     getRequestedChainMetadata(

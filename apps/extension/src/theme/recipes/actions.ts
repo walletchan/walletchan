@@ -1,5 +1,5 @@
+import { buildDangerSolid } from "./dangerSolid";
 import type { ThemeTokens } from "../tokens";
-
 export function buildButton(t: ThemeTokens) {
   if (t.id !== "midnight") return buildBauhausButton(t);
 
@@ -28,6 +28,7 @@ export function buildButton(t: ThemeTokens) {
       _disabled: disabled,
     },
     variants: {
+      dangerSolid: buildDangerSolid(t, pressActive),
       // The only filled action color in Midnight.
       primary: {
         bg: "accent.primary",
@@ -295,6 +296,7 @@ function buildBauhausButton(t: ThemeTokens) {
       },
     },
     variants: {
+      dangerSolid: buildDangerSolid(t, pressActive),
       // Primary CTA — accent.primary background
       primary: {
         bg: "accent.primary",

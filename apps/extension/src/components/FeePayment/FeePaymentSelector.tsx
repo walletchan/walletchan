@@ -24,6 +24,7 @@ import { isTransactionSignatureExpired } from "./model/quoteError";
 import { useFeePaymentQuote } from "./hooks/useFeePaymentQuote";
 
 export type FeePaymentRequestKind =
+  | "bunker"
   | "transaction"
   | "batch"
   | "crossDapp"

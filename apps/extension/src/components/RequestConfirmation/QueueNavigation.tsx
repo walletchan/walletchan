@@ -7,7 +7,7 @@ interface QueueNavigationProps {
   stripBg: string;
   stripFg: string;
   onNavigate: (direction: "prev" | "next") => void;
-  onRejectAll: () => void;
+  onRejectAll?: () => void;
   isDisabled?: boolean;
 }
 
@@ -56,7 +56,7 @@ export function QueueNavigation({
           p={0}
         />
       </HStack>
-      <Button
+      {onRejectAll && <Button
         position="absolute"
         right={0}
         size="xs"
@@ -69,7 +69,7 @@ export function QueueNavigation({
         px={2}
       >
         Reject all
-      </Button>
+      </Button>}
     </Flex>
   );
 }

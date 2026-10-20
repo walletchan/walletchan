@@ -1,3 +1,5 @@
+import { enqueueBunkerRequest } from "../safeBunker/inbox";
+import { normalizeBunkerIngressTransaction } from "../safeBunker/ingress";
 import { assertSupportedSignatureMethod } from "./signatureMethodPolicy";
 /** Creates account-pinned local confirmation prompts for WalletConnect. */
 
@@ -79,6 +81,13 @@ export async function createPendingTransactionRequest(
       : {}),
   };
 
+  if (account.type === "safeBunker") {
+    await withWalletConnectPendingRoute({ id: txId, kind: "transaction", topic: args.topic, requestId: args.id,
+      method: "eth_sendTransaction", timestamp: Date.now() }, () => enqueueBunkerRequest({ id: txId, accountId: account.id, chainId,
+      calls: normalizeBunkerIngressTransaction(account, { ...rawTx, chainId }), routes: [{ kind: "walletConnect", origin: peer.url || peer.name,
+        requestId: txId, topic: args.topic, remoteId: args.id }] }), remoteClaimId);
+    await openExtensionPopup().catch(() => undefined); return;
+  }
   if (account.type === "safe") {
     requireSafeFeature("walletConnect");
     requireSafeFeature("sendProposal");

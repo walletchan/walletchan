@@ -147,6 +147,9 @@ export async function removeMnemonic(
   seedGroupId: string,
   expectedAuthEpoch?: string,
 ): Promise<void> {
+  const { loadBunkerDraftVault } = await import("../safeBunker/repository");
+  if ((await loadBunkerDraftVault()).entries.some(entry => entry.header.seedGroupId === seedGroupId))
+    throw new Error("This seed phrase is used by Safe Bunker accounts");
   await withMnemonicVaultLock(async () => {
     if (expectedAuthEpoch) assertCurrentMasterAuthorization(expectedAuthEpoch);
     const vault = await loadMnemonicVault();

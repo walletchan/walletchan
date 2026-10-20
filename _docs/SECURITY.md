@@ -1756,7 +1756,7 @@ license, endpoint, patch and bundle review. Suite is an upstream trust boundary:
 its own releases/privacy settings are outside WalletChan's bundled SDK pin.
 
 The production background build applies syntax-only Terser compaction with
-`compress: false` and `mangle: false` before its unchanged fixed 4 MiB budget.
+`compress: false` and `mangle: false` before its 4.25 MiB combined Safe Bunker/Trezor budget.
 This removes comments and whitespace without optimizer or identifier-mangling
 semantics. Release scripts delete the exact same-version archive before
 invoking `zip -r`, so a prior archive cannot retain stale hashed chunks.
@@ -3086,6 +3086,158 @@ review queue but remain excluded from direct signing and release; the disabled
 UI action does not replace backend enforcement. No signature, submission, or
 ERC-5792 acknowledgement occurs from queuing alone.
 
+## Safe Bunker security boundary
+
+The current runtime/flow is in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md); exact hardened
+path and CREATE2 identity are in
+[SAFE_BUNKER_DERIVATION.md](./SAFE_BUNKER_DERIVATION.md). Audit the background
+safeBunker/README.md in its documented order.
+
+### Phrase and authority
+
+All Bunker management, discovery, derivation, review/signing, submission, exact
+retry and recovery require live master authority. captureBunkerAccess binds role,
+general-key identity and auth epoch and rechecks around asynchronous secret work
+and release. Agent sessions cannot execute Bunker operations. The original phrase
+is accessed through the existing master-only mnemonic capability; password and
+supported biometric master sessions use the normal vault. No extra phrase, xpriv,
+branch key, wrapped root or agent signing capability is persisted.
+
+Fully hardened domain/version/chain/index branches separate EOA and per-chain
+owners. A compromised source phrase compromises both ordinary and Bunker accounts.
+Mutable seed/HD buffers are wiped best effort; JavaScript strings cannot reliably
+be erased. No formal post-quantum or instant-key-recovery resistance is claimed.
+
+safeBunkerBindingsV2 holds public immutable source/chain identity headers.
+safeBunkerJournalsV2 uses fresh-IV AES-GCM with header/revision AAD under the
+general vault key. Possessing that key does not grant mnemonic/signing authority.
+Hydration validates account/header/source/journal and exact pending-deployment
+bindings. Malformed/future data fails closed. Reset/onboarding own all Bunker
+keys; source deletion/last-EOA cleanup retains referenced groups. No incompatible
+alpha-format reader exists; ordinary wallet lifecycle data must be preserved.
+
+### Discovery and deployment
+
+Manual discovery verifies canonical configuration at a confirmed block and scans
+at most 64 locally derived owners per page. Public progress is memory-only,
+epoch/current-owner bound and expiring. Search never creates accounts. Add existing
+rechecks owner/full configuration/canonical block before activation, preserves
+known exposure and reserves indices, and sends no transaction or forced rotation.
+It does not require an original deployment hash or establish absence of external
+unpublished signatures. Owner movement restarts matching for the new owner.
+
+Only verified frozen EVM Safe 1.4.1 factory/singleton/MultiSendCallOnly profiles
+are accepted, with matching RPC chain ID. One plain owner, threshold one and no
+guard/contract owner are required. Exactly the pinned Safe4337Module and its
+fallback handler are required for discovery, import, activation, execution and
+settlement. Module-free configurations have no compatibility or upgrade path. Unsupported infrastructure
+fails closed; the visible network list is not authority or compatibility proof.
+
+An unsigned preparation publishes no account. A broadcast attempt may publish
+an account with deploymentPending: true only when authenticated source/journal/
+account bindings and exact signed chain-bound EIP-1559 factory bytes/hash match.
+Owner execution remains blocked until exact creation receipt, canonical block,
+three confirmations and live authority checks activate the journal. Deployment
+hash/raw bytes are retained for integrity, exact retry and Activity repair; they
+are not an optional display-only recovery-details backup.
+
+### Requests, signing and concurrent state
+
+Bunker commands are exact trusted-UI routes, absent from provider forwarding.
+Injected/WC/internal adapters author unsigned provenance with pinned account/chain
+and every contributing origin/topic. Final synchronous revocation epochs and live
+authorization apply to each route. Unsigned revoked groups are rejected together;
+signed exposure remains and cannot be erased by dismissing a prompt.
+
+Initial preloading exposes only the existing public view DTO. Code may be cached;
+request views remain in React state, clear on lock, and are bound to account,
+source, chain and address. Late preloads cannot reopen a locked/removed identity
+or replace a newer request. Snapshots, balance labels and UI selections never
+replace background review/release authorization.
+
+The builder permits user CALLs only, blocks Safe/owner/infrastructure authority
+targets, and appends the sole swapOwner. MultiSendCallOnly makes user intent and
+rotation atomic; recovery has no spending calls. Inner reimbursement is zero.
+The external payer is selected through the authoritative Safe-executor policy;
+UI balances/default preferences are informational, not authorization.
+
+Review binds calls/routes, nonce, configuration, indices, payer, gas, digest and
+expiry. Public RPC work does not hold secret/request locks. A latest-review claim
+and signing-state snapshot are checked under locks before prepared fields merge
+into fresh state; concurrent rejection/signing/recovery/grouping invalidate it.
+Delivery flags are preserved. A stale view/read cannot overwrite a newer result.
+
+Persist the actual inner signature before any signature-bearing RPC. Payer
+preparation fills only nonce and preserves reviewed chain/type/gas/fee fields.
+After payer signing, including Ledger approval, one fresh block pins chain,
+Safe version/singleton/owner/nonce/threshold/modules/guard/fallback, unused plain
+owner/successor, payer funds and exact gas-capped eth_call. Historical receipt
+anchors are checked by reconciliation, not repeated in Confirm. Auth, origin,
+reset, expiry and exact outer-byte/hash persistence remain final release gates.
+Ambiguous outcomes retry identical bytes only; no automatic rebroadcast.
+
+Unsigned rejection commits journal/index before acknowledgment and publishes
+results afterward. Pending delivery flags survive compaction and retry before
+reconciliation chain reads. Rejection cannot await stalled fee RPC; late reviews
+cannot resurrect it. Submitted outer effects are excluded from approvals while
+Activity and canonical settlement continue. Signed intents cannot be rejected as
+safely canceled. Phase hints contain only correlated IDs/fixed phases; the renderer
+checks same-extension background sender and no tab. Hints are not forwarded to dapps.
+
+### History, recovery and removal
+
+Only canonical ExecutionSuccess/hash, owner-change evidence and matching live
+owner/nonce advance indices. Reverts preserve exposure; recent canonical anchors
+detect reorgs. Recovery reads current owner and performs bounded local matching
+without genesis logs, rechecking full authority before activation. Known used
+owners/reservations are retained. exposureUnknown requires confirmed explicit
+rotation; external Safe tools may bypass client rotation, and recovery cannot
+cancel competing signatures.
+
+Safe and payer history contain public intent/address/hash/gas and optional owner-
+rotation metadata, never seed/key/signature/raw envelope/initializer. Safe balance
+changes exclude gas paid by the external EOA. History clearing is not permission
+to clear operational evidence or exposure journals.
+
+Removal needs master authority and final confirmation of the shared account/phrase
+backup warnings; the UI sends the existing backedUp acknowledgment only on the
+final modal action. No separate Bunker backup checkbox, public-metadata backup or
+second password entry exists. It blocks the last account/unresolved
+requests, disconnects mapped sites, repairs sync selection, then atomically
+deletes its binding/journal and identity. Sync quota failure preserves account/journal.
+The shared seed-removal coordinator counts both regular and Bunker accounts; the
+last removal atomically clears the phrase/group and leftover Bunker records.
+Ordinary Activity history remains. Removal serializes with unsigned inbox intake,
+which rechecks the live account under its queue lock. Unresolved signed effects,
+queued requests and submitted unactivated deployments block deletion. No retained
+exposure archive remains after removal: onchain rediscovery cannot recover
+signatures that never landed. Unresolved effects also block reset. Real device/public-chain
+acceptance is separate from synthetic local-chain tests.
+
+### RPC diagnostics and notification metadata
+
+Bounded secureHttpTransport may fall back from failed eth_blockNumber to a
+validated eth_getBlockByNumber(latest,false) quantity on the same configured
+endpoint. Fixed command/step/policy errors may be shown; raw RPC errors, stack,
+credentials, URLs, calldata and signed bytes must never be reflected or logged.
+Exact retired built-in RPC defaults may normalize by canonical chain/URL; custom
+endpoints/credentials are not rewritten. Neither behavior relaxes identity/code/
+nonce/receipt/release gates.
+
+safeBunkerRevertWarningsV1 contains only Bunker account IDs, is rebuilt from
+authenticated journals and is written atomically with the pending index/journal.
+It carries no authority. Canonical confirmed reverts do not block new requests;
+the current signer remains exposed until a verified owner rotation succeeds.
+A disclosed successor address without a signature is reusable. Retain all normal
+master, account, origin, nonce, simulation and final-release checks.
+
+safeBunkerPendingV1 contains only request ID, account ID and creation time; no
+calls, origins, payer, signatures or secrets. It merges with the unsigned inbox
+by ID, can be read for badges while locked and never grants authority. Journal
+writes atomically project it; authenticated repair rebuilds it idempotently.
+Reset clears it. Previews, indexes and public deploymentPending flags remain
+presentation metadata, never execution capabilities.
 ### Send ENS history advisory
 
 `getEnsRecipientHistory` is wallet-UI-only in the exhaustive message audience
@@ -3099,3 +3251,68 @@ Loading shows a status label; unavailable or incomplete history renders no notic
 Absence of warnings is never presented as proof of recipient safety. Only address-record updates are
 queried; ownership and resolver-change events do not trigger warnings. Offchain/L2
 Basename records are excluded.
+
+### Safe Bunker hardware payer parity
+
+Bunker payer eligibility uses the shared imported-Safe executor policy, including
+Trezor. Hardware signing uses exact reviewed chain/type/nonce/gas/fee fields. The
+Trezor helper verifies device-returned bytes and recovered signer without RPC
+preparation or submission. After device approval, Bunker rechecks live account
+type/address/device/path and master authority, then runs its existing final Safe
+authority/simulation gate and persists exact bytes before broadcast under the
+secret-operation lock. SDK attempts use fresh opaque operation IDs. No new
+storage or message routes are added; Bankr, view-only and contract accounts
+remain excluded as payers by the shared policy.
+
+### Bunker ERC-4337 release boundary
+
+See [SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). Module, setup and EntryPoint
+runtime hashes are verified alongside Safe infrastructure. SafeOp signatures bind
+chain, module, sender, EntryPoint nonce, exact CALL-only batch, gas limits, fees,
+paymaster data and validity. All Bunker execution remains master-only; this does
+not make Bunkers direct signers, agent-accessible or generic fee-token EOAs.
+Owner signatures are encrypted before signed simulation; deterministic hashes
+are durable before submission. Exact signed simulation never receives preview
+balance overrides. Ambiguous releases remain recoverable and never silently
+resign. Token approvals are exact and bounded. Owner rotation cannot be omitted
+from WalletChan-built operations. EntryPoint event status and scoped owner-change
+evidence, rather than outer receipt status, determine settlement. Unknown modules
+remain forbidden. Legacy activation is an explicit EOA-funded authority change.
+
+Signed Bunker fee-check failures retain their signature, reviewed operation and
+reserved owner in the encrypted journal, with a redacted diagnostic. The UI
+provides Check status and Back to wallet rather than refreshing an expired
+signed review. Reconciliation may invalidate an unexecuted signed SafeOp only
+after a confirmed canonical block is past its signed nonzero validUntil, with
+the expected owner, Safe nonce and EntryPoint nonce still unchanged. Submitted hashes settle by verified receipts or confirmed expiry plus unchanged
+authority/nonces. No signature evidence is deleted.
+The expiry block becomes the existing plan.verifiedBlock anchor; subsequent
+reviews/signatures fail closed if that canonical proof is reorganized.
+
+Bunker signed gas checks compare wallet-estimated fields, while retaining the
+ERC-7677 paymaster-authorized postOp limit. Unsigned final-envelope validation
+may rebuild gas floors only by requesting fresh paymaster data. Approval and
+fee ceilings remain bound to that final envelope; signed bytes never change.
+Gas-overrun diagnostics allow only a fixed gas-field identifier and validated
+integer limits, preserving the transport redaction boundary.
+
+
+Bunker self-payment submission makes exactly one send attempt after durably
+saving its hash/signature. Only an acknowledgement matching that deterministic
+hash becomes pending; transport failures, explicit rejections and hash mismatches
+remain ambiguous. `feeSubmission.ts` preserves bounded HTTP/RPC/AA-code diagnostics
+without reflecting provider text, URLs, error.data or signed bytes. Failed sends
+are surfaced to confirmation and Activity; ambiguous history uses the existing
+broadcastUncertain/error fields and “Verifying broadcast” label. No automatic
+replacement or re-signing occurs.
+
+Reconciliation can resolve submitted, pending and ambiguous expired SafeOps after
+a confirmed canonical block is strictly past validUntil, with the expected current
+owner and both Safe/EntryPoint nonces unchanged at that block. A consumed nonce
+blocks expiry even when the bundler reports no receipt. The canonical expiry
+anchor, original hash/signature and exposed-successor reservations are retained.
+Expired rows become dropped, and dapp/batch results report invalidation rather
+than user rejection. EntryPoint event lookup over at most 10,000 blocks from the
+saved signing block provides a chain-verified receipt fallback when the bundler
+receipt service is unavailable. Older stuck rows repair through the same startup/
+alarm reconciliation. No storage schema or key changes are required.

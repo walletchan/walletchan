@@ -45,6 +45,7 @@ export const SAFE_ACCOUNT_TYPE_POLICY = {
     executionSigningPath: null,
     feeTokenExecution: false,
   },
+  safeBunker: { ownerSigningPath: null, executionSigningPath: null, feeTokenExecution: false },
   safe: {
     ownerSigningPath: null,
     executionSigningPath: null,

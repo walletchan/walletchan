@@ -49,6 +49,7 @@ function accountTypeLabel(account: Account): string {
       return `Trezor · Account ${account.hdIndex + 1}`;
     case "impersonator":
       return "View-Only";
+    case "safeBunker": return "Safe Bunker";
     case "safe":
       return "Safe";
   }

@@ -104,3 +104,7 @@ enforce one-way entrypoint → bootstrap → composition/pipeline → router/dom
 dependencies. `composition/lifecycle.ts` owns the single `onMessage`
 registration and released listener order; focused callbacks and startup effects
 live under `lifecycle/`.
+
+`safeBunkerRouter.ts` owns two trusted master-only local draft messages. It
+restores only an absent coherent session and captures epoch/key authority before
+queuing. No Bunker network/deployment/signing routes are installed in Phase 1.

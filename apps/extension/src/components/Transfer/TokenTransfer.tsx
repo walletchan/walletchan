@@ -54,6 +54,7 @@ function TokenTransfer({
     chainId: catalog.selectedChainId,
   });
   const preparation = useTransferPreparation({
+    accountType,
     token: catalog.selectedToken,
     fromAddress,
     recipient: recipientState.recipient,

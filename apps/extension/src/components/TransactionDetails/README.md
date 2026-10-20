@@ -149,3 +149,5 @@ large hook.
   identities rather than only changing chrome.
 - Run `pnpm --filter @walletchan/extension typecheck:ui` and targeted ESLint
   whenever this domain changes.
+
+- `BunkerOwnerRotation.tsx` renders optional public rotation metadata below status with zero-based derivation indices and shared Send-page LabeledAddressPopover pills with copy and explorer actions. Older history without metadata omits the card until journal reconciliation backfills it.

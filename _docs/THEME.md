@@ -670,3 +670,8 @@ Visual QA checklist for "did this break Bauhaus":
 - Run `rg '#[0-9A-Fa-f]{6}' apps/extension/src --glob '!theme/**' --glob '!lib/chainIcons.ts' --glob '!constants/chainRegistry.ts' --glob '!chrome/pending*' --glob '!*.css'` and confirm the only match is the OS brand banner gradient in `App.tsx`.
 - Run `rg 'bauhaus\.' apps/extension/src --glob '!theme/**'` and confirm there are no live references (only docstring / comment matches).
 - Run `rg 'translate\(2px, 2px\)' apps/extension/src` and confirm the only match is `theme/themes/bauhaus.ts` motion config.
+
+The `dangerSolid` button variant is reserved for final destructive confirmation
+actions. It uses `status.error.emphasis` as an opaque fill and `fg.inverse` for
+the label, with matching border and disabled/pressed states in both themes.
+The quieter `danger` variant remains available for destructive entry points.

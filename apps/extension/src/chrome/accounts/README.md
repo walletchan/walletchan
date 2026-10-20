@@ -23,6 +23,8 @@ Review in dependency order:
    metadata commits.
 5. `localStorage.ts` — private-key/view-only metadata add/remove/reset.
 6. `seedStorage.ts`, `seedGroupStorage.ts` — derived-account/group metadata.
+   `seedRemoval.ts` counts regular and Bunker references together, clears removed
+   Bunker records and deletes the phrase/group on final-account removal.
 7. `legacyMigration.ts` — serialized pre-multi-account compatibility commit.
 8. `tabResolver.ts` — connected/pending-dapp-only per-tab selection policy.
 9. `localEffectBoundary.ts` — final ID/type/address revalidation immediately

@@ -1,3 +1,4 @@
+import { isDirectSigningAccount } from "../accounts/accountTypePolicy";
 import { validateSiwePersonalSignRequest } from "@/lib/siwe";
 import type { DirectSigningAccount } from "../accounts/accountTypePolicy";
 import { validateExternalSignatureTypedData } from "./externalTypedData";
@@ -43,7 +44,7 @@ export async function prepareSignatureConfirmation(
   }
   const account = pinned.account;
 
-  if (account.type === "safe") {
+  if (account.type === "safe" || account.type === "safeBunker") {
     return {
       ok: false,
       result: {
@@ -107,5 +108,6 @@ export async function prepareSignatureConfirmation(
     }
   }
 
+  if (!isDirectSigningAccount(account)) return { ok: false, result: { success: false, error: "Account cannot sign" } };
   return { ok: true, value: { pending, account } };
 }

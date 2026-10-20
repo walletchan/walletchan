@@ -1,3 +1,5 @@
+import { AccountRemovalModal } from "./AccountRemovalModal";
+import { BunkerSettingsScreen } from "./SafeBunker/BunkerSettingsScreen";
 import { etherscanAddressUrl } from "@/constants/externalUrls";
 import { useState, useEffect, useRef, memo } from "react";
 import {
@@ -7,12 +9,6 @@ import {
   Text,
   Input,
   Button,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   FormControl,
   FormLabel,
   FormErrorMessage,
@@ -21,7 +17,6 @@ import {
   IconButton,
   Alert,
   AlertIcon,
-  Spinner,
 } from "@chakra-ui/react";
 import {
   ChevronRightIcon,
@@ -34,7 +29,7 @@ import {
   CheckIcon,
 } from "@chakra-ui/icons";
 import { useThemedToast } from "@/hooks/useThemedToast";
-import type { Account, PasswordType, SeedGroup } from "@/chrome/types";
+import type { PasswordType, SeedGroup } from "@/chrome/types";
 import { resolveNameToAddress, isResolvableName } from "@/lib/ensUtils";
 import { isAddress } from "@ethersproject/address";
 import {
@@ -63,35 +58,10 @@ import {
   StickyActionBar,
 } from "@/components/ui";
 import { BrainIcon, ShieldIcon } from "./Settings/icons";
-import { fetchPortfolioSummary } from "@/chrome/portfolio/api";
-import { formatUsd } from "@/lib/currencyFormatUtils";
-import MiddleTruncatedAddress from "@/components/MiddleTruncatedAddress";
 import { getAccountRemovalCopy } from "./accountRemovalModel";
 import { SafeSecurityScreen } from "./SafeAccount/SafeSecurityScreen";
-interface AccountSettingsProps {
-  account: Account | null;
-  onClose: () => void;
-  onAccountUpdated: () => void | Promise<unknown>;
-  accounts: Account[];
-  initialView?: AccountSettingsSubView;
-  onSessionExpired?: (returnView?: AccountSettingsSubView) => void;
-  apiKeyDraft?: BankrConfigDraft | null;
-  onApiKeyDraftChange?: (draft: BankrConfigDraft | null) => void;
-}
-
-export type AccountSettingsSubView =
-  | "settings"
-  | "changeApiKey"
-  | "revealPrivateKey"
-  | "revealSeedPhrase"
-  | "smartAccount"
-  | "delegatedPermissions";
-
-export interface BankrConfigDraft {
-  accountId: string;
-  apiKey: string;
-  walletAddress: string;
-}
+import type { AccountSettingsProps, AccountSettingsSubView, BankrConfigDraft } from "./AccountSettings/types";
+export type { AccountSettingsSubView, BankrConfigDraft } from "./AccountSettings/types";
 
 function isWalletLockedError(error: string | undefined): boolean {
   return /wallet is locked|session expired|please unlock/i.test(error || "");
@@ -101,6 +71,7 @@ function AccountSettings({
   account,
   onClose,
   onAccountUpdated,
+  onBunkerSubmitted,
   accounts,
   initialView = "settings",
   onSessionExpired,
@@ -114,11 +85,6 @@ function AccountSettings({
   const [displayName, setDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deletePortfolio, setDeletePortfolio] = useState<{
-    status: "idle" | "loading" | "ready" | "error";
-    totalValueUsd: number | null;
-  }>({ status: "idle", totalValueUsd: null });
-
   // ENS refresh state
   const [isRefreshingEns, setIsRefreshingEns] = useState(false);
 
@@ -172,31 +138,6 @@ function AccountSettings({
       cancelled = true;
     };
   }, [account]);
-
-  useEffect(() => {
-    if (!isDeleteOpen || !account) {
-      setDeletePortfolio({ status: "idle", totalValueUsd: null });
-      return;
-    }
-
-    const controller = new AbortController();
-    setDeletePortfolio({ status: "loading", totalValueUsd: null });
-
-    void fetchPortfolioSummary(account.address, controller.signal)
-      .then((portfolio) => {
-        if (controller.signal.aborted) return;
-        setDeletePortfolio({
-          status: "ready",
-          totalValueUsd: portfolio.totalValueUsd,
-        });
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-        setDeletePortfolio({ status: "error", totalValueUsd: null });
-      });
-
-    return () => controller.abort();
-  }, [account, isDeleteOpen]);
 
   // Initialize editable fields when account changes.
   useEffect(() => {
@@ -584,6 +525,8 @@ function AccountSettings({
   };
 
   if (!account) return null;
+  if (account.type === "safeBunker" && initialView === "revealSeedPhrase") return <RevealSeedPhrase account={account} onBack={onClose} />;
+  if (account.type === "safeBunker") return <BunkerSettingsScreen key={`${account.id}:${initialView}`} initialScreen={initialView === "rotateBunkerOwner" ? "recover" : "settings"} account={account} accounts={accounts} onBack={onClose} onAccountUpdated={onAccountUpdated} onSubmitted={() => onBunkerSubmitted ? onBunkerSubmitted(account) : onClose()} />;
   if (account.type === "safe") return <SafeSecurityScreen account={account} onBack={onClose} onAccountUpdated={async () => { await onAccountUpdated(); }} onRemoved={async () => { await onAccountUpdated(); onClose(); }} />;
   if (view === "revealPrivateKey") {
     return <RevealPrivateKey account={account} onBack={() => setView("settings")} />;
@@ -811,7 +754,6 @@ function AccountSettings({
   const canReveal =
     account.type === "privateKey" || account.type === "seedPhrase";
   const removeDisabled = accounts.length <= 1;
-  const deleteAccountName = account.displayName?.trim() || ensIdentity.name;
   const deleteCopy = getAccountRemovalCopy(account, accounts, deleteStep);
 
   return (
@@ -1001,166 +943,9 @@ function AccountSettings({
 
       {/* Delete-confirmation popup — small modal because it's a confirmation,
           not a destination screen. Keeps the user in their place on cancel. */}
-      <Modal
-        isOpen={isDeleteOpen}
-        onClose={closeDeleteModal}
-        isCentered
-      >
-        <ModalOverlay bg="surface.overlay" />
-        <ModalContent mx={4}>
-          <ModalHeader
-            color="fg.primary"
-            fontSize="lg"
-            pb={2}
-          >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Box
-                w="32px"
-                h="32px"
-                display="grid"
-                placeItems="center"
-                bg="status.error.bg"
-                borderRadius="md"
-              >
-                <WarningTwoIcon color="status.error.fg" />
-              </Box>
-              {deleteCopy.title}
-            </Box>
-          </ModalHeader>
-
-          <ModalBody>
-            {deleteStep === "review" ? (
-              <VStack spacing={3} align="stretch">
-                <Text color="text.secondary" fontSize="sm" fontWeight="500">
-                  {deleteCopy.description}
-                </Text>
-
-                <Box
-                  p={3}
-                  bg="surface.sunken"
-                  border="1px solid"
-                  borderColor="border.default"
-                  borderRadius="md"
-                >
-                  {deleteAccountName && (
-                    <Text fontSize="sm" fontWeight="700" color="fg.primary" mb={1}>
-                      {deleteAccountName}
-                    </Text>
-                  )}
-                  <Box color="fg.secondary">
-                    <MiddleTruncatedAddress address={account.address} />
-                  </Box>
-
-                  <HStack
-                    mt={3}
-                    pt={3}
-                    borderTop="1px solid"
-                    borderColor="border.subtle"
-                    justify="space-between"
-                    align="center"
-                  >
-                    <Text fontSize="sm" color="fg.secondary" fontWeight="600">
-                      Current portfolio
-                    </Text>
-                    <Box minW="104px" textAlign="right" aria-live="polite">
-                      {deletePortfolio.status === "loading" ? (
-                        <Spinner
-                          size="sm"
-                          color="fg.secondary"
-                          aria-label="Loading portfolio balance"
-                        />
-                      ) : deletePortfolio.status === "ready" ? (
-                        <Text
-                          fontSize="lg"
-                          lineHeight="short"
-                          color="fg.primary"
-                          fontWeight="700"
-                          sx={{ fontVariantNumeric: "tabular-nums" }}
-                        >
-                          {formatUsd(deletePortfolio.totalValueUsd ?? 0)}
-                        </Text>
-                      ) : (
-                        <Text fontSize="sm" color="fg.muted" fontWeight="600">
-                          Unavailable
-                        </Text>
-                      )}
-                    </Box>
-                  </HStack>
-                </Box>
-
-                {deleteCopy.warningTitle && (
-                  <Box
-                    w="full"
-                    p={3}
-                    bg="status.error.bg"
-                    border="1px solid"
-                    borderColor="status.error.border"
-                    borderRadius="md"
-                  >
-                    <Text color="status.error.fg" fontSize="sm" fontWeight="700">
-                      {deleteCopy.warningTitle}
-                    </Text>
-                    {deleteCopy.warningDescription && (
-                      <Text color="status.error.fg" fontSize="sm" fontWeight="500" mt={1}>
-                        {deleteCopy.warningDescription}
-                      </Text>
-                    )}
-                  </Box>
-                )}
-              </VStack>
-            ) : (
-              <VStack spacing={4} align="stretch">
-                <Text color="fg.secondary" fontSize="sm" fontWeight="500">
-                  {deleteCopy.description}
-                </Text>
-                <Box
-                  p={3}
-                  bg="status.error.bg"
-                  border="1px solid"
-                  borderColor="status.error.border"
-                  borderRadius="md"
-                >
-                  {deleteAccountName && (
-                    <Text color="status.error.fg" fontSize="sm" fontWeight="700" mb={1}>
-                      {deleteAccountName}
-                    </Text>
-                  )}
-                  <Box color="status.error.fg">
-                    <MiddleTruncatedAddress address={account.address} />
-                  </Box>
-                </Box>
-                <Text color="fg.primary" fontSize="sm" fontWeight="700">
-                  {deleteCopy.caution}
-                </Text>
-              </VStack>
-            )}
-          </ModalBody>
-
-          <ModalFooter gap={2}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={closeDeleteModal}
-              isDisabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={
-                deleteStep === "review"
-                  ? () => setDeleteStep("final")
-                  : handleDeleteAccount
-              }
-              isLoading={isDeleting}
-              loadingText={deleteCopy.loadingLabel}
-            >
-              {deleteCopy.actionLabel}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <AccountRemovalModal account={account} accounts={accounts} resolvedName={ensIdentity.name}
+        isOpen={isDeleteOpen} isDeleting={isDeleting} deleteStep={deleteStep} onStepChange={setDeleteStep}
+        onClose={closeDeleteModal} onConfirm={() => void handleDeleteAccount()} />
     </>
   );
 }

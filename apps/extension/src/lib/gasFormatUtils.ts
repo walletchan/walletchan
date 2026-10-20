@@ -1,3 +1,5 @@
+import { appendTokenSymbol, formatTokenBaseUnits } from "./tokenAmountFormat";
+
 /**
  * Shared gas formatting utilities
  * Used by both TxDetailModal (post-tx) and GasEstimateDisplay (pre-tx)
@@ -97,4 +99,18 @@ export function formatWeiToUsd(
   const usd = eth * priceUsd;
   if (usd < 0.01 && usd > 0) return "<$0.01";
   return `~$${usd.toFixed(2)}`;
+}
+
+export function formatCompactFee(wei: string, symbol: string): string {
+  const raw = BigInt(wei), magnitude = raw < 0n ? -raw : raw;
+  if (magnitude > 0n && magnitude < 1_000_000_000_000n) {
+    const compact = formatTokenBaseUnits(magnitude.toString(), 18, true)!;
+    return `${raw < 0n ? "-" : ""}${appendTokenSymbol(compact, symbol)}`;
+  }
+  const value = Number(raw) / 1e18;
+  const amount = value.toLocaleString("en-US", {
+    maximumSignificantDigits: 4,
+    useGrouping: false,
+  });
+  return `${amount} ${symbol}`;
 }

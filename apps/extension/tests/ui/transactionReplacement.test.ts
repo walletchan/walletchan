@@ -85,7 +85,7 @@ test("pending details and replacement exits return to Activity", async () => {
     ),
   ]);
 
-  assert.equal(app.match(/returnToActivity\(\)/g)?.length, 4);
+  assert.equal(app.match(/returnToActivity\(\)/g)?.length, 6);
   assert.match(
     app,
     /selectedTxRequest\?\.replacement[\s\S]*?preNavigatedRef\.current = true;[\s\S]*?returnToActivity\(\)/,

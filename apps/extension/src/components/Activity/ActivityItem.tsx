@@ -6,6 +6,8 @@ import { isDarkThemeId, useIconChipBg, useTheme } from "@/theme";
 import type { DappOriginDisplay } from "@/lib/dappOriginDisplay";
 import { playInteractionSound } from "@/sounds/soundManager";
 import { isPrivacyShieldCompliancePending } from "@/lib/privacyShieldLifecycle";
+import { useSafeProposalFunctionNames } from "../SafeApprovals/hooks/useSafeProposalFunctionNames";
+import { getSafeRequestAction } from "../SafeApprovals/safeProposalPresentation";
 import ActivityMedia from "./ActivityMedia";
 import ActivityExplorerActions from "./ActivityExplorerActions";
 import ActivityStatus from "./ActivityStatus";
@@ -15,6 +17,8 @@ import {
   getActivityPresentation,
   getActivityStatusModel,
 } from "./activityModel";
+
+const EMPTY_CALLS: import("@/chrome/safe/types").SafeCall[] = [];
 
 interface ActivityItemProps {
   tx: CompletedTransaction;
@@ -34,11 +38,18 @@ export default function ActivityItem({
   const iconChipBg = useIconChipBg();
   const { themeId } = useTheme();
   const isDarkTheme = isDarkThemeId(themeId);
+  const calls = tx.safeBunkerMeta?.calls;
+  const names = useSafeProposalFunctionNames(tx.id, calls ?? EMPTY_CALLS);
   const presentation = getActivityPresentation(
     tx,
     addressLabels,
     originDisplay?.resolvedName,
   );
+  if (tx.safeBunkerMeta?.kind === "transaction") {
+    const action = getSafeRequestAction({ calls: calls ?? [], transaction: { nonce: 0 } }, "ETH", 18, addressLabels, names);
+    presentation.intent = action.intent;
+    presentation.context = [action.counterparty, originDisplay?.label ?? presentation.originHostname].filter(Boolean).join(" · ") || tx.chainName;
+  }
   const statusModel = getActivityStatusModel(tx);
   const explorer = useActivityExplorers(tx);
   const isOutgoingValue = presentation.value?.startsWith("−") ?? false;

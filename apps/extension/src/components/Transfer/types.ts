@@ -8,7 +8,8 @@ export type TransferAccountType =
   | "ledger"
   | "trezor"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 export interface TokenTransferProps {
   token?: PortfolioToken | null;

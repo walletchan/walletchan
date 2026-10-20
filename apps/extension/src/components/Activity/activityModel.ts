@@ -319,11 +319,11 @@ export function getActivityPresentation(
   addressLabels?: ReadonlyMap<string, string>,
   originDisplayHostname?: string | null,
 ): ActivityPresentation {
+  if (tx.safeDeploymentMeta || tx.safeBunkerMeta?.kind === "recovery") {
+    return { originHostname: null, intent: tx.safeDeploymentMeta ? "Deploy Safe Bunker" : "Owner rotation", context: "WalletChan", value: null, compactValue: null };
+  }
   const privacyIdentity = getPrivacyTransactionIdentity(tx);
-  if (
-    tx.privacyShieldMeta &&
-    isPrivacyShieldLifecycleState(tx.privacyShieldMeta.state)
-  ) {
+  if (tx.privacyShieldMeta && isPrivacyShieldLifecycleState(tx.privacyShieldMeta.state)) {
     const activity = getPrivacyShieldActivityState(tx.privacyShieldMeta.state, tx.chainName);
     return {
       originHostname: null,

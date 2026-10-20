@@ -23,9 +23,9 @@ import type {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 const SENTINEL_MODULES = "0x0000000000000000000000000000000000000001" as const;
-const SAFE_SINGLETON_SLOT = `0x${"0".repeat(64)}` as const;
-const GUARD_STORAGE_SLOT = keccak256(toHex("guard_manager.guard.address"));
-const FALLBACK_HANDLER_STORAGE_SLOT = keccak256(
+export const SAFE_SINGLETON_SLOT = `0x${"0".repeat(64)}` as const;
+export const GUARD_STORAGE_SLOT = keccak256(toHex("guard_manager.guard.address"));
+export const FALLBACK_HANDLER_STORAGE_SLOT = keccak256(
   toHex("fallback_manager.handler.address"),
 );
 const MAX_OWNERS = 100;
@@ -38,7 +38,7 @@ function isContractOwnerCode(code: Hex | undefined): boolean {
   return !/^0xef0100[0-9a-fA-F]{40}$/.test(code);
 }
 
-const SAFE_READ_ABI = [
+export const SAFE_READ_ABI = [
   {
     type: "function",
     name: "VERSION",
@@ -105,7 +105,7 @@ function normalizeUniqueAddresses(
   return normalized;
 }
 
-function configurationEpoch(input: {
+export function configurationEpoch(input: {
   chainId: number;
   safeAddress: SafeAddress;
   singleton: SafeAddress;
@@ -127,6 +127,7 @@ function configurationEpoch(input: {
 }
 
 export interface VerifySafeOnchainStateInput {
+  blockNumber?: bigint;
   chainId: number;
   safeAddress: SafeAddress;
   /** Canonical fallback for recognized testnets not yet saved by the user. */
@@ -183,7 +184,7 @@ export async function verifySafeOnchainState(
       transport: secureHttpTransport(rpcUrl!, { timeout: 12_000, retryCount: 1 }),
     });
   const safeAddress = getAddress(input.safeAddress) as Address;
-  const blockNumber = await client.getBlockNumber();
+  const blockNumber = input.blockNumber ?? await client.getBlockNumber();
   const [proxyCode, singletonWord] = await Promise.all([
     client.getCode({ address: safeAddress, blockNumber }),
     client.getStorageAt({ address: safeAddress, slot: SAFE_SINGLETON_SLOT, blockNumber }),

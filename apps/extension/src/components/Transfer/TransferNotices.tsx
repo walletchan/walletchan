@@ -153,6 +153,7 @@ export function TransferNotices({
           </Text>
         </Box>
       )}
+      {accountType === "safeBunker" && <Text fontSize="sm" color="fg.secondary">Owner rotates on execution. Gas is paid by your selected account.</Text>}
       {accountType === "safe" && (
         <Box
           bg="status.info.bg"

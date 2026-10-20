@@ -1,3 +1,4 @@
+import { BACKGROUND_SAFE_BUNKER_MESSAGE_TYPES } from "../../src/chrome/background/safeBunkerRouter";
 // Background audience and route-completeness contract.
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
@@ -111,6 +112,7 @@ test("every main background route has exactly one explicit audience", async () =
     BACKGROUND_CHAT_MESSAGE_TYPES,
     BACKGROUND_CLEAR_SIGNING_MESSAGE_TYPES,
     BACKGROUND_RESET_MESSAGE_TYPES,
+    BACKGROUND_SAFE_BUNKER_MESSAGE_TYPES,
     BACKGROUND_SAFE_ACCOUNT_MESSAGE_TYPES,
     BACKGROUND_SAFE_PROPOSAL_MESSAGE_TYPES,
   ] as const;

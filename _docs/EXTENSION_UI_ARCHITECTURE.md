@@ -270,3 +270,49 @@ types rather than introducing another account-type allowlist.
 8. Lower the source-size ratchet and update the domain audit map.
 9. Update `_docs/IMPLEMENTATION.md` only when runtime UI architecture or flow
    changed; do not duplicate styling rules here.
+
+## Safe Bunker surface
+
+The current product/runtime is in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md). Feature owner
+maps are in the background/UI SafeBunker README files.
+
+| Owner | Responsibility |
+| --- | --- |
+| SafeBunkerDraftScreen / BunkerSetupIntro | Intro and saved-source cards; phrase name and Proceed align with icon, known-chain logos use hover/focus names. |
+| BunkerSourceSetup | Normal create/import without implicit EOA; shared seed backup lifecycle. |
+| useBunkerDiscovery / discoveryModel | Explicit source-bound probes, bounded workers/pages, stale-result cancellation, known deployment retention. |
+| BunkerNetworkSetup / BunkerChainPills | Manual Find/Add existing, network choice, source/new badge, predicted address/copy and informational chain identity. |
+| BunkerDeploymentFooter | One-page creation payer/gas/Deploy; resets by source/chain and opens Activity after broadcast. |
+| BunkerDeploymentScreen | Pending-deployment settings actions only; reuses the footer. |
+| PayerFields / usePayerBalances | Single deployment/transaction payer control, authoritative eligibility, bound native balances, per-account default checkbox. |
+| RequestConfirmation/DecisionAccountSelector | Controlled account identity/anchored menu shared with ordinary Safe proposals; no authorization/persistence. |
+| app/bunkerRequestPreload / useBunkerNavigation | Parallel code/public-view loading before navigation, fresh snapshots, lock/supersession/account guards. Code-only cache. |
+| app/BunkerAppSurfaces / BunkerAccountScreen | Ready initial view → request confirmation, no duplicate mount fetch; unseeded/recovery loading fallback and ordered refreshes. |
+| BunkerTransactionConfirmation / requestQueue | Shared ConfirmationScreen adapter, FIFO navigation, asset/gas section loaders, review/decision UI and unsigned rejection. |
+| BunkerSettingsScreen / useBunkerSettings | Name/network/owner metadata, refresh, normal phrase reveal, explicit recovery/removal; independent of request queue. |
+| BunkerRotationScreen / BunkerRotationReview | Owner recovery and exact rotation review; shared owner card and semantic call rows. |
+
+Home reuses PendingTxBanner/PendingTxList and the toolbar badge. Submitted outer
+transactions leave approvals and remain in Activity; there is no permanent Bunker
+Home rail or Continue setup list. Settings has no standalone recovery-details
+export, request queue or gas payer selector. Its component-local scroll snapshot
+uses useScreenScrollRestoration on Back, without persisted preferences.
+
+AccountIdentity supplies the amber Safe avatar and chain badge. Account-picker
+subtitles use source name · Bunker; Send contacts use Bunker. Each Bunker has one
+supported chain. SeedGroupBackupSurface/HomeBackupReminder use the normal phrase
+backup flow even when the source group has no EOA accounts.
+
+GasFields and GasEstimate/GasFeeLoading share the existing compact fee/editor
+and animated loading primitives. The default-payer checkbox is square and amber;
+payer/default/balance logic is shared by deployment and transaction requests.
+An explicit payer override survives view refresh; otherwise the latest saved
+preference can hydrate. Neither public snapshots nor visible balances authorize
+execution. Background owns chain/config policy, secrets, exact review/signing,
+simulation, retry, provenance, settlement and persisted envelopes.
+
+AccountRemovalModal owns the shared two-step account/phrase warning and portfolio
+preview for regular and Bunker settings. accountRemovalModel counts both regular
+and Bunker seed references. Each settings owner keeps its guarded removal transport;
+BunkerRotationScreen is only for owner rotation, not account deletion.

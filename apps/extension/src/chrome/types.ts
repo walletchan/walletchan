@@ -10,7 +10,8 @@ export type AccountType =
   | "ledger"
   | "trezor"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 /**
  * Password type for unlock sessions
@@ -80,6 +81,16 @@ export interface SafeAccount extends BaseAccount {
   type: "safe";
 }
 
+/** Standard Safe derived from a shared saved phrase; pending deployment cannot execute. */
+export interface SafeBunkerAccount extends BaseAccount {
+  type: "safeBunker";
+  deploymentPending?: true;
+  chainId: number;
+  derivationVersion: 2;
+  bunkerId: string;
+  seedGroupId: string;
+}
+
 export type Account =
   | BankrAccount
   | PrivateKeyAccount
@@ -87,7 +98,8 @@ export type Account =
   | LedgerAccount
   | TrezorAccount
   | ImpersonatorAccount
-  | SafeAccount;
+  | SafeAccount
+  | SafeBunkerAccount;
 
 /**
  * Seed group metadata (stored alongside accounts)

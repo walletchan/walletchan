@@ -2113,6 +2113,57 @@ Browser acceptance covered named active and clean cards, responsive layout,
 three trophy ranks, contract/incomplete and fewer-rank fixtures, stable hover,
 PNG clipboard copy, countdown/focus/Escape and the colored Chrome header icon.
 
+## Safe Bunker extension
+
+Current flow: [_docs/SAFE_BUNKER_IMPLEMENTATION.md](./_docs/SAFE_BUNKER_IMPLEMENTATION.md).
+Use existing Warm Midnight/Bauhaus semantic tokens and shared list, header,
+confirmation, address/copy, fee and account-menu primitives.
+
+- Add-account Bunker option and Bunker avatars use the info page's amber Safe
+  logo. Account avatars retain a bound-chain badge; account-picker subtitles are
+  source name · Bunker, and Send contacts label the type Bunker.
+- Saved-source cards are compact, fully clickable rows with a wallet icon,
+  phrase name and adjacent known-chain logos. A muted chevron anchors the right
+  edge. Names/logos wrap when needed; chain tooltips remain hoverable, and each
+  row has one keyboard focus target. No separate Proceed button or footer row.
+- Network selection has a compact primary-foreground Deploy on label and full-width
+  selector. The selected source name sits top-right; a created or imported source gets a
+  small amber superscript new pill during this flow. Created/imported sources
+  share normal deferred backup rather than a dedicated Bunker phrase ceremony.
+- Before network selection, centered or separates deployment from Find already
+  deployed Bunkers. This explicit button owns search progress; absence has useful
+  copy, failed checks have compact Retry, and neither starts automatically.
+  Add existing results and their Add selected accounts action sit below the search
+  button. Each result row is one full-width checkbox label with amber selection.
+  Header pills and seed-card logos represent stored accounts only; finding an
+  onchain Bunker does not add either indicator until the account is imported.
+- Selecting a network hides that search alternative and reveals determining-address
+  feedback, Safe-address copy, and the same screen's payer/gas/Deploy footer.
+  There is no separate deployment/name/review page or Continue setup card.
+- Deployment and transaction requests use the same compact account menu, right-
+  aligned chain-native balances, animated gas loader and fee popover. Failed
+  balances show a dash. Per-account default payer uses a square amber checkbox.
+- Requests preload before navigation and open directly into shared confirmation;
+  loaders stay in gas/asset sections. Owner rotation shows the shared exact old/new
+  owner card and Remove owner / Set owner rows. Activity reuses those projections.
+- Settings contains name/network/owner metadata, phrase reveal, refresh, rotation
+  and removal. No recovery-details/export page or extra metadata backup. Removal
+  uses the existing themed destructive confirmation with account identity and
+  seed-backup acknowledgment; Cancel/Escape do not remove the account.
+
+Source-row design audit (2026-10-17): retained the existing compact wallet
+identity and semantic tokens. Verified both themes at 360px/700px, wrapped long
+names/multiple chain icons, and native click/Enter/Space navigation without nested
+focus targets.
+
+Preserve native gas dust notation, contrast, keyboard focus/tooltips, scrolling
+restoration and narrow-width behavior. Confirm/signing authority remains in the
+background; loaders, preference checkboxes and displayed balances are not gates.
+
+Bunker removal reuses the regular two-step AccountRemovalModal over account
+settings. There is no dedicated removal destination or backup checkbox. Both
+steps explicitly name phrase deletion only for the last regular-or-Bunker account
+using that phrase; cancel leaves settings and account data intact.
 ## Send ENS history warning
 
 The Send recipient field shows a compact warning for address updates within
@@ -2122,3 +2173,28 @@ The Send recipient field shows a compact warning for address updates within
 sits beneath, aligned with the heading. Existing warning tint, border and radius
 remain; the long bold sentence is removed. Loading shows muted “Checking ENS history…” status text; unavailable history
 stays silent. Only address-record events trigger the warning (2026-10-16).
+
+### Bunker gas payer controls
+
+Bunker transaction confirmation reuses the compact DecisionAccountSelector and
+FeePaymentSelector drawer. The current Bunker appears first with a semantic
+warning-variant This Bunker pill. Self-payment is the implicit default; either
+payer type can be explicitly remembered with the existing checkbox. Preserve
+Warm Midnight and Bauhaus tokens, native controls, fixed confirmation actions
+and existing manual fee-token selection. No new palette or typography.
+
+Bunker control audit: the shared payer menu and fee drawer were rendered in
+Midnight and Bauhaus at 360px, with keyboard/menu dismissal, insufficient-token
+feedback, manual USDT selection, both default-checkbox directions and no
+horizontal overflow. The existing typography, semantic colors and action
+hierarchy are preserved; no new visual system was introduced.
+
+- 2026-10-20 Bunker fee fallback: native balance and EntryPoint deposit discovery
+  can trigger the existing funded-token selection before native gas estimation
+  succeeds. Clear the native error/loading state on token changes; preserve the
+  shared drawer, manual choice, confirmation guard and existing theme tokens.
+
+- 2026-10-20 Bunker signed-failure controls: expired signed reviews remain
+  responsive and offer Check status alongside Back to wallet. They never
+  refresh themselves as unsigned quotes or display a disabled full-width
+  Confirm. Existing compact footer controls and theme tokens are preserved.

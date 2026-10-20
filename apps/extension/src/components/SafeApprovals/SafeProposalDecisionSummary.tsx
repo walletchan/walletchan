@@ -1,19 +1,12 @@
-import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
   Badge,
-  Button,
   HStack,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
-  Portal,
   Text,
   VStack,
 } from "@chakra-ui/react";
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import type { GasOverrides } from "@/chrome/txHandlers";
-import { FromAccountDisplay } from "@/components/FromAccountDisplay";
+import { DecisionAccountSelector } from "@/components/RequestConfirmation/DecisionAccountSelector";
 import GasEstimateDisplay from "@/components/GasEstimateDisplay";
 import {
   FeePaymentSelector,
@@ -74,57 +67,10 @@ export function SafeProposalDecisionSummary({
   }, [executionRequest?.id]);
   if (!actionKind || !selectedAccount) return null;
 
-  const identity = accounts.length > 1 ? (
-    <Menu placement="top-end" isLazy autoSelect={false}>
-      <MenuButton
-        as={Button}
-        variant="ghost"
-        size="sm"
-        minH="36px"
-        h="auto"
-        maxW="230px"
-        px={2}
-        rightIcon={<ChevronDownIcon boxSize={4} />}
-        isDisabled={disabled}
-        aria-label={
-          actionKind === "execute"
-            ? "Choose execution account"
-            : "Choose signing account"
-        }
-      >
-        <FromAccountDisplay chainId={chainId} address={selectedAccount.address} />
-      </MenuButton>
-      <Portal>
-        <MenuList
-          minW="260px"
-          maxW="calc(100vw - 32px)"
-          maxH="320px"
-          overflowY="auto"
-          overscrollBehavior="contain"
-        >
-          {accounts.map((account) => (
-            <MenuItem
-              key={account.id}
-              minH="48px"
-              onClick={() => onSelect(account.id)}
-              aria-current={account.id === selectedAccount.id ? "true" : undefined}
-            >
-              <HStack w="full" minW={0} justify="space-between" spacing={3}>
-                <FromAccountDisplay chainId={chainId} address={account.address} />
-                {actionKind === "execute" && safeOwnerAccountIds.has(account.id) && (
-                  <Badge variant="subtle" fontSize="2xs" flexShrink={0}>
-                    Owner
-                  </Badge>
-                )}
-              </HStack>
-            </MenuItem>
-          ))}
-        </MenuList>
-      </Portal>
-    </Menu>
-  ) : (
-    <FromAccountDisplay chainId={chainId} address={selectedAccount.address} />
-  );
+  const identity = <DecisionAccountSelector accounts={accounts} selectedAccount={selectedAccount} chainId={chainId}
+    onSelect={onSelect} disabled={disabled} label={actionKind === "execute" ? "Choose execution account" : "Choose signing account"}
+    renderBadge={(account) => actionKind === "execute" && safeOwnerAccountIds.has(account.id)
+      ? <Badge variant="subtle" fontSize="2xs" flexShrink={0}>Owner</Badge> : null} />;
 
   return (
     <VStack align="stretch" spacing={2}>

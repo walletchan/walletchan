@@ -15,6 +15,11 @@ models, but they never import the `App.tsx` composition root itself.
 - `lazyScreens.ts` owns route-level lazy imports and idle chunk preloading.
 - `hooks/useRuntimeMessaging.ts` owns service-worker wake/retry messaging and
   the reconnecting renderer keepalive port.
+- `home/HomeAccountReminders` (exported by `HomeBackupReminder.tsx`) composes the
+  existing backup reminder and `HomeBunkerRevertWarning`. The latter owns the
+  account-ID-only local-storage subscription; App owns rotation navigation.
+  `scripts/bunker-revert-warning-qa.ts` checks real reverts, badge lifecycle,
+  account scoping, keyboard navigation and narrow Midnight/Bauhaus rendering.
 - `home/` and `screens/` contain small App-owned presentation adapters.
 
 Future extractions should follow one effect domain at a time (bootstrap,

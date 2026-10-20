@@ -1,3 +1,6 @@
+import type { Account } from "@/chrome/types";
+import type { NetworksInfo } from "@/types";
+import { getResolvedChainById } from "@/lib/chains";
 import {
   ETHERSCAN_URL,
   DEBANK_URL,
@@ -13,8 +16,15 @@ export interface AccountDashboardLink {
   href: string;
 }
 
-export function getDefaultAccountExplorerUrl(address: string): string {
-  return `${ETHERSCAN_URL}/address/${address}`;
+export function getDefaultAccountExplorerUrl(address: string, explorer = ETHERSCAN_URL): string {
+  return `${explorer.replace(/\/+$/, "")}/address/${address}`;
+}
+
+/** Bunker addresses belong only to their bound chain; never fall back to L1. */
+export function getAccountExplorerUrl(account: Account, networksInfo?: NetworksInfo): string | undefined {
+  if (account.type !== "safeBunker") return getDefaultAccountExplorerUrl(account.address);
+  const explorer = getResolvedChainById(account.chainId, networksInfo)?.explorer;
+  return explorer ? getDefaultAccountExplorerUrl(account.address, explorer) : undefined;
 }
 
 export function getAccountDashboardLinks(

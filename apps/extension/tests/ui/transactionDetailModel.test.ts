@@ -50,10 +50,10 @@ test("transaction detail token formatting preserves direction and display precis
   assert.equal(formatValue("0x0", "ETH"), "0 ETH");
 });
 
-test("Safe execution detail keeps its semantic action over decoded calldata", async () => {
+test("Safe deployment, execution and owner rotation details keep their semantic action over decoded calldata", async () => {
   const source = await readFile(txDetailControllerUrl, "utf8");
   assert.match(source, /`Execute Safe Tx #\$\{tx\.safeExecutionMeta\.nonce\}`/);
-  assert.match(source, /if \(!tx\.safeExecutionMeta\) setDecodedFunctionName/);
+  assert.match(source, /if \(!tx\.safeDeploymentMeta && !tx\.safeExecutionMeta && tx\.safeBunkerMeta\?\.kind !== "recovery"\) setDecodedFunctionName/);
 });
 
 test("duplicate token transfers group by token and direction while keeping rows", () => {

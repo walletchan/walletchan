@@ -11,6 +11,7 @@ import type {
 import {
   addBoundedTokenApproval,
   createDummyTokenApprovalCall,
+  createTokenApprovalResetCall,
   getMaxTokenCost,
 } from "./paymaster";
 import {
@@ -68,6 +69,12 @@ function applyPaymasterData(
   };
 }
 
+function maximumGas(left: Hex | undefined, right: Hex | undefined): Hex | undefined {
+  if (left === undefined) return right;
+  if (right === undefined) return left;
+  return BigInt(left) >= BigInt(right) ? left : right;
+}
+
 function applyGasEstimate(
   userOperation: PackedUserOperationV07,
   estimate: UserOperationGasEstimate,
@@ -78,37 +85,33 @@ function applyGasEstimate(
     verificationGasLimit: estimate.verificationGasLimit,
     preVerificationGas: estimate.preVerificationGas,
     paymasterVerificationGasLimit:
-      estimate.paymasterVerificationGasLimit ??
-      userOperation.paymasterVerificationGasLimit,
+      maximumGas(userOperation.paymasterVerificationGasLimit, estimate.paymasterVerificationGasLimit),
+    // ERC-7677: the paymaster supplies its postOp budget. Bundler recommendations
+    // must not replace that budget before the final paymaster request.
     paymasterPostOpGasLimit:
-      estimate.paymasterPostOpGasLimit ?? userOperation.paymasterPostOpGasLimit,
+      userOperation.paymasterPostOpGasLimit ?? estimate.paymasterPostOpGasLimit,
   };
 }
 
+const ESTIMATED_GAS_FIELDS = ["callGasLimit", "verificationGasLimit", "preVerificationGas", "paymasterVerificationGasLimit"] as const;
+type GasFloors = Partial<Record<typeof ESTIMATED_GAS_FIELDS[number], Hex>>;
 async function finalizeEnvelope(
   client: PimlicoPreparationClient,
   userOperation: PackedUserOperationV07,
   token: Address,
   paymaster: Address,
+  floors: GasFloors,
 ): Promise<PackedUserOperationV07> {
-  const stubData = await client.getPaymasterStubData(
-    userOperation,
-    token,
-    paymaster,
-  );
+  const stubData = await client.getPaymasterStubData(userOperation, token, paymaster);
   const withStub = applyPaymasterData(userOperation, stubData);
-  const withEstimate = applyGasEstimate(
-    withStub,
-    await client.estimateUserOperationGas(withStub),
-  );
-  const paymasterData = await client.getPaymasterData(
-    withEstimate,
-    token,
-    paymaster,
-  );
-  // Pimlico signs the completed envelope returned here. Do not estimate or
-  // mutate any UserOperation field after applying this final paymaster data.
-  return applyPaymasterData(withEstimate, paymasterData);
+  const withEstimate = applyGasEstimate(withStub, await client.estimateUserOperationGas(withStub));
+  for (const key of ESTIMATED_GAS_FIELDS) {
+    if (floors[key] && BigInt(floors[key]!) > BigInt(withEstimate[key] ?? "0x0")) withEstimate[key] = floors[key]!;
+  }
+  const data = await client.getPaymasterData(withEstimate, token, paymaster);
+  // Read-only validation is allowed, but changing any finalized field requires
+  // fresh paymaster data. No owner signature exists during this preparation.
+  return applyPaymasterData(withEstimate, data);
 }
 
 /**
@@ -126,8 +129,12 @@ export async function prepareTokenUserOperation(
     currentAllowance?: bigint;
     getCurrentAllowance?: (paymaster: Address) => Promise<bigint>;
     eip7702Auth?: Eip7702Authorization;
+    encodeCalls?: (calls: readonly FeePaymentCall[]) => Hex;
+    stubSignature?: Hex;
+    validateFinalGas?: (operation: PackedUserOperationV07) => Promise<UserOperationGasEstimate>;
   },
 ): Promise<PreparedTokenUserOperation> {
+  const encodeCalls = params.encodeCalls ?? ((calls: readonly FeePaymentCall[]) => encodeMetaMaskDeleGatorCalls(params.sender, calls));
   if (params.calls.length === 0) throw new Error("At least one call is required");
   const [quotes, gasPrices] = await Promise.all([
     client.getTokenQuotes([params.token]),
@@ -147,7 +154,8 @@ export async function prepareTokenUserOperation(
   let userOperation: PackedUserOperationV07 = {
     sender: params.sender,
     nonce: params.nonce,
-    callData: encodeMetaMaskDeleGatorCalls(params.sender, [
+    callData: encodeCalls([
+      ...(currentAllowance > 0n ? [createTokenApprovalResetCall(params.token, quote.paymaster)] : []),
       createDummyTokenApprovalCall(params.token, quote.paymaster),
       ...params.calls,
     ]),
@@ -156,7 +164,7 @@ export async function prepareTokenUserOperation(
     preVerificationGas: "0x0",
     maxFeePerGas: gasPrices.standard.maxFeePerGas,
     maxPriorityFeePerGas: gasPrices.standard.maxPriorityFeePerGas,
-    signature: METAMASK_EOA_STUB_SIGNATURE,
+    signature: params.stubSignature ?? METAMASK_EOA_STUB_SIGNATURE,
     ...(params.eip7702Auth ? { eip7702Auth: params.eip7702Auth } : {}),
   };
 
@@ -181,56 +189,38 @@ export async function prepareTokenUserOperation(
   let approvalAmount = initial.approvalAdded ? initial.maximumTokenCost : null;
   userOperation = {
     ...userOperation,
-    callData: encodeMetaMaskDeleGatorCalls(params.sender, calls),
+    callData: encodeCalls(calls),
   };
-  userOperation = await finalizeEnvelope(
-    client,
-    userOperation,
-    params.token,
-    quote.paymaster,
-  );
-
-  let maximumTokenCost = getMaxTokenCost(userOperation, quote);
-  const availableAllowance = approvalAmount ?? currentAllowance;
-  if (availableAllowance < maximumTokenCost) {
-    calls = addBoundedTokenApproval(params.calls, {
-      token: params.token,
-      quote,
-      estimatedUserOperation: userOperation,
-      currentAllowance,
-    }).calls;
-    approvalAmount = maximumTokenCost;
-    userOperation = {
-      ...userOperation,
-      callData: encodeMetaMaskDeleGatorCalls(params.sender, calls),
-    };
-    userOperation = await finalizeEnvelope(
-      client,
-      userOperation,
-      params.token,
-      quote.paymaster,
-    );
-    maximumTokenCost = getMaxTokenCost(userOperation, quote);
-    if (approvalAmount < maximumTokenCost) {
-      throw new Error("Pimlico maximum token cost did not stabilize");
+  const floors: GasFloors = {};
+  let gasChecks = 0;
+  // Gas changes can increase the bounded approval; rebuild it BEFORE validating
+  // postOp collection. Otherwise the validation itself can fail on old allowance.
+  for (let attempt = 0; attempt < (params.validateFinalGas ? 5 : 2); attempt++) {
+    userOperation = await finalizeEnvelope(client, userOperation, params.token, quote.paymaster, floors);
+    const maximumTokenCost = getMaxTokenCost(userOperation, quote);
+    if (params.maximumGasCost <= 0n || maximumTokenCost <= 0n || maximumTokenCost > params.maximumGasCost) {
+      throw new Error("Fee-token gas quote exceeds WalletChan's safety limit");
     }
+    if ((approvalAmount ?? currentAllowance) < maximumTokenCost) {
+      calls = addBoundedTokenApproval(params.calls, { token: params.token, quote, estimatedUserOperation: userOperation, currentAllowance }).calls;
+      approvalAmount = maximumTokenCost;
+      userOperation = { ...userOperation, callData: encodeCalls(calls) };
+      continue;
+    }
+    if (params.validateFinalGas) {
+      const required = await params.validateFinalGas(userOperation);
+      const deficits = ESTIMATED_GAS_FIELDS.filter(key => BigInt(required[key] ?? "0x0") > BigInt(userOperation[key] ?? "0x0"));
+      if (deficits.length) {
+        if (++gasChecks >= 3) break;
+        for (const key of deficits) floors[key] = `0x${(BigInt(required[key]!) * 125n / 100n + 10000n).toString(16)}`;
+        continue;
+      }
+    }
+    return { userOperation, calls, quote, maximumTokenCost, approvalAmount, approvalAdded: approvalAmount !== null };
   }
-  if (
-    params.maximumGasCost <= 0n ||
-    maximumTokenCost <= 0n ||
-    maximumTokenCost > params.maximumGasCost
-  ) {
-    throw new Error("Fee-token gas quote exceeds WalletChan's safety limit");
-  }
-
-  return {
-    userOperation,
-    calls,
-    quote,
-    maximumTokenCost,
-    approvalAmount,
-    approvalAdded: approvalAmount !== null,
-  };
+  throw new Error(params.validateFinalGas
+    ? "Fee-payment gas estimates did not stabilize before signing. Retry the review."
+    : "Pimlico maximum token cost did not stabilize");
 }
 
 export type PreparedUsdcUserOperation = PreparedTokenUserOperation;

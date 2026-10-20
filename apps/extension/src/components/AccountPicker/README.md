@@ -7,6 +7,10 @@ delegates the same row activation to account settings and never changes the
 active account. The parent owns navigation, add-account routing, and refreshed
 account state.
 
+The home switcher portals through FullScreenPickerLayer. That layer uses native
+inert for the covered app, without aria-hidden on its still-focused trigger.
+AccountSwitcher restores trigger focus after the closed picker has unmounted;
+Add account and Settings deliberately retain their destination's focus handling.
 The shared `AccountPickerRow` omits the secondary identity when it repeats the
 main label, so unnamed accounts display their truncated address only once.
 The title uses the full identity-column width; row actions share the secondary

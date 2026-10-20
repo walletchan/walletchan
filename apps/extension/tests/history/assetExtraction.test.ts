@@ -15,6 +15,7 @@ import {
   deriveNativeDelta,
   isWalletOuterGasPayer,
 } from "../../src/chrome/history/nativeDelta";
+import { isHistoryOuterGasPayer } from "../../src/chrome/history/nativeGasPayerPolicy";
 import { fetchSettledReceiptAtRpcUrl } from "../../src/chrome/history/receiptSettlement";
 import { shouldReconcileReceiptDerivedHistory } from "../../src/chrome/history/receiptReconciliation";
 import { separateErc20FeeTransfers } from "../../src/chrome/history/erc20FeeSettlement";
@@ -423,4 +424,22 @@ test("backfill eligibility does not requeue existing or non-success entries", as
     resetHistoryDatabaseConnectionForTests();
     harness.restore();
   }
+});
+
+test("deployment fees never become a Safe receipt, while executor gas remains excluded from flow", () => {
+  const receipt = { gasUsed: "1150422", effectiveGasPrice: "22" };
+  const fee = 25_309_284n;
+  const metadata = { safeAddress: USER.toUpperCase(), payerAddress: OTHER };
+  const safe = { tx: { from: USER }, safeDeploymentMeta: metadata } as CompletedTransaction;
+  const executor = { tx: { from: OTHER }, safeDeploymentMeta: metadata } as CompletedTransaction;
+  assert.equal(isHistoryOuterGasPayer(safe), false);
+  assert.equal(isHistoryOuterGasPayer(executor), true);
+  assert.equal(deriveNativeDelta({ currentBalance: 0n, previousBalance: 0n, receipt,
+    payerForGas: isHistoryOuterGasPayer(safe) }), undefined);
+  assert.equal(deriveNativeDelta({ currentBalance: 100_000_000n - fee, previousBalance: 100_000_000n, receipt,
+    payerForGas: isHistoryOuterGasPayer(executor) }), undefined);
+  assert.equal(deriveNativeDelta({ currentBalance: 7n, previousBalance: 0n, receipt,
+    payerForGas: isHistoryOuterGasPayer(safe) }), "7", "actual Safe receipts are retained");
+  assert.equal(isHistoryOuterGasPayer({ tx: { from: OTHER } } as CompletedTransaction), true);
+  assert.equal(isHistoryOuterGasPayer({ ...executor, feePaymentToken: "USDC" }), false);
 });

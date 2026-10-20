@@ -1,3 +1,4 @@
+import { assertBunkerResetSafe } from "../../safeBunker/management";
 /** Read-only data, chat, clear-signing, and destructive reset route wiring. */
 
 import {
@@ -153,7 +154,7 @@ export function composeDataRoutes(pending: PendingResolutionComposition) {
     resolvePasswordType,
     handleUnlockWallet,
     hasUnresolvedSponsoredTransferIntent,
-    hasUnresolvedSafeEffects,
+    hasUnresolvedSafeEffects: async () => { await assertBunkerResetSafe(); return hasUnresolvedSafeEffects(); },
     readPrivacyResetRisk,
     invalidateAuthCeremonies,
     invalidateAvatarImageCacheForWalletReset,

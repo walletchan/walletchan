@@ -148,21 +148,10 @@ export async function signAndBroadcastTrezorTransaction(input: {
   const serializable = stripPreparedContext(
     prepared as Record<string, unknown>,
   );
-  const transaction = buildTrezorTransactionPayload(
-    serializable,
-    input.tx.chainId,
-  );
-  const result = await signTrezorTransaction({
+  const reconstructed = await signPreparedTrezorTransaction({
     opId: input.opId,
-    deviceId: input.account.deviceId,
-    hdPath: input.account.hdPath,
-    transaction,
-  });
-  const reconstructed = await verifyTrezorSignedTransaction({
     account: input.account,
     transaction: serializable,
-    result,
-    chainId: input.tx.chainId,
   });
   await input.beforeBroadcast?.({
     serializedTransaction: reconstructed,
@@ -177,6 +166,32 @@ export async function signAndBroadcastTrezorTransaction(input: {
     },
   );
   return { ...broadcast, signedGasLimit: serializable.gas };
+}
+
+/** Sign exact reviewed bytes without filling fields, RPC preparation or broadcast. */
+export async function signPreparedTrezorTransaction(input: {
+  opId: string;
+  account: TrezorAccount;
+  transaction: TransactionSerializable;
+}): Promise<`0x${string}`> {
+  decodeTrezorAccount(input.account);
+  const chainId = input.transaction.chainId;
+  if (!Number.isSafeInteger(chainId) || !chainId || chainId < 1) {
+    throw new Error("Trezor requires a chain-bound transaction");
+  }
+  const transaction = buildTrezorTransactionPayload(input.transaction, chainId);
+  const result = await signTrezorTransaction({
+    opId: input.opId,
+    deviceId: input.account.deviceId,
+    hdPath: input.account.hdPath,
+    transaction,
+  });
+  return verifyTrezorSignedTransaction({
+    account: input.account,
+    transaction: input.transaction,
+    result,
+    chainId,
+  });
 }
 
 export async function signTrezorSignatureRequest(input: {

@@ -44,3 +44,11 @@ for (const accountType of ["privateKey", "seedPhrase", "bankr", "ledger", "imper
     }
   });
 }
+
+test("known native insufficiency selects the first funded token without a gas quote", () => {
+  const native = { id: "native", symbol: "ETH", decimals: 18, available: true, balance: "0", insufficientBalance: true } as const;
+  assert.equal(automaticFeeToken([native, token("1")], false, false), token("1").id);
+  assert.equal(automaticFeeToken([native, token("1")], false, true), null);
+  assert.equal(automaticFeeToken([{ ...native, insufficientBalance: undefined }, token("1")], false, false), null);
+  assert.equal(automaticFeeToken([{ ...native, insufficientBalance: false }, token("1")], false, false), null);
+});
