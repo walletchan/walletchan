@@ -73,7 +73,7 @@ function navigationHarness() {
   });
   return { jobs, navigations, render(unlocked = true, accounts = [account]) {
     cursor = 0;
-    return api.useBunkerNavigation({ unlocked, accounts, setView: (next: string) => navigations.push(next) });
+    return api.useBunkerNavigation({ unlocked, accounts, setView: (next: string) => navigations.push(next), onSelectAccount: async () => {}, onActivity: () => navigations.push("activity") });
   } };
 }
 
@@ -132,4 +132,29 @@ test("the seeded screen renders confirmation immediately without duplicate mount
   assert.equal(screen.props.view, snapshot);
   for (const effect of effects) effect();
   assert.equal(reads, 0);
+});
+
+
+test("late request preloads cannot reopen Bunker after submission routes to Activity", async () => {
+  const h = navigationHarness();
+  const opening = h.render().openBunker(account, "request");
+  h.render().handleBunkerSubmitted(account);
+  await Promise.resolve();
+  h.jobs[0].resolve(view); await opening;
+  assert.deepEqual(h.navigations, ["activity"]);
+  assert.equal(h.render().bunkerInitialView, null);
+});
+
+test("submission completion cannot navigate after the wallet locks", async () => {
+  const h = navigationHarness(); h.render().handleBunkerSubmitted(account); h.render(false);
+  await Promise.resolve(); await Promise.resolve();
+  assert.deepEqual(h.navigations, []);
+});
+
+test("a newer request wins over an older submission's asynchronous Activity navigation", async () => {
+  const h = navigationHarness(); h.render().handleBunkerSubmitted(account);
+  const opening = h.render().openBunker(account, "new-request");
+  h.jobs[0].resolve(view); await opening;
+  assert.deepEqual(h.navigations, ["safeBunker"]);
+  assert.equal(h.render().bunkerRequestId, "new-request");
 });

@@ -1,4 +1,14 @@
+import { INSUFFICIENT_REMAINING_FEE_TOKEN_ERROR } from "../feePayment/errors";
+import { BunkerSubmissionError } from "./feeSubmission";
 import { RpcEndpointError, rpcFailureMessage, rpcFailureReason } from "../network/rpcDiagnostics";
+
+export type BunkerGasField = "callGasLimit" | "verificationGasLimit" | "preVerificationGas" | "paymasterVerificationGasLimit";
+export class BunkerGasEstimateError extends Error {
+  constructor(readonly field: BunkerGasField, readonly required: bigint, readonly reviewed: bigint) {
+    const amount = (gas: bigint) => gas > 10000000n ? "more than 10000000" : gas.toString();
+    super(`Gas estimate changed: ${field} needs ${amount(required)} gas; reviewed limit is ${amount(reviewed)}. Review again.`);
+  }
+}
 
 /** Fixed public diagnostics only. RPC errors may contain keys, signed calldata or URLs. */
 const STEPS = {
@@ -10,6 +20,7 @@ const STEPS = {
   estimate: "Could not estimate gas for this Bunker transaction",
   fees: "Could not load network gas prices",
   balance: "Could not check the gas payer or Bunker balance",
+  feePayment: "Could not prepare Bunker gas payment. Check the gas service and retry",
   simulation: "The exact Bunker execution could not be simulated",
 } as const;
 type BunkerStep = keyof typeof STEPS;
@@ -25,17 +36,20 @@ export async function bunkerStep<T>(step: BunkerStep, work: () => Promise<T>): P
   catch (error) {
     const rpcReason = rpcFailureReason(error);
     if (rpcReason) throw new RpcEndpointError(rpcReason);
-    if (error instanceof BunkerStepError || bunkerPolicyMessage(error)) throw error;
+    if (error instanceof BunkerStepError || error instanceof BunkerGasEstimateError || bunkerPolicyMessage(error)) throw error;
     throw new BunkerStepError(step);
   }
 }
 
 // Never reflect arbitrary error.message, cause, RPC data, or stack to the renderer.
 export function bunkerStepMessage(error: unknown): string | null {
-  return rpcFailureMessage(error) ?? (error instanceof BunkerStepError ? new BunkerStepError(error.step).message : null);
+  return (error instanceof BunkerSubmissionError ? error.diagnostic : null) ?? (error instanceof BunkerGasEstimateError ? new BunkerGasEstimateError(error.field, error.required, error.reviewed).message : null) ?? rpcFailureMessage(error) ?? (error instanceof BunkerStepError ? new BunkerStepError(error.step).message : null);
 }
 
 const POLICY_MESSAGES = new Set([
+  INSUFFICIENT_REMAINING_FEE_TOKEN_ERROR,
+  "Fee-payment gas estimates did not stabilize before signing. Retry the review.",
+  "Unsupported Bunker fee token", "Insufficient fee-token balance for the maximum gas charge",
   "Bunker already deployed. Add the existing account.", "Unsupported Bunker network", "Unlock the source seed phrase", "Seed phrase not found", "Enter a valid 12-word seed phrase", "Bunker discovery changed. Retry the network check.",
   "Authentication changed. Unlock and retry.",
   "Wallet is locked",

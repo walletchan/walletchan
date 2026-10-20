@@ -193,3 +193,39 @@ test("applies the selected catalog token's own absolute safety limit", async () 
     /safety limit/,
   );
 });
+
+test("paymaster-supplied postOp and verification budgets are retained during estimation", async () => {
+  const client = createClient();
+  client.estimateUserOperationGas = async () => ({ callGasLimit: "0x100", verificationGasLimit: "0x200", preVerificationGas: "0x300", paymasterVerificationGasLimit: "0x1", paymasterPostOpGasLimit: "0x1" } as any);
+  client.getPaymasterData = async (op?: any) => {
+    assert.equal(op.paymasterVerificationGasLimit, "0x20");
+    assert.equal(op.paymasterPostOpGasLimit, "0x30");
+    return { paymaster: PAYMASTER, paymasterData: "0xbb" } as any;
+  };
+  await prepareUsdcUserOperation(client, { sender: SENDER, nonce: "0x0", calls: [{ to: TARGET, data: "0x" }], usdc: USDC, currentAllowance: 10n ** 30n });
+});
+
+test("final-envelope drift is re-prepared before signing and included in bounded token approval", async () => {
+  const client = createClient();
+  const finalized: any[] = [];
+  client.getPaymasterData = async (op?: any) => {
+    client.events.push("paymaster"); finalized.push(structuredClone(op));
+    return { paymaster: PAYMASTER, paymasterData: "0xbb" } as any;
+  };
+  const result = await prepareTokenUserOperation(client, { sender: SENDER, nonce: "0x0", calls: [{ to: TARGET, data: "0x" }], token: USDC, maximumGasCost: 100000000n, currentAllowance: 0n,
+    validateFinalGas: async () => ({ callGasLimit: "0x100", verificationGasLimit: "0x200", preVerificationGas: "0x1000", paymasterVerificationGasLimit: "0x20", paymasterPostOpGasLimit: "0xffffff" }),
+  });
+  assert.ok(finalized.length >= 2);
+  assert.ok(BigInt(result.userOperation.preVerificationGas) >= 4096n);
+  assert.deepEqual(finalized.at(-1), { ...result.userOperation, paymasterData: "0xaa" });
+  assert.ok(result.approvalAmount! >= result.maximumTokenCost);
+});
+
+test("unstable final gas fails before any owner signature with bounded provider calls", async () => {
+  const client = createClient();
+  let validations = 0;
+  await assert.rejects(prepareTokenUserOperation(client, { sender: SENDER, nonce: "0x0", calls: [{ to: TARGET, data: "0x" }], token: USDC, maximumGasCost: 100000000n, currentAllowance: 0n,
+    validateFinalGas: async op => { validations++; return { callGasLimit: op.callGasLimit, verificationGasLimit: op.verificationGasLimit, preVerificationGas: `0x${(BigInt(op.preVerificationGas) + 1n).toString(16)}` }; },
+  }), /did not stabilize before signing/);
+  assert.equal(validations, 3);
+});

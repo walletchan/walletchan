@@ -44,6 +44,12 @@ No Continue setup list, dedicated phrase ceremony or account-name form exists.
   chain-native balance renderer. Eligibility comes from safe/accountTypePolicy.
   Bounded configured RPC, chain checks and cancellation prevent stale/false-zero
   labels. Default preference uses a square amber checkbox and belongs to one Bunker.
+- BunkerTransactionConfirmation fetches the chain-native USD price through the
+  existing background price service. The exact reviewed maximum fee supplies its
+  USD estimate and native-token picker summary; missing/invalid prices omit fiat
+  without affecting confirmation. Chain-bound state and effect cancellation
+  prevent stale price responses after navigation. The same price feeds EOA gas
+  presets in this confirmation.
 - GasFields / GasEstimate/GasFeeLoading: existing compact fee editor and section
   loading; retain editor state through review. Payer/gas changes invalidate review.
 - transport: trusted UI commands; background owns auth, provenance, fees, signing,

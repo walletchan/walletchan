@@ -1,5 +1,7 @@
+import { expireUnsubmittedBunkerFees } from "./feeExpiry";
 import { bunkerExecutionData } from "./transaction";
 import { getTxById } from "../txHistoryStorage";
+import { bunkerUserOperationReceipt } from "./feeSettlement";
 import { getBunkerHistoryRotation } from "./historyRotation";
 import { ensureBunkerDeploymentHistory } from "./deploymentPublication";
 import { ensureBunkerHistory } from "./history";
@@ -36,7 +38,7 @@ export async function reconcileBunker(id: string, client: PublicClient) {
     for (const op of state.operations) await ensureBunkerHistory(state, op);
     const head = await client.getBlockNumber();
     const live = await readBunkerLive(state, client);
-    let changed = false;
+    let changed = await expireUnsubmittedBunkerFees(state, client, current, head);
     // Previously accepted evidence must stay canonical before another signature is prepared.
     for (const op of state.operations.filter((o) => o.receipt).slice(-10)) {
       const block = await client.getBlock({ blockNumber: BigInt(op.receipt!.block) });
@@ -45,7 +47,8 @@ export async function reconcileBunker(id: string, client: PublicClient) {
         op.error = "Chain reorganization detected. Recovery required."; op.published = false; delete op.receipt; changed = true;
       }
     }
-    for (const op of [...state.operations.filter(outstanding), ...state.operations.filter(o => o.state === "reverted" && o.review?.ownerIndex === state.ownerIndex).reverse()].slice(0, 5)) {
+    const userOperationReceipts = new Map<string, NonNullable<Awaited<ReturnType<typeof bunkerUserOperationReceipt>>>>();
+    for (const op of [...state.operations.filter(outstanding), ...state.operations.filter(o => o.state === "reverted" && !o.userOperationHash && o.review?.ownerIndex === state.ownerIndex).reverse()].slice(0, 5)) {
       let hash: Hex | undefined = op.outer?.hash;
       // Earlier builds discarded the outer hash after a revert. Recover the public
       // Activity hint, then verify the canonical receipt before upgrading its state.
@@ -55,8 +58,12 @@ export async function reconcileBunker(id: string, client: PublicClient) {
         if (transaction?.to?.toLowerCase() === state.plan.address && op.review && op.signature &&
             transaction.input.toLowerCase() === bunkerExecutionData(op.review.transaction, op.signature).toLowerCase()) hash = hint;
       }
-      let receipt = hash ? await client.getTransactionReceipt({ hash }).catch(() => null) : null;
-      if (!receipt || receipt.status !== "success") {
+      const userOpResult = op.userOperationHash ? await bunkerUserOperationReceipt(state, op, client) : null;
+      if (op.userOperationHash && !userOpResult) continue;
+      if (userOpResult) userOperationReceipts.set(op.id, userOpResult);
+      let receipt = userOpResult?.receipt ?? (hash ? await client.getTransactionReceipt({ hash }).catch(() => null) : null);
+      if (userOpResult) hash = userOpResult.receipt.transactionHash;
+      if (!op.userOperationHash && (!receipt || receipt.status !== "success")) {
         const from = BigInt(op.scanBlock ?? state.plan.fromBlock);
         const to = head < from + 9999n ? head : from + 9999n;
         if (from <= to) {
@@ -67,8 +74,8 @@ export async function reconcileBunker(id: string, client: PublicClient) {
           else if (to < head) { op.scanBlock = (to + 1n).toString(); changed = true; }
         }
       }
-      if (!receipt || receipt.status !== "success") {
-        if (receipt?.status === "reverted" && op.state !== "reverted") {
+      if (!receipt || receipt.status !== "success" || userOpResult?.success === false) {
+        if (receipt && (receipt.status === "reverted" || userOpResult?.success === false) && op.state !== "reverted") {
           if (head < receipt.blockNumber + BUNKER_CONFIRMATIONS - 1n) continue;
           const block = await client.getBlock({ blockNumber: receipt.blockNumber });
           if (block.hash !== receipt.blockHash) continue;
@@ -87,19 +94,19 @@ export async function reconcileBunker(id: string, client: PublicClient) {
       if (head < receipt.blockNumber + BUNKER_CONFIRMATIONS - 1n) continue;
       const canonical = await client.getBlock({ blockNumber: receipt.blockNumber });
       if (canonical.hash !== receipt.blockHash) continue;
-      const logs = receipt.logs.filter((l) => l.address.toLowerCase() === state.plan.address).flatMap((l) => {
+      const logs = (userOpResult?.logs ?? receipt.logs).filter((l) => l.address.toLowerCase() === state.plan.address).flatMap((l) => {
         try { return [decodeEventLog({ abi: EVENTS, data: l.data, topics: l.topics })]; } catch { return []; }
       });
       const r = op.review!;
       const expected = await withBunkerDraftSeed(await bunkerEntry(id), current(), (seed) => ({
         old: deriveBunkerOwner(seed, state.chainId, r.ownerIndex), next: deriveBunkerOwner(seed, state.chainId, r.nextIndex),
       }));
-      if (!logs.some((l) => l.eventName === "ExecutionSuccess" && l.args.txHash.toLowerCase() === r.safeTxHash) ||
+      if ((!op.userOperationHash && !logs.some((l) => l.eventName === "ExecutionSuccess" && l.args.txHash.toLowerCase() === r.safeTxHash)) ||
           !logs.some((l) => l.eventName === "AddedOwner" && l.args.owner.toLowerCase() === expected.next) ||
           !logs.some((l) => l.eventName === "RemovedOwner" && l.args.owner.toLowerCase() === expected.old)) continue;
       op.state = "confirmed"; delete op.error;
       op.receipt = { hash: receipt.transactionHash, block: receipt.blockNumber.toString(), blockHash: receipt.blockHash, timestamp: Number(canonical.timestamp) * 1000 };
-      const matchesCurrent = live.owners[0] === expected.next && BigInt(live.nonce) >= BigInt(r.nonce) + 1n;
+      const matchesCurrent = live.owners[0] === expected.next && BigInt(live.nonce) >= BigInt(r.nonce) + (op.userOperationHash ? 0n : 1n);
       if (matchesCurrent) { state.ownerIndex = r.nextIndex; state.nextIndex = r.nextIndex + 1; }
       else state.exposureUnknown = true;
       state.usedOwners = [...new Set([...state.usedOwners, expected.next])];
@@ -110,7 +117,22 @@ export async function reconcileBunker(id: string, client: PublicClient) {
       changed = true;
     }
     if (changed) await writeBunkerState(state, current);
+    for (const op of state.operations.filter(o => o.userOperationHash && o.receipt && ["confirmed", "reverted"].includes(o.state) && !o.published)) {
+      const settled = userOperationReceipts.get(op.id);
+      if (!settled) continue;
+      await ensureBunkerHistory(state, op);
+      const { updateTxInHistory } = await import("../txHistoryStorage");
+      const used = settled.actualGasUsed || 1n;
+      await updateTxInHistory(`bunker:${state.accountId}:${op.id}`, { gasData: {
+        gasUsed: used.toString(), gasLimit: used.toString(), effectiveGasPrice: (settled.actualGasCost / used).toString(), l1Fee: (settled.actualGasCost % used).toString(),
+      } });
+      if (op.review?.feePayment?.userOperation.paymaster) {
+        const { applyErc20FeeReceiptEnrichment } = await import("../forceInclusion/receiptAssetEnrichment");
+        await applyErc20FeeReceiptEnrichment(`bunker:${state.accountId}:${op.id}`, settled.receipt.transactionHash, state.chainId, settled.receipt, op.review.feePayment.userOperation.paymaster);
+      }
+    }
     for (const op of state.operations.filter((o) => o.state === "invalidated" && !o.published)) {
+      await ensureBunkerHistory(state, op);
       await publishBunkerRoutes(state, op, "rejected"); current(); op.published = true;
       await writeBunkerState(state, current);
     }

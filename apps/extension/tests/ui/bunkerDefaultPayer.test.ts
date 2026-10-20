@@ -54,7 +54,7 @@ function harness() {
 
 test("a saved default arriving after mount fills the Bunker gas payer", () => {
   const render = harness();
-  assert.equal(render().value, "");
+  assert.equal(render().value, "bunker");
   assert.equal(render("saved-payer").value, "saved-payer");
   assert.equal(render("updated-default").value, "updated-default");
 });
@@ -72,4 +72,14 @@ test("an existing operation's payer takes priority over the saved default", () =
   const render = harness();
   assert.equal(render("saved-payer", "reviewed-payer").value, "reviewed-payer");
   assert.equal(render("changed-default", "reviewed-payer").value, "reviewed-payer");
+});
+
+
+test("remembering self can replace a saved EOA while an unchecked self choice stays temporary", () => {
+  const render = harness();
+  render("saved-eoa").onChange("bunker");
+  assert.equal(render("saved-eoa").value, "bunker");
+  assert.equal(render("saved-eoa").remember, false);
+  render("saved-eoa").onRemember(true);
+  assert.equal(render("saved-eoa").remember, true);
 });

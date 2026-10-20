@@ -20,7 +20,7 @@ export async function verifyBunkerInfrastructure(client: PublicClient, expectedC
   assertBunkerChainId(expectedChainId);
   const [chainId, block] = await Promise.all([client.getChainId(), client.getBlockNumber()]);
   if (chainId !== expectedChainId || chainId === 324) throw new Error("Bunker RPC chain mismatch");
-  await Promise.all([pins.factory, pins.singleton, pins.multiSend].map(async pin => {
+  await Promise.all([pins.factory, pins.singleton, pins.multiSend, pins.module, pins.moduleSetup, pins.entryPoint].map(async pin => {
     const code = await client.getCode({ address: getAddress(pin.address), blockNumber: block });
     if (!code || keccak256(code) !== pin.codeHash) throw new Error("Bunker Safe infrastructure could not be verified");
   }));

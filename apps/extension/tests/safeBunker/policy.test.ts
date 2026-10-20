@@ -53,7 +53,7 @@ test("ambiguous Bunker RPC outcomes return only the deterministic hash without l
 
 test("Bunker RPC diagnostics identify the failed step without exposing the RPC payload", async () => {
   const { bunkerStep, bunkerStepMessage } = await import("../../src/chrome/safeBunker/errors");
-  for (const step of ["estimate", "fees", "simulation"] as const) {
+  for (const step of ["estimate", "fees", "simulation", "feePayment"] as const) {
     let failure: unknown;
     try { await bunkerStep(step, async () => { throw new Error("signed calldata 0xdeadbeef private transport URL"); }); }
     catch (error) { failure = error; }

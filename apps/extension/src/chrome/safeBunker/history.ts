@@ -12,12 +12,14 @@ export const bunkerHistoryId = (state: BunkerState, op: BunkerOperation) => `bun
 /** Only user intent enters public Safe history. Signed bytes stay in the encrypted journal. */
 export function buildBunkerHistory(state: BunkerState, op: BunkerOperation): CompletedTransaction | null {
   const hash = op.receipt?.hash ?? op.outer?.hash;
-  if (!hash) return null;
+  if (!hash && !op.userOperationHash) return null;
   return {
     id: bunkerHistoryId(state, op), chainId: state.chainId, chainName: state.chainName, createdAt: op.createdAt,
     completedAt: op.receipt?.timestamp, status: op.state === "confirmed" ? "success" : op.state === "reverted" ? "failed" : op.state === "invalidated" ? "dropped" : "pending",
     origin: op.routes.map((r) => r.origin).join(", ").slice(0, 512), favicon: null,
-    txHash: hash, accountId: state.accountId,
+    txHash: hash, userOperationHash: op.userOperationHash,
+    ...(op.review?.feePayment && op.review.feePayment.tokenId !== "native" ? { feePaymentToken: op.review.feePayment.tokenId, erc20FeePayment: { token: op.review.feePayment.tokenId } } : {}),
+    accountId: state.accountId, broadcastUncertain: op.state === "ambiguous", error: op.error,
     functionName: op.kind === "recovery" ? "Owner rotation" : undefined,
     safeBunkerMeta: { kind: op.kind, rotation: getBunkerHistoryRotation(state.plan.address, op.review), calls: op.calls.map((c) => ({ to: c.to, value: c.value, data: c.data, operation: c.operation })) },
     tx: { chainId: state.chainId, from: state.plan.address, to: op.calls[0]?.to ?? state.plan.address,
@@ -33,8 +35,9 @@ export async function ensureBunkerHistory(state: BunkerState, op: BunkerOperatio
   if (JSON.stringify(stored.safeBunkerMeta) !== JSON.stringify(entry.safeBunkerMeta) || stored.functionName !== entry.functionName) {
     await updateTxInHistory(entry.id, { safeBunkerMeta: entry.safeBunkerMeta, functionName: entry.functionName });
   }
-  if (["confirmed", "reverted"].includes(op.state) && (stored.status !== entry.status || stored.txHash !== entry.txHash)) {
-    await updateTxInHistory(entry.id, { status: entry.status, txHash: entry.txHash, completedAt: entry.completedAt });
+  if (stored.status !== entry.status || stored.txHash !== entry.txHash || stored.broadcastUncertain !== entry.broadcastUncertain || stored.error !== entry.error) {
+    await updateTxInHistory(entry.id, { status: entry.status, txHash: entry.txHash, completedAt: entry.completedAt,
+      broadcastUncertain: entry.broadcastUncertain, error: entry.error });
   }
   if (op.state === "confirmed" && !stored.assetChanges) void startReceiptAssetChangeExtraction(entry.id, entry.txHash!, state.chainId);
   const outer = op.outer;

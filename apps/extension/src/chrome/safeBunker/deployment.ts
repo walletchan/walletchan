@@ -1,3 +1,4 @@
+import { SAFE_4337_MODULE, SAFE_MODULE_SETUP } from "@walletchan/shared/safe4337";
 import { publishBunkerDeployment, ensureBunkerDeploymentHistory } from "./deploymentPublication";
 import { broadcastBunkerBytes } from "./broadcast";
 import { TransactionReceiptNotFoundError, concatHex, decodeEventLog, decodeFunctionData, encodeAbiParameters, encodeFunctionData, getCreate2Address, keccak256, parseAbi, zeroAddress, type Hex, type PublicClient, type TransactionReceipt } from "viem";
@@ -18,7 +19,7 @@ import { validateSafeGasOverrides } from "../safe/executionGas";
 export const FACTORY_ABI = parseAbi(["function createProxyWithNonce(address _singleton,bytes initializer,uint256 saltNonce) returns(address)", "function proxyCreationCode() view returns(bytes)", "event ProxyCreation(address indexed proxy,address singleton)"]);
 export const SETUP_ABI = parseAbi(["function setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 payment,address paymentReceiver)"]);
 export function bunkerInitializer(owner: Hex) {
-  return encodeFunctionData({ abi: SETUP_ABI, functionName: "setup", args: [[owner], 1n, zeroAddress, "0x", zeroAddress, zeroAddress, 0n, zeroAddress] });
+  return encodeFunctionData({ abi: SETUP_ABI, functionName: "setup", args: [[owner], 1n, SAFE_MODULE_SETUP, encodeFunctionData({ abi: parseAbi(["function enableModules(address[] modules)"]), functionName: "enableModules", args: [[SAFE_4337_MODULE]] }), SAFE_4337_MODULE, zeroAddress, 0n, zeroAddress] });
 }
 export async function predictBunker(client: PublicClient, initializer: Hex, salt: string): Promise<Hex> {
   const code = await client.readContract({ address: BUNKER_PINS.factory.address as Hex, abi: FACTORY_ABI, functionName: "proxyCreationCode" });

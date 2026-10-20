@@ -9,7 +9,7 @@ const safe = `0x${"11".repeat(20)}` as const, owner = `0x${"22".repeat(20)}` as 
 const singleton = BUNKER_PINS.singleton.address.toLowerCase() as typeof safe;
 function fixture(change: Record<string, unknown> = {}) {
   const values: Record<string, any> = { chainId: 11155111, VERSION: "1.4.1", getOwners: [owner], getThreshold: 1n, nonce: 7n,
-    getModulesPaginated: [[], "0x0000000000000000000000000000000000000001"], guard: zeroAddress, fallback: zeroAddress, singleton,
+    getModulesPaginated: [[BUNKER_PINS.module.address], "0x0000000000000000000000000000000000000001"], guard: zeroAddress, fallback: BUNKER_PINS.module.address, singleton,
     code: "0x", count: 0, balance: 1000000n, ...change };
   const reads: { method: string; input: any }[] = [];
   const record = (method: string, input: any) => { reads.push({ method, input }); };
@@ -24,7 +24,7 @@ function fixture(change: Record<string, unknown> = {}) {
     call: async (input: any) => { record("call", input); if (values.revert) throw new Error("untrusted RPC private payload"); return { data: "0x" }; },
   };
   const review = { nonce: 7, payerAddress: next, maxFee: "1000", gas: { gasLimit: "80000" }, configEpoch: configurationEpoch({
-    chainId: 11155111, safeAddress: safe, singleton, version: "1.4.1", owners: [owner], contractOwners: [], threshold: 1, modules: [], guard: zeroAddress, fallbackHandler: zeroAddress,
+    chainId: 11155111, safeAddress: safe, singleton, version: "1.4.1", owners: [owner], contractOwners: [], threshold: 1, modules: [BUNKER_PINS.module.address.toLowerCase() as `0x${string}`], guard: zeroAddress, fallbackHandler: BUNKER_PINS.module.address.toLowerCase() as `0x${string}`,
   }) };
   return { run: () => preflightBunkerExecution({ chainId: 11155111, plan: { address: safe } } as never, review as never, owner, next, "0x1234", client as never), reads };
 }
@@ -45,6 +45,9 @@ for (const [name, change, error] of [
   ["guard added", { guard: next }, /configuration changed/],
   ["fallback changed", { fallback: next }, /configuration changed/],
   ["singleton changed", { singleton: next }, /configuration changed/],
+  ["module-free Safe", { getModulesPaginated: [[], "0x0000000000000000000000000000000000000001"], fallback: zeroAddress }, /configuration changed/],
+  ["module missing", { getModulesPaginated: [[], "0x0000000000000000000000000000000000000001"] }, /configuration changed/],
+  ["fallback missing", { fallback: zeroAddress }, /configuration changed/],
   ["module added", { getModulesPaginated: [[next], next] }, /configuration changed/],
   ["owner delegated", { code: "0xef0100" }, /plain addresses/],
   ["owner used", { count: 1 }, /transaction sender/],

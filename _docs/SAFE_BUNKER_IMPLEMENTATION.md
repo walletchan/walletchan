@@ -1,5 +1,11 @@
 # Safe Bunker implementation
 
+The required Safe4337Module configuration, self-funded native/ERC-20 execution,
+payer defaults and module-required v3 deployments are specified in
+[SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). That specification supersedes
+the older no-module/external-payer-only descriptions below.
+
+
 This is the current product and runtime reference. Exact derivation and CREATE2
 identity are specified in [SAFE_BUNKER_DERIVATION.md](./SAFE_BUNKER_DERIVATION.md).
 Storage, trust boundaries and release checks remain owned by [STORAGE.md](./STORAGE.md),

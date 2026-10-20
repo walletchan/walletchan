@@ -595,3 +595,16 @@ unresolved exposure or submitted
 unactivated deployment. All Bunker keys belong to reset/onboarding manifests.
 Normal mnemonic/auth/recovery-factor formats remain unchanged. Incompatible
 dedicated-phrase alpha data has no dual reader or conversion.
+
+### Safe Bunker ERC-4337 additions
+
+The existing encrypted safeBunkerJournalsV2 codec accepts optional
+review.feePayment (exact unsigned UserOperation, selected token, maximum fee,
+balance/sufficiency, bounded approval and validity) and operation.userOperationHash.
+Real owner signatures remain exclusively in the encrypted signature field; renderers
+receive a public fee summary only. Missing fields retain the older decoder
+meaning. No new key, deletion or eager ciphertext migration is required.
+Default payer may identify this Bunker itself; null resolves to self by default.
+Remembered EOA defaults remain unchanged until explicitly replaced.
+Module-free Bunkers and upgrade operations are unsupported.
+See [SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md) for the required module profile.

@@ -239,3 +239,38 @@ test("never allows a state override on UserOperation submission", () => {
   (envelope.params as unknown[]).push({});
   assert.equal(parsePimlicoProxyEnvelope(envelope, 8453).ok, false);
 });
+
+test("Safe balance overrides are estimation-only, sender-bound and exact", () => {
+  const op = { sender: "0x1111111111111111111111111111111111111111", nonce: "0x0", callData: "0x1234", callGasLimit: "0x1", verificationGasLimit: "0x1", preVerificationGas: "0x1", maxFeePerGas: "0x1", maxPriorityFeePerGas: "0x1", signature: `0x${"11".repeat(77)}` };
+  const envelope = (override: unknown, method = "eth_estimateUserOperationGas") => ({ jsonrpc: "2.0", id: 100, method, params: [op, ENTRY_POINT_V07, override] });
+  const preview = { [op.sender]: { balance: "0xffffffffffffffffffffffffffffffff" } };
+  assert.equal(parsePimlicoProxyEnvelope(envelope(preview), 8453).ok, true);
+  assert.equal(parsePimlicoProxyEnvelope(envelope(preview, "eth_sendUserOperation"), 8453).ok, false);
+  assert.equal(parsePimlicoProxyEnvelope(envelope({ [op.sender]: { balance: "0xffffffffffffffffffffffffffffffff", code: "0x01" } }), 8453).ok, false);
+  assert.equal(parsePimlicoProxyEnvelope(envelope({ [USDC]: { balance: "0xffffffffffffffffffffffffffffffff" } }), 8453).ok, false);
+});
+
+test("Safe sends require live canonical Safe/module authority and a short-lived owner signature", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { getSafeOpTypedData, SAFE_4337_MODULE } = await import("@walletchan/shared/safe4337");
+  const { verifySafeUserOperation } = await import("../app/api/gas/pimlico/[chainId]/safePolicy");
+  const { encodeFunctionData, parseAbi, toHex, concatHex } = await import("viem");
+  const fixture = JSON.parse(readFileSync(new URL("../../extension/tests/safeBunker/fixtures/Safe4337Module.json", import.meta.url), "utf8"));
+  // Exact SafeProxy runtime used by the Bunker deployment tests.
+  const safeCode = JSON.parse(readFileSync(new URL("../../extension/tests/safeBunker/fixtures/proxy.json", import.meta.url), "utf8")).runtime;
+  const signer = privateKeyToAccount(`0x${"11".repeat(32)}`);
+  const expires = Math.floor(Date.now() / 1000) + 45;
+  const op = { sender: "0x1111111111111111111111111111111111111111" as const, nonce: "0x0" as const,
+    callData: encodeFunctionData({ abi: parseAbi(["function executeUserOp(address to,uint256 value,bytes data,uint8 operation)"]), functionName: "executeUserOp", args: [USDC, 0n, "0x", 0] }),
+    callGasLimit: "0x1000" as const, verificationGasLimit: "0x1000" as const, preVerificationGas: "0x1000" as const, maxFeePerGas: "0x1" as const, maxPriorityFeePerGas: "0x1" as const };
+  const signature = concatHex([toHex(0, { size: 6 }), toHex(expires, { size: 6 }), await signer.signTypedData(getSafeOpTypedData(op, 8453, expires))]);
+  const authority = { owners: [signer.address], threshold: 1n, module: true, fallback: SAFE_4337_MODULE, moduleCode: fixture.runtime, safeCode, singleton: "0x41675c099f32341bf84bfc5382af534df5c7461a" };
+  // The canonical proxy runtime is obtained independently from its creation code.
+  // Read the literal runtime embedded in the singleton-independent proxy factory fixture.
+  assert.equal(await verifySafeUserOperation({ ...op, signature }, 8453, async () => authority), true);
+  for (const change of [{ owners: [USDC] }, { threshold: 2n }, { module: false }, { fallback: USDC }, { moduleCode: "0x" as const }, { safeCode: "0x" as const }, { singleton: USDC }]) {
+    assert.equal(await verifySafeUserOperation({ ...op, signature }, 8453, async () => ({ ...authority, ...change })), false);
+  }
+  assert.equal(await verifySafeUserOperation({ ...op, nonce: "0x1", signature }, 8453, async () => authority), false);
+  assert.equal(await verifySafeUserOperation({ ...op, signature: concatHex([toHex(0, { size: 12 }), `0x${signature.slice(26)}`]) }, 8453, async () => authority), false);
+});

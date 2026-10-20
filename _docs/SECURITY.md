@@ -3119,7 +3119,9 @@ unpublished signatures. Owner movement restarts matching for the new owner.
 
 Only verified frozen EVM Safe 1.4.1 factory/singleton/MultiSendCallOnly profiles
 are accepted, with matching RPC chain ID. One plain owner, threshold one and no
-modules/guard/fallback/contract owner are required. Unsupported infrastructure
+guard/contract owner are required. Exactly the pinned Safe4337Module and its
+fallback handler are required for discovery, import, activation, execution and
+settlement. Module-free configurations have no compatibility or upgrade path. Unsupported infrastructure
 fails closed; the visible network list is not authority or compatibility proof.
 
 An unsigned preparation publishes no account. A broadcast attempt may publish
@@ -3251,3 +3253,56 @@ authority/simulation gate and persists exact bytes before broadcast under the
 secret-operation lock. SDK attempts use fresh opaque operation IDs. No new
 storage or message routes are added; Bankr, view-only and contract accounts
 remain excluded as payers by the shared policy.
+
+### Bunker ERC-4337 release boundary
+
+See [SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). Module, setup and EntryPoint
+runtime hashes are verified alongside Safe infrastructure. SafeOp signatures bind
+chain, module, sender, EntryPoint nonce, exact CALL-only batch, gas limits, fees,
+paymaster data and validity. All Bunker execution remains master-only; this does
+not make Bunkers direct signers, agent-accessible or generic fee-token EOAs.
+Owner signatures are encrypted before signed simulation; deterministic hashes
+are durable before submission. Exact signed simulation never receives preview
+balance overrides. Ambiguous releases remain recoverable and never silently
+resign. Token approvals are exact and bounded. Owner rotation cannot be omitted
+from WalletChan-built operations. EntryPoint event status and scoped owner-change
+evidence, rather than outer receipt status, determine settlement. Unknown modules
+remain forbidden. Legacy activation is an explicit EOA-funded authority change.
+
+Signed Bunker fee-check failures retain their signature, reviewed operation and
+reserved owner in the encrypted journal, with a redacted diagnostic. The UI
+provides Check status and Back to wallet rather than refreshing an expired
+signed review. Reconciliation may invalidate an unexecuted signed SafeOp only
+after a confirmed canonical block is past its signed nonzero validUntil, with
+the expected owner, Safe nonce and EntryPoint nonce still unchanged. Submitted hashes settle by verified receipts or confirmed expiry plus unchanged
+authority/nonces. No signature evidence is deleted.
+The expiry block becomes the existing plan.verifiedBlock anchor; subsequent
+reviews/signatures fail closed if that canonical proof is reorganized.
+
+Bunker signed gas checks compare wallet-estimated fields, while retaining the
+ERC-7677 paymaster-authorized postOp limit. Unsigned final-envelope validation
+may rebuild gas floors only by requesting fresh paymaster data. Approval and
+fee ceilings remain bound to that final envelope; signed bytes never change.
+Gas-overrun diagnostics allow only a fixed gas-field identifier and validated
+integer limits, preserving the transport redaction boundary.
+
+
+Bunker self-payment submission makes exactly one send attempt after durably
+saving its hash/signature. Only an acknowledgement matching that deterministic
+hash becomes pending; transport failures, explicit rejections and hash mismatches
+remain ambiguous. `feeSubmission.ts` preserves bounded HTTP/RPC/AA-code diagnostics
+without reflecting provider text, URLs, error.data or signed bytes. Failed sends
+are surfaced to confirmation and Activity; ambiguous history uses the existing
+broadcastUncertain/error fields and “Verifying broadcast” label. No automatic
+replacement or re-signing occurs.
+
+Reconciliation can resolve submitted, pending and ambiguous expired SafeOps after
+a confirmed canonical block is strictly past validUntil, with the expected current
+owner and both Safe/EntryPoint nonces unchanged at that block. A consumed nonce
+blocks expiry even when the bundler reports no receipt. The canonical expiry
+anchor, original hash/signature and exposed-successor reservations are retained.
+Expired rows become dropped, and dapp/batch results report invalidation rather
+than user rejection. EntryPoint event lookup over at most 10,000 blocks from the
+saved signing block provides a chain-verified receipt fallback when the bundler
+receipt service is unavailable. Older stuck rows repair through the same startup/
+alarm reconciliation. No storage schema or key changes are required.

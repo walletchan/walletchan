@@ -31,7 +31,8 @@ export async function discoverBunker(seedGroupId: string, chainId: number, clien
   const codeBytes = await client.readContract({ address: BUNKER_PINS.factory.address as Hex, abi: BUNKER_FACTORY_ABI, functionName: "proxyCreationCode" });
   const identity = buildBunkerDeploymentIdentity({ chainId, factory: BUNKER_PINS.factory.address as Hex,
     singleton: BUNKER_PINS.singleton.address as Hex, proxyCreationCode: codeBytes }, firstOwner);
-  const state: BunkerState = await readBunkerState(id, current()) ?? {
+  const stored = await readBunkerState(id, current());
+  const state: BunkerState = stored ?? {
     version: 2, id, chainId, chainName: await getStoredChainName(chainId), seedGroupId, accountId: identity.accountId,
     plan: { address: identity.address, initializer: identity.initializer, salt: identity.salt, fromBlock: block.toString() },
     activated: false, archived: false, ownerIndex: 0, nextIndex: 1, exposureUnknown: false,
@@ -83,7 +84,8 @@ export async function addExistingBunker(seedGroupId: string, chainId: number, cl
   const entry = await createBunkerDraft(seedGroupId, chainId);
   const match = searches.get(entry.id)?.matched;
   if (match === undefined) throw new Error("Bunker discovery changed. Retry the network check.");
-  await prepareBunkerDeployment(entry.id, client); current();
+  const prepared = await prepareBunkerDeployment(entry.id, client); current();
+  if (prepared.plan.address !== result.address) throw new Error("Bunker discovery changed. Retry the network check.");
   return withStorageLock(`bunker:${entry.id}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     const state = await readBunkerState(entry.id, current());
     if (!state) throw new Error("Bunker journal is missing");

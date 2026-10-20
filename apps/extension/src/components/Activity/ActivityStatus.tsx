@@ -103,7 +103,7 @@ export default function ActivityStatus({ tx, model }: ActivityStatusProps) {
     case "processing":
       return <ActivityStatusLabel label="Processing" tone="info" isPending />;
     case "pending":
-      return <ActivityStatusLabel label="Pending" tone="info" isPending />;
+      return <ActivityStatusLabel label={tx.broadcastUncertain ? "Verifying broadcast" : "Pending"} tone="info" isPending />;
     case "success":
       return <ActivityStatusLabel label="Confirmed" tone="success" />;
     case "dropped":

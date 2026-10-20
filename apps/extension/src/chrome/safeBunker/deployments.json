@@ -11,5 +11,17 @@
   "multiSend": {
     "address": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
     "codeHash": "0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939"
+  },
+  "module": {
+    "address": "0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226",
+    "codeHash": "0x2aea997c4e3cf0e2f333025372e219abcfde81c21fc2f8fb066414a5685dd3e0"
+  },
+  "moduleSetup": {
+    "address": "0x2dd68b007B46fBe91B9A7c3EDa5A7a1063cB5b47",
+    "codeHash": "0xaf2d170bb766d2773c3fa88717f5b3599827478074d3767d1dee55e5c2f3fbcb"
+  },
+  "entryPoint": {
+    "address": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "codeHash": "0x8db5ff695839d655407cc8490bb7a5d82337a86a6b39c3f0258aa6c3b582fc58"
   }
 }

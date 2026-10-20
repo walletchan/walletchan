@@ -1,3 +1,4 @@
+import { hasBunkerModule } from "./modulePolicy";
 import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLock";
 import type { BunkerAccess } from "./access";
 import { getAddress, zeroAddress, type PublicClient } from "viem";
@@ -17,8 +18,7 @@ export async function readBunkerLive(state: BunkerState, client: PublicClient, b
   if (state.plan.verifiedBlock && (await client.getBlock({ blockNumber: BigInt(state.plan.verifiedBlock.number) })).hash !== state.plan.verifiedBlock.hash) throw new Error("Chain reorganization detected. Recovery required.");
   const live = await verifySafeOnchainState({ chainId: state.chainId, safeAddress: state.plan.address, client, blockNumber });
   if (live.version !== "1.4.1" || live.singleton !== BUNKER_PINS.singleton.address.toLowerCase() ||
-      live.threshold !== 1 || live.owners.length !== 1 || live.modules.length || live.guard !== zeroAddress ||
-      live.fallbackHandler !== zeroAddress || live.contractOwners.length) throw new Error("Bunker Safe configuration changed. Recovery required.");
+      live.threshold !== 1 || live.owners.length !== 1 || !hasBunkerModule(live.modules, live.fallbackHandler) || live.guard !== zeroAddress || live.contractOwners.length) throw new Error("Bunker Safe configuration changed. Recovery required.");
   return live;
 }
 export async function verifyBunkerOwner(state: BunkerState, key: CryptoKey, client: PublicClient, reservedNextIndex?: number, access?: BunkerAccess) {

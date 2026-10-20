@@ -1,6 +1,6 @@
 # Safe Bunker
 
-A standard Safe 1.4.1 per ordinary mnemonic group and chain. Fully hardened,
+A standard Safe 1.4.1 with pinned Safe4337Module v0.3.0 per ordinary mnemonic group and chain. Fully hardened,
 domain-separated owner derivation uses the chain ID; Safe addresses differ
 between chains and remain stable across rotations. No custom deployment contract.
 
@@ -45,7 +45,8 @@ See `_docs/SAFE_BUNKER_DERIVATION.md`, `_docs/STORAGE.md` and `_docs/SAFE_BUNKER
 
 Only chains with verified frozen canonical EVM infrastructure work; unsupported
 profiles fail closed. Bunkers are bound to one chain, never direct signers or gas
-payers. Local PK/seed/Ledger/Trezor accounts pay outer native gas. Provider signatures,
+payers for other accounts. Self-payment uses EntryPoint/Pimlico; local
+PK/seed/Ledger/Trezor accounts can alternatively pay outer native gas. Provider signatures,
 delegation, permissions, sponsored/force-included execution and Shield remain
 unsupported. External Safe tooling can bypass rotation; this is client policy,
 not an onchain restriction or post-quantum guarantee.
@@ -53,3 +54,11 @@ not an onchain restriction or post-quantum guarantee.
 Bunker payer eligibility uses the shared `safe/accountTypePolicy.ts` executor
 policy. Ledger and Trezor sign exact reviewed envelopes before the same final
 locked authority check and durable save. Trezor uses a fresh SDK operation ID.
+
+Self-payment owners: feeGas (bounded gas preparation and signed checks),
+userOperation (canonical encoding/signing projection),
+feePayment (shared provider adaptation), feeExecution (master-only durable
+submission), feeSubmission (single-attempt acknowledgement and redacted diagnostics), feeSettlement (verified per-operation receipts), feeExpiry (confirmed expiry of
+unexecuted signed SafeOps, including submitted hashes, and canonical proof anchoring) and modulePolicy
+(required exact module/fallback configuration across the lifecycle). See
+_docs/SAFE_BUNKER_4337.md.

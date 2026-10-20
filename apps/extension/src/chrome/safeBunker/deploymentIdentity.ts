@@ -2,9 +2,10 @@ import {
   concatHex, encodeAbiParameters, encodeFunctionData, getAddress, getCreate2Address,
   keccak256, parseAbi, stringToHex, zeroAddress, type Hex,
 } from "viem";
+import { SAFE_4337_MODULE, SAFE_MODULE_SETUP } from "@walletchan/shared/safe4337";
 import { assertBunkerChainId, BUNKER_CHAIN_DERIVATION_VERSION } from "./chainIdentity";
 
-export const BUNKER_DEPLOYMENT_VERSION = 2;
+export const BUNKER_DEPLOYMENT_VERSION = 3;
 const DOMAIN = keccak256(stringToHex("WalletChan.SafeBunker.shared-seed"));
 export const BUNKER_FACTORY_ABI = parseAbi([
   "function createProxyWithNonce(address _singleton,bytes initializer,uint256 saltNonce) returns(address)",
@@ -28,11 +29,11 @@ function address(value: Hex): Hex {
   return normalized;
 }
 
-export function bunkerDeploymentSalt(chainId: number, initialOwner: Hex): bigint {
+export function bunkerDeploymentSalt(chainId: number, initialOwner: Hex, version = BUNKER_DEPLOYMENT_VERSION): bigint {
   assertBunkerChainId(chainId);
   return BigInt(keccak256(encodeAbiParameters(
     [{ type: "bytes32" }, { type: "uint256" }, { type: "uint256" }, { type: "uint256" }, { type: "address" }],
-    [DOMAIN, BigInt(BUNKER_DEPLOYMENT_VERSION), BigInt(BUNKER_CHAIN_DERIVATION_VERSION), BigInt(chainId), address(initialOwner)],
+    [DOMAIN, BigInt(version), BigInt(BUNKER_CHAIN_DERIVATION_VERSION), BigInt(chainId), address(initialOwner)],
   )));
 }
 
@@ -43,9 +44,9 @@ export function buildBunkerDeploymentIdentity(profile: BunkerIdentityProfile, in
   const code = profile.proxyCreationCode;
   if (typeof code !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/.test(code) || code.length > 8194)
     throw new Error("Invalid Safe proxy creation code");
-  const salt = bunkerDeploymentSalt(profile.chainId, owner);
+  const salt = bunkerDeploymentSalt(profile.chainId, owner, BUNKER_DEPLOYMENT_VERSION);
   const initializer = encodeFunctionData({ abi: SETUP_ABI, functionName: "setup",
-    args: [[owner], 1n, zeroAddress, "0x", zeroAddress, zeroAddress, 0n, zeroAddress] });
+    args: [[owner], 1n, SAFE_MODULE_SETUP, encodeFunctionData({ abi: parseAbi(["function enableModules(address[] modules)"]), functionName: "enableModules", args: [[SAFE_4337_MODULE]] }), SAFE_4337_MODULE, zeroAddress, 0n, zeroAddress] });
   const bytecode = concatHex([code, encodeAbiParameters([{ type: "address" }], [singleton])]);
   const create2Salt = keccak256(concatHex([keccak256(initializer), encodeAbiParameters([{ type: "uint256" }], [salt])]));
   const safeAddress = getCreate2Address({ from: factory, salt: create2Salt, bytecode }).toLowerCase() as Hex;

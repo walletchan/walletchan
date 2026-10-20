@@ -13,7 +13,7 @@ export function bunkerExecutionData(tx: SafeTransactionData, signature: Hex): He
 export function bunkerPreviewSignature(owner: Hex): Hex { return `0x${owner.slice(2).padStart(64, "0")}${"0".repeat(64)}01`; }
 export function buildBunkerTransaction(safe: Hex, nonce: bigint, owner: Hex, next: Hex, calls: SafeCall[], recovery: boolean, chainId: number) {
   if ((!calls.length && !recovery) || calls.length > 99 || owner === next) throw new Error("Invalid Bunker calls");
-  const protectedTargets = [zeroAddress, safe, owner, next, ...[BUNKER_PINS.factory, BUNKER_PINS.singleton, BUNKER_PINS.multiSend].map((p) => p.address.toLowerCase())];
+  const protectedTargets = [zeroAddress, safe, owner, next, ...[BUNKER_PINS.factory, BUNKER_PINS.singleton, BUNKER_PINS.multiSend, BUNKER_PINS.module, BUNKER_PINS.moduleSetup].map((p) => p.address.toLowerCase())];
   const normalized = calls.map((c) => {
     const to = getAddress(c.to).toLowerCase() as Hex;
     if (c.operation !== 0 || protectedTargets.includes(to)) throw new Error("Bunker call targets protected authority");

@@ -54,7 +54,13 @@ estimates the exact envelope again and refuses execution above the reviewed limi
 It passes those exact native overrides through normal Safe execution. This does
 not change gas behavior on single, batch, cross-dapp, or swap/bridge surfaces.
 
-## Safe Bunker confirmation
+## Safe Bunker
+
+The required Safe4337Module configuration, self-funded native/ERC-20 execution,
+payer defaults and module-required v3 deployments are specified in
+[SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). That specification supersedes
+the older no-module/external-payer-only descriptions below.
+ confirmation
 
 See [SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md) for the
 current flow, coordinator and settlement rules. Bunker requests use

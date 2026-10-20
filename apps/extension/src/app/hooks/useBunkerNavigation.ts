@@ -71,8 +71,14 @@ export function useBunkerNavigation({ unlocked, accounts, setView, onSelectAccou
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, [unlocked, accounts.length, open, setView]);
   const handleBunkerSubmitted = (next: Account) => {
-    // Account selection owns address/chain state just as it does for ordinary Home navigation.
-    void onSelectAccount(next).then(onActivity).catch(onActivity);
+    const revision = ++opening.current; pending.current = null;
+    const finish = () => {
+      if (!liveUnlock.current || opening.current !== revision) return;
+      setRequestId(null); setInitialView(null); setInitialError(""); onActivity();
+    };
+    // Keep the completion surface mounted until account selection and Activity
+    // navigation can commit together. A newer request or lock cancels this route.
+    void onSelectAccount(next).then(finish, finish);
   };
   return { bunkerRequestAccount: account, bunkerRequestId: requestId, bunkerInitialView: initialView, bunkerInitialError: initialError, pendingBunkerRequests, openPendingBunker, openBunker: open, handleBunkerSubmitted };
 }

@@ -12,7 +12,13 @@ export interface BunkerRoute {
   topic?: string;
   remoteId?: number;
 }
+export interface BunkerFeeReview {
+  tokenId: string; userOperation: import("../feePayment/pimlicoTypes").PackedUserOperationV07;
+  maximumTokenCost: string; tokenBalance: string; sufficientBalance: boolean;
+  approvalReset?: boolean; approvalAdded: boolean; approvalAmount: string | null; validUntil: number;
+}
 export interface BunkerReview {
+  feePayment?: BunkerFeeReview;
   digest: Hex; expiresAt: number; payerId: string; payerAddress: Hex;
   ownerIndex: number; nextIndex: number; nonce: number; configEpoch: string;
   transaction: SafeTransactionData; safeTxHash: Hex;
@@ -23,6 +29,7 @@ export interface BunkerOperation {
   id: string; calls: SafeCall[]; routes: BunkerRoute[];
   kind: "transaction" | "recovery"; state: BunkerOperationStatus;
   createdAt: number; review?: BunkerReview; signature?: Hex;
+  userOperationHash?: Hex;
   outer?: { raw: Hex; hash: Hex; payerId: string; payerAddress: Hex };
   receipt?: { hash: Hex; block: string; blockHash: Hex; timestamp: number };
   error?: string;
@@ -44,6 +51,7 @@ export interface BunkerOperationSummary {
   rotation?: BunkerRotation;
   id: string; calls: SafeCall[]; origins: string[]; kind: BunkerOperation["kind"];
   state: BunkerOperationStatus; createdAt: number; txHash?: Hex; error?: string;
+  userOperationHash?: Hex; feePayment?: Omit<BunkerFeeReview, "userOperation">;
   payerId?: string; payerAddress?: Hex; maxFee?: string; gas?: GasOverrides; reviewDigest?: Hex; reviewExpiresAt?: number;
 }
 export interface BunkerAccountView {

@@ -84,7 +84,7 @@ const coder = AbiCoder.defaultAbiCoder();
 test("deployment salt and address match the independent standard-factory calculation", () => {
   const identity = buildBunkerDeploymentIdentity(profile, owner);
   const expectedSalt = keccak256(coder.encode(["bytes32", "uint256", "uint256", "uint256", "address"],
-    [keccak256(toUtf8Bytes("WalletChan.SafeBunker.shared-seed")), 2, 2, profile.chainId, owner]));
+    [keccak256(toUtf8Bytes("WalletChan.SafeBunker.shared-seed")), 3, 2, profile.chainId, owner]));
   assert.equal(identity.salt, BigInt(expectedSalt).toString());
   const standardSalt = keccak256(concat([keccak256(identity.initializer), coder.encode(["uint256"], [expectedSalt])]));
   assert.equal(identity.address, getCreate2Address(profile.factory, standardSalt,
@@ -93,12 +93,18 @@ test("deployment salt and address match the independent standard-factory calcula
   assert.equal(identity.deploymentData, factory.encodeFunctionData("createProxyWithNonce", [profile.singleton, identity.initializer, expectedSalt]));
 });
 
-test("initialization is exactly one owner with no optional authority or payment", () => {
+test("initialization has one owner, exactly Safe4337Module, and no payment", () => {
   const identity = buildBunkerDeploymentIdentity(profile, owner);
   const setup = decodeFunctionData({ abi: parseAbi([
     "function setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 payment,address paymentReceiver)",
   ]), data: identity.initializer });
-  assert.deepEqual(setup.args, [[getAddress(owner)], 1n, zeroAddress, "0x", zeroAddress, zeroAddress, 0n, zeroAddress]);
+  assert.deepEqual(setup.args[0], [getAddress(owner)]);
+  assert.equal(setup.args[1], 1n);
+  assert.equal(setup.args[2], "0x2dd68b007B46fBe91B9A7c3EDa5A7a1063cB5b47");
+  assert.equal(setup.args[4], "0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226");
+  assert.deepEqual(setup.args.slice(5), [zeroAddress, 0n, zeroAddress]);
+  const modules = decodeFunctionData({ abi: parseAbi(["function enableModules(address[] modules)"]), data: setup.args[3] });
+  assert.deepEqual(modules.args[0], [getAddress(setup.args[4])]);
 });
 
 test("reimport, casing and unrelated device metadata cannot alter deployment identity", () => {

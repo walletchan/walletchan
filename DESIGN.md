@@ -2173,3 +2173,28 @@ The Send recipient field shows a compact warning for address updates within
 sits beneath, aligned with the heading. Existing warning tint, border and radius
 remain; the long bold sentence is removed. Loading shows muted “Checking ENS history…” status text; unavailable history
 stays silent. Only address-record events trigger the warning (2026-10-16).
+
+### Bunker gas payer controls
+
+Bunker transaction confirmation reuses the compact DecisionAccountSelector and
+FeePaymentSelector drawer. The current Bunker appears first with a semantic
+warning-variant This Bunker pill. Self-payment is the implicit default; either
+payer type can be explicitly remembered with the existing checkbox. Preserve
+Warm Midnight and Bauhaus tokens, native controls, fixed confirmation actions
+and existing manual fee-token selection. No new palette or typography.
+
+Bunker control audit: the shared payer menu and fee drawer were rendered in
+Midnight and Bauhaus at 360px, with keyboard/menu dismissal, insufficient-token
+feedback, manual USDT selection, both default-checkbox directions and no
+horizontal overflow. The existing typography, semantic colors and action
+hierarchy are preserved; no new visual system was introduced.
+
+- 2026-10-20 Bunker fee fallback: native balance and EntryPoint deposit discovery
+  can trigger the existing funded-token selection before native gas estimation
+  succeeds. Clear the native error/loading state on token changes; preserve the
+  shared drawer, manual choice, confirmation guard and existing theme tokens.
+
+- 2026-10-20 Bunker signed-failure controls: expired signed reviews remain
+  responsive and offer Check status alongside Back to wallet. They never
+  refresh themselves as unsigned quotes or display a disabled full-width
+  Confirm. Existing compact footer controls and theme tokens are preserved.

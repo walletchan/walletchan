@@ -7630,6 +7630,12 @@ not advertise unsupported Safe signature methods.
 
 ## Safe Bunker
 
+The required Safe4337Module configuration, self-funded native/ERC-20 execution,
+payer defaults and module-required v3 deployments are specified in
+[SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). That specification supersedes
+the older no-module/external-payer-only descriptions below.
+
+
 The current flow and runtime are documented in
 [SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md); the frozen
 path/salt/CREATE2 contract is in
@@ -7775,3 +7781,57 @@ EIP-1559 envelope without RPC field preparation or broadcast, verifies the devic
 bytes and recovered signer, and returns to the Bunker final authority/persistence
 gate. Device ID/path are revalidated after approval; each Trezor attempt uses a
 fresh opaque SDK operation ID.
+
+Bunker post-sign fee-check recovery is owned by safeBunker/feeExpiry.ts and
+reconciliation.ts. Expired signed reviews never trigger renderer re-estimation.
+See SAFE_BUNKER_4337.md for confirmed-expiry and unchanged-authority requirements.
+
+Bunker gas preparation preserves ERC-7677 paymaster postOp limits and the
+paymaster verification-gas floor. Account/verification/pre-verification budgets
+include proportional headroom. A realistic public dummy ECDSA signature avoids
+underpricing compressed L1 signature bytes on L2s. Native operations omit
+paymaster-only zero fields. ERC-20 reviews validate the completed paymaster
+envelope while still unsigned; a gas increase triggers fresh sponsorship
+before review, with bounded retries for the selected token only. Bounded
+approval and maximum token cost are recomputed from the final envelope. The
+signed preflight retains gas caps and reports the exact field and numeric
+required/reviewed limits without exposing signatures or calldata. No gas field
+is mutated after owner signing.
+
+
+Bunker self-payment submission makes exactly one send attempt after durably
+saving its hash/signature. Only an acknowledgement matching that deterministic
+hash becomes pending; transport failures, explicit rejections and hash mismatches
+remain ambiguous. `feeSubmission.ts` preserves bounded HTTP/RPC/AA-code diagnostics
+without reflecting provider text, URLs, error.data or signed bytes. Failed sends
+are surfaced to confirmation and Activity; ambiguous history uses the existing
+broadcastUncertain/error fields and “Verifying broadcast” label. No automatic
+replacement or re-signing occurs.
+
+Reconciliation can resolve submitted, pending and ambiguous expired SafeOps after
+a confirmed canonical block is strictly past validUntil, with the expected current
+owner and both Safe/EntryPoint nonces unchanged at that block. A consumed nonce
+blocks expiry even when the bundler reports no receipt. The canonical expiry
+anchor, original hash/signature and exposed-successor reservations are retained.
+Expired rows become dropped, and dapp/batch results report invalidation rather
+than user rejection. EntryPoint event lookup over at most 10,000 blocks from the
+saved signing block provides a chain-verified receipt fallback when the bundler
+receipt service is unavailable. Older stuck rows repair through the same startup/
+alarm reconciliation. No storage schema or key changes are required.
+
+
+Bunker completion is owned by BunkerAccountScreen, which retains the current
+confirmation during an in-flight action and deduplicates release observations.
+Sidepanel/fullscreen completion selects the Bunker and Public Activity. Popup
+acknowledgement reuses TransactionSentScreen and closes after one second; uncertain
+releases route to Activity without a success animation. useBunkerNavigation cancels
+stale preloads before completion navigation. Production self-payment also requires
+the hosted Pimlico proxy's Safe signature verifier deployment, independently of
+the extension build (see SAFE_BUNKER_4337.md).
+
+Bunker gas option/quote routes preserve fixed `bunkerPolicyMessage` and
+`bunkerStepMessage` diagnostics. The shared recognized paymaster postOp token
+collection failure remains a safe policy message across the fee-payment step
+and background response, explaining insufficient tokens remaining after the
+transaction. Unknown provider text/data remains redacted; failed quote
+preparation never signs or submits. See `tests/safeBunker/feeQuoteErrors.test.ts`.

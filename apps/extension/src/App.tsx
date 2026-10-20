@@ -2454,7 +2454,7 @@ function App() {
     );
   }
 
-  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} initialRequestId={bunkerRequestId} initialView={bunkerInitialView} initialError={bunkerInitialError} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
+  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} isPopup={!isInSidePanel && !isFullscreenTab} initialRequestId={bunkerRequestId} initialView={bunkerInitialView} initialError={bunkerInitialError} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
 
   // Safe approvals view
   if (view === "safeApprovals") {

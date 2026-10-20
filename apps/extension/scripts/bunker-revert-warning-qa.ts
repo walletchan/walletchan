@@ -41,7 +41,7 @@ try {
   let ready = false;
   for (let i = 0; i < 50; i++) { try { await client.getChainId(); ready = true; break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
   assert.ok(ready);
-  for (const name of ["factory", "singleton", "multiSend"]) {
+  for (const name of ["factory", "singleton", "multiSend", "Safe4337Module", "SafeModuleSetup", "EntryPoint"]) {
     const fixture = JSON.parse(await readFile(new URL(`../tests/safeBunker/fixtures/${name}.json`, import.meta.url), "utf8"));
     await client.request({ method: "anvil_setCode" as any, params: [fixture.address, fixture.runtime] as any });
   }

@@ -71,7 +71,7 @@ export async function queueBunkerTransaction(accountId: string, tx: { chainId: n
 const activeReviews = new Map<string, symbol>();
 const reviewSnapshot = (state: Awaited<ReturnType<typeof stateForAccount>>) => JSON.stringify({ ...state,
   operations: state.operations.map((op) => ({ ...op, published: undefined, resultPublished: undefined })) });
-export async function reviewBunkerOperation(accountId: string, id: string, payerId: string, client: PublicClient, overrides?: GasOverrides) {
+export async function reviewBunkerOperation(accountId: string, id: string, payerId: string, client: PublicClient, overrides?: GasOverrides, feeToken: unknown = "native") {
   const current = captureBunkerAccess(); current();
   const account = await getAccountById(accountId); if (account?.type !== "safeBunker") throw new Error("Bunker not found");
   const reviewKey = `${accountId}:${id}`, claim = Symbol(); activeReviews.set(reviewKey, claim);
@@ -81,18 +81,32 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     if (!op || ["confirmed", "reverted", "rejected", "invalidated"].includes(op.state)) throw new Error("Bunker operation is unavailable");
     if (state.recovery) throw new Error("Complete recovery scan first");
     if (op.kind === "recovery") captureBunkerAccess()();
-    if (state.exposureUnknown && op.kind !== "recovery") throw new Error("Rotate the restored owner before spending");
+    if (state.exposureUnknown && op.kind === "transaction") throw new Error("Rotate the restored owner before spending");
     const blockers = state.operations.filter((o) => outstanding(o) && o.id !== id);
-    if (blockers.some(isBunkerExecutionInFlight) && op.kind !== "recovery") throw new Error("Waiting for the previous transaction to confirm.");
-    if (blockers.length && op.kind !== "recovery") throw new Error("Resolve the current signed operation first");
+    if (blockers.some(isBunkerExecutionInFlight) && op.kind === "transaction") throw new Error("Waiting for the previous transaction to confirm.");
+    if (blockers.length && op.kind === "transaction") throw new Error("Resolve the current signed operation first");
     const head = state.operations.find((o) => ["queued", "reviewed", "signed", "ambiguous", "pending"].includes(o.state));
-    if (!op.signature && head?.id !== id && op.kind !== "recovery") throw new Error("Earlier Bunker requests must settle first");
+    if (!op.signature && head?.id !== id && op.kind === "transaction") throw new Error("Earlier Bunker requests must settle first");
     const routeGate = await bunkerStep("authorization", () => authorizeBunkerOperation(state, op));
     const { live, owner, next, nextIndex } = await bunkerStep("authority", () => verifyBunkerOwner(state, current(), client, op.signature ? op.review?.nextIndex : undefined, current));
     state.nextIndex = nextIndex;
     if (!op.signature) op.scanBlock = live.verifiedAtBlock;
-    const built = await bunkerStep("calls", async () => buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, op.kind === "recovery", state.chainId));
+    const built = await bunkerStep("calls", async () => buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, op.kind !== "transaction", state.chainId));
     if (op.signature && op.review?.safeTxHash !== built.safeTxHash) throw new Error("Signed Safe transaction is stale. Reconcile or recover.");
+    const selfPaid = payerId === accountId;
+    let base: Omit<import("./types").BunkerReview, "digest">;
+    if (selfPaid) {
+      if (op.signature) throw new Error("Signed Safe transaction is stale. Reconcile or recover.");
+      const { prepareBunkerFee } = await import("./feePayment");
+      const { fee, maxFee } = await bunkerStep("feePayment", () => prepareBunkerFee(state, built.calls.map(c => ({ to: c.to, value: BigInt(c.value), data: c.data })), feeToken, client));
+      const value = op.calls.reduce((sum, c) => sum + BigInt(c.value), 0n);
+      if (await client.getBalance({ address: state.plan.address }) < value) throw new Error("Bunker has insufficient native balance");
+      base = { expiresAt: fee.validUntil * 1000, payerId, payerAddress: state.plan.address,
+        ownerIndex: state.ownerIndex, nextIndex: state.nextIndex, nonce: Number(live.nonce), configEpoch: live.configEpoch,
+        transaction: built.transaction, safeTxHash: built.safeTxHash, feePayment: fee, maxFee,
+        gas: { gasLimit: fee.userOperation.callGasLimit === "0x0" ? "0" : BigInt(fee.userOperation.callGasLimit).toString(),
+          maxFeePerGas: BigInt(fee.userOperation.maxFeePerGas).toString(), maxPriorityFeePerGas: BigInt(fee.userOperation.maxPriorityFeePerGas).toString() } };
+    } else {
     const payer = await bunkerPayer(payerId);
     const data = bunkerExecutionData(built.transaction, op.signature ?? bunkerPreviewSignature(owner));
     // Preview-only owner-sender v=1. Final signed execution is simulated from the actual payer.
@@ -109,9 +123,10 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     if (payerBalance < BigInt(maxFee)) throw new Error("Gas payer has insufficient native balance");
     const value = op.calls.reduce((sum, c) => sum + BigInt(c.value), 0n);
     if (safeBalance < value) throw new Error("Bunker has insufficient native balance");
-    const base = { expiresAt: Date.now() + 5 * 60000, payerId, payerAddress: payer.address.toLowerCase() as Hex,
+    base = { expiresAt: Date.now() + 5 * 60000, payerId, payerAddress: payer.address.toLowerCase() as Hex,
       ownerIndex: state.ownerIndex, nextIndex: state.nextIndex, nonce: Number(live.nonce), configEpoch: live.configEpoch,
       transaction: built.transaction, safeTxHash: built.safeTxHash, gas, maxFee };
+    }
     op.review = { ...base, digest: keccak256(stringToHex(JSON.stringify({ id, calls: op.calls, routes: op.routes, ...base }))) };
     if (!op.signature) op.state = "reviewed";
     return await withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
@@ -128,13 +143,18 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
 export async function confirmBunkerOperation(accountId: string, id: string, digest: string, remember: boolean, client: PublicClient) {
   const current = captureBunkerAccess(); current();
   const account = await getAccountById(accountId); if (account?.type !== "safeBunker") throw new Error("Bunker not found");
+  const snapshot = await stateForAccount(accountId);
+  if (snapshot.operations.find(o => o.id === id)?.review?.feePayment) {
+    const { confirmBunkerUserOperation } = await import("./feeExecution");
+    return confirmBunkerUserOperation(accountId, id, digest, remember, client);
+  }
   return withStorageLock(`bunker:${account.bunkerId}`, async () => {
     let state = await stateForAccount(accountId); let op = state.operations.find((o) => o.id === id);
     if (!op?.review || op.review.digest !== digest || op.review.expiresAt < Date.now() || ["confirmed", "reverted", "rejected", "invalidated"].includes(op.state)) throw new Error("Review this Bunker operation again");
     if (op.kind === "recovery") captureBunkerAccess()();
     if (state.recovery) throw new Error("Complete recovery scan first");
     if (op.outer) throw new Error("Check the submitted transaction before retrying");
-    if (state.exposureUnknown && op.kind !== "recovery" || state.operations.some((o) => outstanding(o) && o.id !== id) && op.kind !== "recovery") throw new Error("Bunker owner exposure is unresolved");
+    if (state.exposureUnknown && op.kind === "transaction" || state.operations.some((o) => outstanding(o) && o.id !== id) && op.kind === "transaction") throw new Error("Bunker owner exposure is unresolved");
     const review = structuredClone(op.review); const routeGate = await authorizeBunkerOperation(state, op);
     if (review.ownerIndex !== state.ownerIndex || review.nextIndex !== state.nextIndex) throw new Error("Bunker owner or nonce changed");
     bunkerExecutionProgress(accountId, id, "signing");
@@ -142,7 +162,7 @@ export async function confirmBunkerOperation(accountId: string, id: string, dige
     const prepared = await withBunkerDraftSeed(entry, current(), async (seed) => {
       const owner = deriveBunkerOwner(seed, state.chainId, state.ownerIndex), next = deriveBunkerOwner(seed, state.chainId, review.nextIndex);
       if (!op!.signature && state.usedOwners.includes(next)) throw new Error("Bunker review changed");
-      const rebuilt = buildBunkerTransaction(state.plan.address, BigInt(review.nonce), owner, next, op!.calls, op!.kind === "recovery", state.chainId);
+      const rebuilt = buildBunkerTransaction(state.plan.address, BigInt(review.nonce), owner, next, op!.calls, op!.kind !== "transaction", state.chainId);
       if (rebuilt.safeTxHash !== review.safeTxHash || JSON.stringify(rebuilt.transaction) !== JSON.stringify(review.transaction)) throw new Error("Bunker reviewed transaction changed");
       const signature = op!.signature ?? await withBunkerOwnerKey(seed, state.chainId, state.ownerIndex, (key) => privateKeyToAccount(key).sign({ hash: review.safeTxHash }));
       return { owner, next, signature };

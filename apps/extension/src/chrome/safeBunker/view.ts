@@ -24,6 +24,8 @@ export async function projectBunkerView(state: BunkerState): Promise<BunkerAccou
     ...(state.recovery ? { recoveryProgress: `${state.recovery.deriveIndex} owner addresses checked` } : {}),
     operations: state.operations.map((o) => ({ id: o.id, calls: o.calls, origins: o.routes.map((r) => r.origin), kind: o.kind,
       rotation: getBunkerHistoryRotation(state.plan.address, o.review), state: o.state, createdAt: o.createdAt, txHash: o.receipt?.hash ?? o.outer?.hash, error: o.error,
+      userOperationHash: o.userOperationHash,
+      ...(o.review?.feePayment ? { feePayment: { tokenId: o.review.feePayment.tokenId, maximumTokenCost: o.review.feePayment.maximumTokenCost, tokenBalance: o.review.feePayment.tokenBalance, sufficientBalance: o.review.feePayment.sufficientBalance, approvalAdded: o.review.feePayment.approvalAdded, approvalAmount: o.review.feePayment.approvalAmount, validUntil: o.review.feePayment.validUntil } } : {}),
       ...(o.review ? { payerId: o.review.payerId, payerAddress: o.review.payerAddress, maxFee: o.review.maxFee, gas: o.review.gas, reviewDigest: o.review.digest, reviewExpiresAt: o.review.expiresAt } : {}) })) };
 }
 export async function drainBunkerInbox(accountId: string) {

@@ -1,6 +1,6 @@
 # Shared-phrase Bunker derivation and deployment identity
 
-Format: derivation v2, deployment v2. This is the current frozen identity
+Format: derivation v2, deployment v3 with required Safe4337Module. This is the current frozen identity
 specification used by deployment, discovery, execution and recovery. See
 [SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md) for the runtime
 and user flow.
@@ -69,7 +69,7 @@ ethers HDNodeWallet and checked against scure derivation:
 domain = keccak256(UTF8("WalletChan.SafeBunker.shared-seed"))
 saltNonce = uint256(keccak256(abi.encode(
   bytes32 domain,
-  uint256 deploymentVersion = 2,
+  uint256 deploymentVersion = 3,
   uint256 derivationVersion = 2,
   uint256 chainId,
   address initialOwner
@@ -81,9 +81,12 @@ Local source-group ID, random setup ID, name, payer, timestamp and current
 rotating owner are excluded. Addresses are validated and normalized before use;
 zero owner/factory/singleton addresses are rejected.
 
-Use standard Safe 1.4.1 initialization: `[initialOwner]`, threshold one, zero
-setup target, empty setup data, zero fallback handler, zero payment token,
-zero payment and zero payment receiver. The deployment identity contains exact
+New deployment profile v3 uses standard Safe 1.4.1 setup with `[initialOwner]`,
+threshold one, pinned SafeModuleSetup enabling exactly Safe4337Module v0.3.0,
+that module as fallback handler, and zero payment token/payment/receiver.
+Owner derivation remains v2. Module-free deployment profiles are unsupported;
+there is no legacy prediction, import or upgrade flow. See SAFE_BUNKER_4337.md.
+The deployment identity contains exact
 initializer, factory calldata, decimal salt nonce, source chain, versions,
 initial owner, factory/singleton, proxy creation-code hash and predicted address.
 Its stable local account key is `bunker:<chainId>:<lowercaseSafeAddress>`.

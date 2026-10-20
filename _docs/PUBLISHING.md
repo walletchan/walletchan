@@ -424,3 +424,15 @@ safeBunkerBindingsV2 stores public source/chain references; safeBunkerJournalsV2
 stores encrypted operations/exposure and operational deployment evidence. Source
 phrases and backup reminders remain in the ordinary mnemonic/seed-group lifecycle.
 This documentation cleanup does not migrate storage or publish a release.
+
+### Safe Bunker ERC-4337 release checks
+
+- Deploy the Safe-aware Pimlico proxy before enabling the matching extension.
+- Verify module/setup/EntryPoint runtime pins on each target chain.
+- Verify module-required v3 deployment, rediscovery, import and restart/recovery;
+  module-free Bunkers have no supported compatibility or upgrade path.
+- Run Safe Bunker, shared fee-payment, proxy and account/auth/hardware regressions.
+- Complete live Pimlico native/ERC-20 billing acceptance and Ledger/Trezor device
+  QA. Disposable-node and mocked-provider results do not replace those checks.
+- Rollback must retain the new optional journal fields and required module
+  configuration; an older binary that rejects the module is not a safe rollback.

@@ -24,7 +24,7 @@ async function freePort(): Promise<number> {
 }
 
 test("shared phrase predicts and deploys distinct standard Safes on two independent chains", { timeout: 30000 }, async t => {
-  const fixtures = await Promise.all(["factory", "singleton"].map(async name =>
+  const fixtures = await Promise.all(["factory", "singleton", "Safe4337Module", "SafeModuleSetup"].map(async name =>
     JSON.parse(await readFile(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8")) as
       { address: Address; runtime: Hex; codeHash: Hex }));
   const [factory, singleton] = fixtures;

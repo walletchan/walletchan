@@ -39,10 +39,10 @@ export function decodeBunkerState(value: unknown): BunkerState {
   if (!Array.isArray(s.operations) || s.operations.length > 100) throw new Error("Bunker operation limit");
   const ids = new Set();
   for (const candidate of s.operations) {
-    const o = optionalKeys(candidate, ["id", "calls", "routes", "kind", "state", "createdAt"], ["review", "signature", "outer", "receipt", "error", "published", "resultPublished", "scanBlock", "members"]);
+    const o = optionalKeys(candidate, ["id", "calls", "routes", "kind", "state", "createdAt"], ["review", "signature", "outer", "receipt", "error", "published", "resultPublished", "scanBlock", "members", "userOperationHash"]);
     boundedString(o.id); if (ids.has(o.id)) throw new Error("Duplicate Bunker operation"); ids.add(o.id);
     if (!["transaction", "recovery"].includes(o.kind) || !statuses.has(o.state) || !Number.isSafeInteger(o.createdAt) || o.createdAt < 0) throw new Error("Invalid Bunker operation");
-    if (!Array.isArray(o.calls) || o.calls.length > 99 || (!o.calls.length && o.kind !== "recovery")) throw new Error("Invalid Bunker calls");
+    if (!Array.isArray(o.calls) || o.calls.length > 99 || (!o.calls.length && o.kind === "transaction")) throw new Error("Invalid Bunker calls");
     let length = 0;
     for (const c of o.calls) { exactRecord(c, ["to", "value", "data", "operation"]); if (!isAddress(c.to) || c.operation !== 0) throw new Error("Invalid Bunker call"); uint(c.value); hex(c.data); length += c.data.length; }
     if (length > 250000) throw new Error("Bunker calldata limit");
@@ -64,7 +64,7 @@ export function decodeBunkerState(value: unknown): BunkerState {
     if (o.resultPublished !== undefined && typeof o.resultPublished !== "boolean") throw new Error("Invalid Bunker result publication");
     if (o.published !== undefined && typeof o.published !== "boolean") throw new Error("Invalid Bunker publication");
     if (o.review !== undefined) {
-      const r = exactRecord(o.review, ["digest", "expiresAt", "payerId", "payerAddress", "ownerIndex", "nextIndex", "nonce", "configEpoch", "transaction", "safeTxHash", "gas", "maxFee"]);
+      const r = optionalKeys(o.review, ["digest", "expiresAt", "payerId", "payerAddress", "ownerIndex", "nextIndex", "nonce", "configEpoch", "transaction", "safeTxHash", "gas", "maxFee"], ["feePayment"]);
       hex(r.digest, 32); hex(r.safeTxHash, 32); hex(r.payerAddress, 20); boundedString(r.payerId); boundedString(r.configEpoch);
       index(r.ownerIndex); index(r.nextIndex); index(r.nonce); index(Math.floor((r.expiresAt as number) / 1000000));
       if (!Number.isSafeInteger(r.expiresAt) || (r.expiresAt as number) < 0) throw new Error("Invalid review time");
@@ -72,6 +72,23 @@ export function decodeBunkerState(value: unknown): BunkerState {
       hex(tx.to, 20); hex(tx.data); uint(tx.value); index(tx.nonce);
       if (![0, 1].includes(tx.operation as number) || tx.safeTxGas !== "0" || tx.baseGas !== "0" || tx.gasPrice !== "0" || tx.gasToken !== `0x${"0".repeat(40)}` || tx.refundReceiver !== tx.gasToken) throw new Error("Bunker reimbursement is forbidden");
       const g = exactRecord(r.gas, ["gasLimit", "maxFeePerGas", "maxPriorityFeePerGas"]); Object.values(g).forEach(uint); uint(r.maxFee);
+    }
+    if (o.userOperationHash !== undefined) { hex(o.userOperationHash, 32); if (!o.signature || !o.review?.feePayment) throw new Error("Unbound Bunker UserOperation"); }
+    if (o.review?.feePayment !== undefined) {
+      const f = optionalKeys(o.review.feePayment, ["tokenId", "userOperation", "maximumTokenCost", "tokenBalance", "sufficientBalance", "approvalAdded", "approvalAmount", "validUntil"], ["approvalReset"]);
+      if (f.approvalReset !== undefined && typeof f.approvalReset !== "boolean") throw new Error("Invalid Bunker allowance reset");
+      if (f.tokenId !== "native") hex(f.tokenId, 20);
+      uint(f.maximumTokenCost); uint(f.tokenBalance);
+      if (typeof f.sufficientBalance !== "boolean" || typeof f.approvalAdded !== "boolean") throw new Error("Invalid Bunker fee state");
+      if (f.approvalAmount !== null) uint(f.approvalAmount);
+      if (!Number.isSafeInteger(f.validUntil) || (f.validUntil as number) <= 0 || (f.validUntil as number) >= 2 ** 48) throw new Error("Invalid Bunker fee validity");
+      const u = optionalKeys(f.userOperation, ["sender", "nonce", "callData", "callGasLimit", "verificationGasLimit", "preVerificationGas", "maxFeePerGas", "maxPriorityFeePerGas", "signature"], ["paymaster", "paymasterData", "paymasterVerificationGasLimit", "paymasterPostOpGasLimit"]);
+      hex(u.sender, 20); hex(u.callData); hex(u.signature, 77);
+      for (const field of ["nonce", "callGasLimit", "verificationGasLimit", "preVerificationGas", "maxFeePerGas", "maxPriorityFeePerGas", "paymasterVerificationGasLimit", "paymasterPostOpGasLimit"]) {
+        if (u[field] !== undefined && (typeof u[field] !== "string" || !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/.test(u[field]) || BigInt(u[field]) >= 2n ** 256n)) throw new Error("Invalid Bunker UserOperation quantity");
+      }
+      if (u.paymaster !== undefined) { hex(u.paymaster, 20); hex(u.paymasterData); }
+      if (u.sender.toLowerCase() !== s.plan.address || o.review.payerId !== s.accountId || o.outer) throw new Error("Bunker UserOperation identity mismatch");
     }
     if (o.signature !== undefined) { hex(o.signature, 65); if (!o.review) throw new Error("Unbound Bunker signature"); }
     if (o.outer !== undefined) { const b = exactRecord(o.outer, ["raw", "hash", "payerId", "payerAddress"]); hex(b.raw); hex(b.hash, 32); boundedString(b.payerId); hex(b.payerAddress, 20); }

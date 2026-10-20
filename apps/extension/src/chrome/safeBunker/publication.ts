@@ -11,12 +11,15 @@ import type { BunkerOperation, BunkerState } from "./types";
 
 export async function publishBunkerRoutes(state: BunkerState, op: BunkerOperation, stage: "submitted" | "confirmed" | "reverted" | "rejected", receipt?: TransactionReceipt) {
   const hash = op.receipt?.hash ?? op.outer?.hash;
+  const rejected = op.state === "invalidated"
+    ? { success: false, error: op.error ?? "Bunker transaction invalidated", code: -32000 }
+    : { success: false, error: "User rejected Bunker transaction", code: 4001 };
   for (const route of op.routes) {
     if (route.kind === "batch") {
       if (stage === "rejected" && !op.resultPublished && !await getBundleStatus(route.requestId)) {
-        await writeResultToStorage(`batchTxAck:${route.requestId}`, { success: false, error: "User rejected Bunker transaction", code: 4001 });
+        await writeResultToStorage(`batchTxAck:${route.requestId}`, rejected);
       } else if (stage === "rejected") {
-        await updateBundleStatus(route.requestId, { status: BUNDLE_STATUS.OFFCHAIN_FAILURE, error: "Bunker intent invalidated by owner recovery", completedAt: Date.now() });
+        await updateBundleStatus(route.requestId, { status: BUNDLE_STATUS.OFFCHAIN_FAILURE, error: rejected.error, completedAt: Date.now() });
       } else {
         if (!await getBundleStatus(route.requestId)) await saveBundleStatus({ id: route.requestId, chainId: state.chainId, status: BUNDLE_STATUS.PENDING, atomic: true, createdAt: op.createdAt,
           origin: route.origin, ...(route.topic && route.remoteId !== undefined ? { walletConnect: { topic: route.topic, requestId: route.remoteId, method: "wallet_sendCalls" } } : {}) });
@@ -24,15 +27,15 @@ export async function publishBunkerRoutes(state: BunkerState, op: BunkerOperatio
         await updateBundleStatus(route.requestId, { txHash: hash, ...(["confirmed", "reverted"].includes(stage) ? { status: stage === "reverted" ? BUNDLE_STATUS.REVERTED : BUNDLE_STATUS.CONFIRMED, completedAt: Date.now(), ...(receipt ? { receipts: [{ status: (stage === "reverted" ? "0x0" : "0x1") as "0x0" | "0x1", transactionHash: receipt.transactionHash,
           blockHash: receipt.blockHash, blockNumber: toHex(receipt.blockNumber), gasUsed: toHex(receipt.gasUsed), logs: receipt.logs.map((l) => ({ address: l.address as Hex, topics: [...l.topics], data: l.data })) }] } : {}) } : {}) });
       }
-    } else if (route.kind !== "wallet" && !op.resultPublished) {
+    } else if (route.kind !== "wallet" && !op.resultPublished && (hash || stage === "rejected")) {
       await writeResultToStorage(`txResult:${route.requestId}`, stage === "rejected"
-        ? { success: false, error: "User rejected Bunker transaction", code: 4001 }
+        ? rejected
         : { success: true, txHash: hash });
     }
   }
-  op.resultPublished = true;
+  if (hash || stage === "rejected" || op.routes.every(r => r.kind === "wallet" || r.kind === "batch")) op.resultPublished = true;
   if (hash && stage === "rejected" && op.signature) await updateTxInHistory(`bunker:${state.accountId}:${op.id}`, { status: "dropped", completedAt: Date.now() });
-  if (hash && stage !== "rejected") await ensureBunkerHistory(state, op);
+  if ((hash || op.userOperationHash) && stage !== "rejected") await ensureBunkerHistory(state, op);
 }
 
 /** Rejection is already durable. Deliver outside locks; merge the receipt into fresh state. */

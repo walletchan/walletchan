@@ -34,7 +34,7 @@ try {
   let ready = false;
   for (let i = 0; i < 50; i++) { try { await client.getChainId(); ready = true; break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
   assert.ok(ready);
-  for (const name of ["factory", "singleton", "multiSend"]) {
+  for (const name of ["factory", "singleton", "multiSend", "Safe4337Module", "SafeModuleSetup", "EntryPoint"]) {
     const fixture = JSON.parse(await readFile(new URL(`../tests/safeBunker/fixtures/${name}.json`, import.meta.url), "utf8"));
     await client.request({ method: "anvil_setCode" as any, params: [fixture.address, fixture.runtime] as any });
   }
@@ -95,7 +95,7 @@ try {
   assert.ok(queued.success);
   await page.getByRole("heading", { name: "Transaction request", exact: true }).waitFor();
   await page.getByRole("button", { name: "Choose gas payer", exact: true }).click();
-  await page.getByRole("menuitem").first().click();
+  await page.getByRole("menuitem").filter({ hasText: /0xf39/i }).click();
   const warning = page.getByText("Asset change simulation unavailable. Onchain transfers may still occur.", { exact: true });
   const confirm = page.getByRole("button", { name: "Confirm", exact: true });
   await warning.waitFor();

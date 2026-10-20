@@ -10,8 +10,9 @@ import "fake-indexeddb/auto";
 // Disposable Anvil funds only. Uses exact canonical upstream Safe runtimes, not custom contracts.
 const payerKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const address = "0x1111111111111111111111111111111111111111" as Hex;
-for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, external gas and atomic owner rotation on ${chain.id}`, { timeout: 120000 }, async (t) => {
+for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, external gas and atomic owner rotation on ${chain.id}`, { timeout: 300000 }, async (t) => {
   const chainId = chain.id;
+  const realNow = Date.now;
   const port = 19230 + process.pid % 1000 + (chainId === 84532 ? 2000 : 0);
   const rpc = `http://127.0.0.1:${port}`;
   const node = spawn("anvil", ["--port", String(port), "--host", "127.0.0.1", "--chain-id", String(chainId), "--silent"], { stdio: "ignore" });
@@ -38,7 +39,7 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
     let ready = false;
     for (let i = 0; i < 50; i++) { try { await client.getChainId(); ready = true; break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
     assert.ok(ready, "Anvil started");
-    for (const name of ["factory", "singleton", "multiSend"]) {
+    for (const name of ["factory", "singleton", "multiSend", "Safe4337Module", "SafeModuleSetup", "EntryPoint"]) {
       const fixture = JSON.parse(await readFile(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
       assert.equal(keccak256(fixture.runtime), fixture.codeHash);
       await client.request({ method: "anvil_setCode" as any, params: [fixture.address, fixture.runtime] as any });
@@ -499,13 +500,178 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
         await confirmBunkerOperation(state.accountId, replacementId, replacement.review!.digest, false, client);
         assert.deepEqual(await readBunkerRevertWarnings(), [state.accountId], "submission cannot clear warning");
         await mine(); await reconcileBunker(id, client); state = await stateForAccount(state.accountId);
-        assert.equal(state.ownerIndex, before.ownerIndex + 1);
+        assert.equal(state.ownerIndex, replacement.review!.nextIndex);
         assert.equal(hasBunkerRevertWarning(state), false);
         assert.deepEqual(await readBunkerRevertWarnings(), []);
         await updateBadge(); assert.equal(badgeText, "");
         await reconcileBunker(id, client);
         assert.deepEqual(await readBunkerRevertWarnings(), [], "old reverted attempts cannot restore warning after rotation");
       }
+    });
+    await t.test("zero native gas funds are discovered without a Pimlico quote and an EntryPoint deposit prevents that fallback", async () => {
+      const { getBunkerFeePaymentOptions } = await import("../../src/chrome/safeBunker/feePayment");
+      const { rejectBunkerOperation } = await import("../../src/chrome/safeBunker/operations");
+      const { ENTRY_POINT_V07 } = await import("../../src/chrome/feePayment/constants");
+      const { PimlicoClient } = await import("../../src/chrome/feePayment/pimlicoClient");
+      const { parseAbi } = await import("viem");
+      const requestId = await create(1199);
+      const snapshot = await client.request({ method: "evm_snapshot" as any, params: [] as any });
+      const originalPrices = PimlicoClient.prototype.getUserOperationGasPrice;
+      PimlicoClient.prototype.getUserOperationGasPrice = async () => { throw new Error("gas service unavailable"); };
+      try {
+        await client.request({ method: "anvil_setBalance" as any, params: [state.plan.address, "0x0"] as any });
+        const native = (await getBunkerFeePaymentOptions(state.accountId, requestId)).options.find(o => o.id === "native")!;
+        assert.equal(native.balance, "0");
+        assert.equal(native.insufficientBalance, true);
+        const hash = await wallet.writeContract({ address: ENTRY_POINT_V07, abi: parseAbi(["function depositTo(address account) payable"]), functionName: "depositTo", args: [state.plan.address], value: 1n });
+        await client.waitForTransactionReceipt({ hash });
+        const deposited = (await getBunkerFeePaymentOptions(state.accountId, requestId)).options.find(o => o.id === "native")!;
+        assert.equal(deposited.insufficientBalance, false, "a deposit requires fee estimation before declaring native funds insufficient");
+      } finally {
+        PimlicoClient.prototype.getUserOperationGasPrice = originalPrices;
+        await client.request({ method: "evm_revert" as any, params: [snapshot] as any });
+        await rejectBunkerOperation(state.accountId, requestId);
+      }
+    });
+    await t.test("failed signed fee estimation preserves evidence and expires safely without blocking the next request", async () => {
+      const { PimlicoClient } = await import("../../src/chrome/feePayment/pimlicoClient");
+      const { SAFE_STUB_SIGNATURE } = await import("../../src/chrome/safeBunker/userOperation");
+      const { getPendingBunkerRequests } = await import("../../src/chrome/safeBunker/pendingRequests");
+      const { rejectBunkerOperation } = await import("../../src/chrome/safeBunker/operations");
+      const prototype = PimlicoClient.prototype;
+      const original = { estimate: prototype.estimateUserOperationGas, prices: prototype.getUserOperationGasPrice };
+      prototype.getUserOperationGasPrice = async () => ({ slow: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" }, standard: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" }, fast: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" } });
+      prototype.estimateUserOperationGas = async op => {
+        if (op.signature !== SAFE_STUB_SIGNATURE) throw new Error("secret signed calldata 0xdeadbeef");
+        return { callGasLimit: "0x493e0", verificationGasLimit: "0x493e0", preVerificationGas: "0xea60" };
+      };
+      const requestId = await create(1198);
+      try {
+        const reviewed = await reviewBunkerOperation(state.accountId, requestId, state.accountId, client);
+        await assert.rejects(confirmBunkerOperation(state.accountId, requestId, reviewed.review!.digest, false, client), /feePayment/);
+        let journal = await stateForAccount(state.accountId), failed = journal.operations.find(o => o.id === requestId)!;
+        assert.equal(failed.state, "signed"); assert.ok(failed.signature); assert.equal(failed.userOperationHash, undefined);
+        assert.match(failed.error!, /feePayment/); assert.doesNotMatch(failed.error!, /deadbeef/);
+        const signature = failed.signature, reserved = [...journal.usedOwners];
+        await reconcileBunker(id, client);
+        assert.equal((await stateForAccount(state.accountId)).operations.find(o => o.id === requestId)!.state, "signed", "valid signed operation is preserved");
+        await client.request({ method: "evm_increaseTime" as any, params: [60] as any }); await mine();
+        Date.now = () => realNow() + 60000; // Keep test wall time aligned with the time-warped chain.
+        await reconcileBunker(id, client);
+        journal = await stateForAccount(state.accountId); failed = journal.operations.find(o => o.id === requestId)!;
+        assert.equal(failed.state, "invalidated"); assert.equal(failed.signature, signature); assert.deepEqual(journal.usedOwners, reserved);
+        assert.ok(!(await getPendingBunkerRequests()).some(o => o.id === requestId));
+        const next = await create(1197);
+        const nextReview = await reviewBunkerOperation(state.accountId, next, "payer", client);
+        assert.ok(nextReview.review!.nextIndex > reviewed.review!.nextIndex, "the exposed successor reservation is never reused");
+        await rejectBunkerOperation(state.accountId, next);
+      } finally { prototype.estimateUserOperationGas = original.estimate; prototype.getUserOperationGasPrice = original.prices; }
+    });
+    await t.test("unacknowledged UserOperation survives restart and expires with unchanged on-chain nonce", async () => {
+      const { PimlicoClient, PimlicoRpcError } = await import("../../src/chrome/feePayment/pimlicoClient");
+      const { getPendingBunkerRequests } = await import("../../src/chrome/safeBunker/pendingRequests");
+      const { getTxById } = await import("../../src/chrome/txHistoryStorage");
+      const p = PimlicoClient.prototype;
+      const original = { estimate: p.estimateUserOperationGas, prices: p.getUserOperationGasPrice, send: p.sendUserOperation, receipt: p.getUserOperationReceipt };
+      p.getUserOperationGasPrice = async () => ({ slow: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" }, standard: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" }, fast: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" } });
+      p.estimateUserOperationGas = async () => ({ callGasLimit: "0x493e0", verificationGasLimit: "0x493e0", preVerificationGas: "0xea60" });
+      p.sendUserOperation = async () => { throw new PimlicoRpcError("AA25 nonce error secret 0xdeadbeef", -32500, undefined, true); };
+      p.getUserOperationReceipt = async () => null;
+      try {
+        const requestId = await create(1196);
+        const reviewed = await reviewBunkerOperation(state.accountId, requestId, state.accountId, client);
+        await assert.rejects(confirmBunkerOperation(state.accountId, requestId, reviewed.review!.digest, false, client), /RPC -32500, AA25/);
+        let journal = await stateForAccount(state.accountId), operation = journal.operations.find(o => o.id === requestId)!;
+        assert.equal(operation.state, "ambiguous"); assert.ok(operation.signature); assert.ok(operation.userOperationHash);
+        assert.doesNotMatch(operation.error!, /secret|deadbeef/);
+        const signature = operation.signature, hash = operation.userOperationHash, reserved = [...journal.usedOwners];
+        const historyId = `bunker:${state.accountId}:${requestId}`;
+        assert.equal((await getTxById(historyId))?.broadcastUncertain, true);
+        await reconcileBunker(id, client);
+        assert.equal((await stateForAccount(state.accountId)).operations.find(o => o.id === requestId)!.state, "ambiguous");
+        await client.request({ method: "evm_increaseTime" as any, params: [60] as any }); await mine();
+        Date.now = () => realNow() + 120000;
+        const { expireUnsubmittedBunkerFees } = await import("../../src/chrome/safeBunker/feeExpiry");
+        const nonceChanged = { ...client, readContract: async (input: any) => input.functionName === "getNonce" ? 1n : client.readContract(input) };
+        const snapshot = structuredClone(await stateForAccount(state.accountId));
+        const { captureBunkerAccess } = await import("../../src/chrome/safeBunker/access");
+        assert.equal(await expireUnsubmittedBunkerFees(snapshot, nonceChanged as any, captureBunkerAccess(), await client.getBlockNumber()), false, "consumed EntryPoint nonce prevents invalidation even with no receipt");
+        assert.equal(snapshot.operations.find(o => o.id === requestId)!.state, "ambiguous");
+        snapshot.operations.find(o => o.id === requestId)!.state = "pending";
+        snapshot.operations.find(o => o.id === requestId)!.error = "x".repeat(512);
+        assert.equal(await expireUnsubmittedBunkerFees(snapshot, client, captureBunkerAccess(), await client.getBlockNumber()), true);
+        assert.ok(snapshot.operations.find(o => o.id === requestId)!.error!.length <= 512, "expiry diagnostic stays within the persisted journal bound");
+        await reconcileBunker(id, client);
+        journal = await stateForAccount(state.accountId); operation = journal.operations.find(o => o.id === requestId)!;
+        assert.equal(operation.state, "invalidated"); assert.equal(operation.signature, signature); assert.equal(operation.userOperationHash, hash); assert.deepEqual(journal.usedOwners, reserved);
+        const history = await getTxById(historyId);
+        assert.equal(history?.status, "dropped"); assert.equal(history?.broadcastUncertain, false); assert.match(history?.error ?? "", /expired without execution/);
+        assert.ok(!(await getPendingBunkerRequests()).some(o => o.id === requestId));
+      } finally { p.estimateUserOperationGas = original.estimate; p.getUserOperationGasPrice = original.prices; p.sendUserOperation = original.send; p.getUserOperationReceipt = original.receipt; }
+    });
+    await t.test("Bunker native gas uses the real EntryPoint, rotates atomically and settles by UserOperation", async () => {
+      const { PimlicoClient } = await import("../../src/chrome/feePayment/pimlicoClient");
+      const { ENTRY_POINT_V07 } = await import("../../src/chrome/feePayment/constants");
+      const { getPackedUserOperationHash } = await import("../../src/chrome/feePayment/submission");
+      const { bunkerSafeOpHash, safeOperationSignature } = await import("../../src/chrome/safeBunker/userOperation");
+      const { getPendingBunkerRequests } = await import("../../src/chrome/safeBunker/pendingRequests");
+      const { toPackedUserOperation } = await import("viem/account-abstraction");
+      const { parseAbi, decodeEventLog } = await import("viem");
+      const { USER_OPERATION_EVENT_ABI } = await import("../../src/chrome/feePayment/userOperationEvent");
+      const fixture = JSON.parse(await readFile(new URL("./fixtures/EntryPoint.json", import.meta.url), "utf8"));
+      await client.request({ method: "anvil_setCode" as any, params: [ENTRY_POINT_V07, fixture.runtime] as any });
+      await wallet.sendTransaction({ to: state.plan.address, value: 100000000000000000n });
+      const epAbi = parseAbi(["function handleOps((address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData,bytes signature)[] ops,address beneficiary)"]);
+      const packed = (op: any) => toPackedUserOperation({ ...op, nonce: BigInt(op.nonce), callGasLimit: BigInt(op.callGasLimit), verificationGasLimit: BigInt(op.verificationGasLimit),
+        preVerificationGas: BigInt(op.preVerificationGas), maxFeePerGas: BigInt(op.maxFeePerGas), maxPriorityFeePerGas: BigInt(op.maxPriorityFeePerGas), ...(op.paymaster ? { paymasterVerificationGasLimit: BigInt(op.paymasterVerificationGasLimit), paymasterPostOpGasLimit: BigInt(op.paymasterPostOpGasLimit) } : {}) });
+      const prototype = PimlicoClient.prototype;
+      const original = { estimate: prototype.estimateUserOperationGas, prices: prototype.getUserOperationGasPrice, send: prototype.sendUserOperation, receipt: prototype.getUserOperationReceipt };
+      const receipts = new Map<string, any>();
+      prototype.getUserOperationGasPrice = async () => ({ slow: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" }, standard: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" }, fast: { maxFeePerGas: "0x77359400", maxPriorityFeePerGas: "0x3b9aca00" } });
+      prototype.estimateUserOperationGas = async (op, preview) => {
+        if (op.signature !== (await import("../../src/chrome/safeBunker/userOperation")).SAFE_STUB_SIGNATURE) {
+          assert.equal(preview, undefined, "signed estimation has no balance override");
+          await client.simulateContract({ address: ENTRY_POINT_V07, abi: epAbi, functionName: "handleOps", args: [[packed(op)], payer.address], account: payer });
+        }
+        return { callGasLimit: "0x493e0", verificationGasLimit: "0x493e0", preVerificationGas: "0xea60" };
+      };
+      prototype.sendUserOperation = async op => {
+        const journal = await stateForAccount(state.accountId), pending = journal.operations.find(o => o.userOperationHash === getPackedUserOperationHash(op, chainId));
+        assert.ok(pending?.signature, "signature and exact hash are durable before submission");
+        assert.equal(op.signature, safeOperationSignature(pending.signature, pending.review!.feePayment!.validUntil));
+        const moduleHash = await client.readContract({ address: "0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226", abi: parseAbi(["function getOperationHash((address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData,bytes signature) userOp) view returns(bytes32)"]), functionName: "getOperationHash", args: [packed(op)] });
+        assert.equal(moduleHash, bunkerSafeOpHash(op, chainId, pending.review!.feePayment!.validUntil), "local EIP-712 hash matches released module bytecode");
+        const tokenOp = { ...op, paymaster: address, paymasterData: "0x1234" as Hex, paymasterVerificationGasLimit: "0x123" as Hex, paymasterPostOpGasLimit: "0x456" as Hex };
+        const tokenPacked = { ...packed(tokenOp), paymasterAndData: `${address}${"123".padStart(32, "0")}${"456".padStart(32, "0")}1234` as Hex };
+        assert.equal(await client.readContract({ address: "0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226", abi: parseAbi(["function getOperationHash((address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData,bytes signature) userOp) view returns(bytes32)"]), functionName: "getOperationHash", args: [tokenPacked] }), bunkerSafeOpHash(tokenOp, chainId, pending.review!.feePayment!.validUntil), "ERC-20 paymaster gas and data are signed exactly as the released module expects");
+        const tx = await wallet.writeContract({ address: ENTRY_POINT_V07, abi: epAbi, functionName: "handleOps", args: [[packed(op)], payer.address], gas: 2000000n });
+        const receipt = await client.waitForTransactionReceipt({ hash: tx });
+        assert.equal(receipt.status, "success");
+        const event = receipt.logs.flatMap(l => { try { return [decodeEventLog({ abi: USER_OPERATION_EVENT_ABI, data: l.data, topics: l.topics })]; } catch { return []; } })[0];
+        assert.ok(event); assert.equal(event.args.success, true);
+        receipts.set(event.args.userOpHash, { userOpHash: event.args.userOpHash, sender: op.sender, nonce: op.nonce, success: true,
+          actualGasCost: `0x${event.args.actualGasCost.toString(16)}`, actualGasUsed: `0x${event.args.actualGasUsed.toString(16)}`, receipt: { transactionHash: tx } });
+        return event.args.userOpHash;
+      };
+      prototype.getUserOperationReceipt = async () => { throw new Error("receipt service unavailable"); };
+      try {
+        const before = await stateForAccount(state.accountId), liveBefore = await readBunkerLive(before, client);
+        const beforeBalance = await client.getBalance({ address: state.plan.address });
+        const operationId = await create(1200);
+        const review = await reviewBunkerOperation(state.accountId, operationId, state.accountId, client);
+        assert.equal(review.review!.feePayment!.sufficientBalance, true);
+        unlock("agent");
+        await assert.rejects(confirmBunkerOperation(state.accountId, operationId, review.review!.digest, true, client), /Authentication changed/);
+        unlock();
+        await confirmBunkerOperation(state.accountId, operationId, review.review!.digest, true, client);
+        assert.ok(!(await getPendingBunkerRequests()).some(o => o.id === operationId), "submitted UserOperation leaves approval queue");
+        await mine(); await reconcileBunker(id, client); state = await stateForAccount(state.accountId);
+        assert.equal(state.operations.find(o => o.id === operationId)!.state, "confirmed");
+        assert.equal(state.ownerIndex, review.review!.nextIndex);
+        assert.equal((await readBunkerLive(state, client)).nonce, liveBefore.nonce, "module execution does not increment Safe nonce");
+        assert.ok(await client.getBalance({ address: state.plan.address }) < beforeBalance - amount, "Bunker itself paid native gas");
+        assert.equal(state.defaultPayer!.id, state.accountId, "self can replace a remembered EOA default");
+      } finally { prototype.estimateUserOperationGas = original.estimate; prototype.getUserOperationGasPrice = original.prices; prototype.sendUserOperation = original.send; prototype.getUserOperationReceipt = original.receipt; }
     });
     await t.test("master removal clears operational data and repairs selection", async () => {
       const { removeBunkerAccount } = await import("../../src/chrome/safeBunker/management");
@@ -549,6 +715,7 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
       assert.notEqual(sync.activeAccountId, restored.accountId);
     });
   } finally {
+    Date.now = realNow;
     // Let normal executor receipt/enrichment work settle before removing Chrome and Anvil.
     await new Promise((resolve) => setTimeout(resolve, 6000));
     node.kill("SIGTERM");

@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { Button, FormControl, FormLabel, Input, Text, VStack } from "@chakra-ui/react";
-import { formatCompactFee } from "@/lib/gasFormatUtils";
+import { formatCompactFee, formatWeiToUsd } from "@/lib/gasFormatUtils";
 import { GasFeePopover } from "@/components/GasEstimate/GasFeePopover";
 import GasTierPicker from "@/components/GasTierPicker";
 import type { GasOverrides } from "@/chrome/transactions/localExecution";
 import type { GasTierSelection } from "@/lib/gasTiers";
 
-export function BunkerGasFields({ value, onChange, disabled, compact = false, symbol }: { symbol: string; value: GasOverrides; onChange: (gas: GasOverrides) => void; disabled?: boolean; compact?: boolean }) {
+export function BunkerGasFields({ value, onChange, disabled, compact = false, symbol, nativePriceUsd = null }: { nativePriceUsd?: number | null; symbol: string; value: GasOverrides; onChange: (gas: GasOverrides) => void; disabled?: boolean; compact?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [base] = useState(value);
   const [tier, setTier] = useState<GasTierSelection>("standard");
@@ -24,11 +24,11 @@ export function BunkerGasFields({ value, onChange, disabled, compact = false, sy
   </VStack>;
   const fee = valid ? formatCompactFee((BigInt(value.gasLimit) * BigInt(value.maxFeePerGas)).toString(), symbol) : "—";
   if (compact) return <GasFeePopover expanded={expanded} onToggle={() => setExpanded((open) => !open)} onClose={() => setExpanded(false)}
-    fiatFee={null} nativeFee={fee} tier={tier} showPicker customEditorOpen={tier === "custom"} customEditor={custom}
-    fallbackContent={null} tiers={tiers} gasLimit={valid ? BigInt(value.gasLimit) : null} nativePriceUsd={null}
+    fiatFee={valid ? formatWeiToUsd((BigInt(value.gasLimit) * BigInt(value.maxFeePerGas)).toString(), nativePriceUsd) : null} nativeFee={fee} tier={tier} showPicker customEditorOpen={tier === "custom"} customEditor={custom}
+    fallbackContent={null} tiers={tiers} gasLimit={valid ? BigInt(value.gasLimit) : null} nativePriceUsd={nativePriceUsd}
     nativeCurrencySymbol={symbol} selectedTier={tier} onTierChange={changeTier} isDisabled={disabled} />;
   return <VStack align="stretch" spacing={3} opacity={disabled ? 0.7 : 1} pointerEvents={disabled ? "none" : undefined}>
-    <GasTierPicker tiers={tiers} gasLimit={valid ? BigInt(value.gasLimit) : null} nativePriceUsd={null} nativeCurrencySymbol={symbol} selected={tier} onChange={changeTier} />
+    <GasTierPicker tiers={tiers} gasLimit={valid ? BigInt(value.gasLimit) : null} nativePriceUsd={nativePriceUsd} nativeCurrencySymbol={symbol} selected={tier} onChange={changeTier} />
     {tier === "custom" && custom}
     <Text color="fg.secondary" fontSize="sm">Max gas fee: {fee}</Text>
   </VStack>;
