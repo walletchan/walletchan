@@ -1,3 +1,4 @@
+import { applyCowSignatureScenario } from "./cowOrderFixtures";
 import type { Account } from "@/chrome/types";
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import type { PendingSignatureRequest } from "@/chrome/requests/pendingSignatureStorage";
@@ -216,7 +217,6 @@ export function createPreviewSignatureScenario(
   scenario: string,
 ): PendingSignatureRequest {
   const wallet = getPreviewWallet(walletType);
-
   if (scenario === "typed-data-long") {
     const typedData = {
       domain: {
@@ -294,9 +294,9 @@ export function createPreviewSignatureScenario(
     });
   }
 
-  return applySafeSignatureScenario(createPreviewSignatureRequest(walletType, {
+  return applyCowSignatureScenario(applySafeSignatureScenario(createPreviewSignatureRequest(walletType, {
     id: `preview-signature-${scenario}-${walletType}`,
-  }), scenario);
+  }), scenario), scenario);
 }
 
 export function createPreviewBatchRequest(

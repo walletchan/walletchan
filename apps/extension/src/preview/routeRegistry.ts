@@ -92,6 +92,7 @@ export const PREVIEW_ROUTE_REGISTRY: Record<
     scenarios: ["safe-no-owner",
       "personal-sign",
       "typed-data-long",
+      "cow-sell", "cow-buy", "cow-partial", "cow-zero-receiver", "cow-spoof",
       "safe-warnings",
       "safe-no-warnings",
       "siwe-blocked",
