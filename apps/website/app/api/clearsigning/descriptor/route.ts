@@ -1,41 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toFunctionSelector } from "viem";
-import snapshotRaw from "@/data/clearsigning-index.json";
+import {
+  fetchRegistryBytes,
+  isRegistryPath,
+  mergeRegistryDescriptor,
+  parseRegistryDescriptor,
+  REGISTRY_MAX_DESCRIPTOR_BYTES,
+  REGISTRY_RAW_BASE,
+  resolveRegistryInclude,
+  type DescriptorKind as Kind,
+  type RegistryDescriptor as RawDescriptor,
+  type RegistryEntry as IndexEntry,
+} from "@/lib/clearSigningRegistry";
 import { applyDaiExpiryOverride } from "./daiExpiryOverride";
+import { getRegistrySnapshot } from "./registry";
 
-const REPO = "ethereum/clear-signing-erc7730-registry";
-const BRANCH = "master";
-const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`;
-const API_TREE = `https://api.github.com/repos/${REPO}/git/trees/${BRANCH}?recursive=1`;
-
-type Kind = "calldata" | "eip712";
-type IndexValue = string | string[];
-
-interface IndexEntry {
-  calldata?: IndexValue;
-  eip712?: IndexValue;
-}
-
-interface Snapshot {
-  updatedAt: string;
-  source: string;
-  entries: Record<string, Record<string, IndexEntry>>;
-}
-
-interface RawDescriptor {
-  $schema?: string;
-  includes?: string;
-  context?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-  display?: { formats?: Record<string, unknown> };
-}
-
-const committed = snapshotRaw as unknown as Snapshot;
-
-// In-memory live index that augments the committed snapshot if a fresh rebuild succeeds.
-let liveIndex: Snapshot | null = null;
-let liveIndexFetchedAt = 0;
-const LIVE_INDEX_TTL_MS = 6 * 3600 * 1000;
+export const runtime = "nodejs";
 
 // Descriptor JSON cache (post-include-resolution).
 const descCache = new Map<string, { data: RawDescriptor; fetchedAt: number }>();
@@ -46,72 +26,19 @@ async function fetchAndResolve(p: string, depth = 0): Promise<RawDescriptor> {
   const cached = descCache.get(p);
   if (cached && Date.now() - cached.fetchedAt < DESCRIPTOR_TTL_MS) return cached.data;
 
-  const res = await fetch(`${RAW_BASE}/${p}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`fetch ${p}: ${res.status}`);
-  const desc = (await res.json()) as RawDescriptor;
+  if (!isRegistryPath(p)) throw new Error("Invalid registry descriptor path");
+  let desc = parseRegistryDescriptor(JSON.parse((await fetchRegistryBytes(
+    `${REGISTRY_RAW_BASE}/${p}`,
+    REGISTRY_MAX_DESCRIPTOR_BYTES,
+  )).toString("utf8")));
 
   if (desc.includes) {
-    const dir = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
-    const includePath = normalizeJoin(dir, desc.includes);
-    try {
-      const inner = await fetchAndResolve(includePath, depth + 1);
-      desc.context = { ...(inner.context || {}), ...(desc.context || {}) };
-      desc.metadata = { ...(inner.metadata || {}), ...(desc.metadata || {}) };
-      desc.display = {
-        ...(inner.display || {}),
-        ...(desc.display || {}),
-        formats: {
-          ...(inner.display?.formats || {}),
-          ...(desc.display?.formats || {}),
-        },
-      };
-    } catch (err) {
-      console.warn(`include resolution failed for ${p}: ${(err as Error).message}`);
-    }
-    delete desc.includes;
+    const inner = await fetchAndResolve(resolveRegistryInclude(p, desc.includes), depth + 1);
+    desc = mergeRegistryDescriptor(inner, desc);
   }
 
   descCache.set(p, { data: desc, fetchedAt: Date.now() });
   return desc;
-}
-
-function normalizeJoin(dir: string, rel: string): string {
-  const parts = (dir ? `${dir}/${rel}` : rel).split("/");
-  const out: string[] = [];
-  for (const part of parts) {
-    if (part === "" || part === ".") continue;
-    if (part === "..") out.pop();
-    else out.push(part);
-  }
-  return out.join("/");
-}
-
-async function tryRefreshLiveIndex(): Promise<void> {
-  if (liveIndex && Date.now() - liveIndexFetchedAt < LIVE_INDEX_TTL_MS) return;
-  // Refresh in the background; do NOT await callers if we already have committed data.
-  try {
-    const res = await fetch(API_TREE, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "walletchan-website",
-      },
-      next: { revalidate: 21600 },
-    });
-    if (!res.ok) return;
-    const data = (await res.json()) as { tree?: Array<{ path: string; type: string }> };
-    // Only mark fetchedAt; we don't rebuild the full index at request time
-    // because that's hundreds of file fetches. We rely on the committed snapshot.
-    // This is a stub that future work could expand into a real rebuild.
-    if (data.tree) liveIndexFetchedAt = Date.now();
-  } catch {
-    // ignore — fall back to committed snapshot
-  }
-}
-
-function resolveEntry(chainId: string, address: string): IndexEntry | undefined {
-  // Prefer live index when available; fall back to committed snapshot.
-  if (liveIndex?.entries[chainId]?.[address]) return liveIndex.entries[chainId][address];
-  return committed.entries[chainId]?.[address];
 }
 
 function pathsFor(entry: IndexEntry, kind: Kind | ""): string[] {
@@ -213,10 +140,8 @@ export async function GET(req: NextRequest) {
 
   const address = addressRaw.toLowerCase();
 
-  // Fire and forget — caller is unaffected if this fails.
-  void tryRefreshLiveIndex();
-
-  const entry = resolveEntry(chainId, address);
+  const snapshot = await getRegistrySnapshot();
+  const entry = snapshot.entries[chainId]?.[address];
   if (!entry) {
     return NextResponse.json(
       { error: "no descriptor" },

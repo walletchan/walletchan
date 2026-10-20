@@ -4695,6 +4695,12 @@ continue to fail the main audience gate.
 and EIP-712 messages before the raw decoder/typed-data panel. Descriptor
 resolution is remote-first, local-second:
 
+- The website descriptor API indexes upstream `master` directly from a bounded
+  in-memory archive. Next's persistent Data Cache revalidates that index daily
+  on traffic, retaining the previous successful index on refresh errors and
+  using a committed snapshot on cold failure. New registry deployments require
+  no manual rebuild/redeploy. Existing extension hit/miss TTLs still apply.
+  See `CLEAR_SIGNING.md` for cache timing, limits, and fallback maintenance.
 - `chrome/clearSigningHandlers.ts` is the stable facade over the focused
   `chrome/clearSigning/` audit domain. `descriptorCache.ts` owns the exact v3
   key/schema and 1-day hit / 1-day miss TTL; `descriptorClient.ts` owns the
