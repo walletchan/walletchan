@@ -6,6 +6,7 @@ import {
   formatUnit,
   formatUnitFull,
   isUnlimitedAmount,
+  formatTimestamp,
 } from "../../src/components/ClearSigning/formatters/valueFormatters";
 
 const maxUint256 = ((1n << 256n) - 1n).toString();
@@ -35,4 +36,17 @@ test("raw amount comparison and duration labels fail safely", () => {
   assert.equal(compareRawAmounts("bad", "9"), -1);
   assert.equal(formatDurationLabel(3661), "01:01:01");
   assert.equal(formatDurationLabel(-1), "-1");
+});
+
+test("clear-signing dates include seconds and an explicit local timezone", () => {
+  const formatted = formatTimestamp(1792524896);
+  assert.match(formatted, /2026/);
+  assert.match(formatted, /GMT(?:[+-]\d{1,2}(?::\d{2})?)?/);
+  assert.match(formatted, /:56/);
+});
+
+test("CoW numeric limits do not inherit unlimited approval formatting", () => {
+  assert.notEqual(formatUnit(maxUint256, 18, false), "unlimited");
+  assert.notEqual(formatUnit(maxUint160, 6, false), "unlimited");
+  assert.equal(formatUnit("405761030829127", 18, false), "0.00040576");
 });

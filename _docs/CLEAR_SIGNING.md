@@ -14,7 +14,8 @@ and a raw **Permit expiry** timestamp. The response identifies the override as
 has a supported replacement. Existing clients may retain the old descriptor for
 one day; toggling Clear signing off and on clears the local cache for QA.
 
-Descriptors come from the public registry at [`ethereum/clear-signing-erc7730-registry`](https://github.com/ethereum/clear-signing-erc7730-registry). **Nothing is bundled** in the extension. The website acts as a thin proxy + cache:
+Descriptors come from the public registry at [`ethereum/clear-signing-erc7730-registry`](https://github.com/ethereum/clear-signing-erc7730-registry). Registry descriptors are fetched at runtime; reviewed local profiles and generic
+calldata fallbacks ship with the extension as described below. The website acts as a thin proxy + cache:
 
 - `walletchan.eth.sh/api/clearsigning/descriptor?chainId=…&address=0x…&kind=calldata|eip712&selector=0x…|formatKey=…` → descriptor JSON, or 404.
 - The proxy automatically builds a `(chainId, address) → registry path[]` index from the upstream `master` archive. It reads descriptors directly rather than the upstream generated indexes, which can lag descriptor merges. `lib/clearSigningRegistry.ts` resolves registry/ERC-template includes and preserves multiple candidates for each deployment and descriptor kind. The route selects the candidate whose `display.formats` matches the calldata selector or EIP-712 encoded type.
@@ -42,7 +43,7 @@ Confirmation surface
                                 ↳ ERC-20 transfer / approve only
 ```
 
-**Remote always wins.** A built-in is only consulted after the remote registry returns nothing or has no matching format. Explicit opt-out suppresses clear signing entirely. This means a contract with a curated registry descriptor renders that descriptor, not the generic ERC-20 one.
+**Remote normally wins.** A built-in is only consulted after the remote registry returns nothing or has no matching format. Explicit opt-out suppresses clear signing entirely. This means a contract with a curated registry descriptor renders that descriptor, not the generic ERC-20 one.
 
 ### Cache schema versioning
 
@@ -71,6 +72,52 @@ must resolve. Fields with default/`always` visibility must resolve; `optional`
 fields may be omitted. `excluded` paths are filtered from display when present.
 `visible.mustMatch` fields validate hidden assertions and suppress clear signing
 if the assertion fails.
+
+## CoW Protocol orders
+
+`lib/clearSigning/cowOrder.ts` supplies a presentation-only EIP-712 profile for
+CoW settlement orders on Base (8453), pinned to
+`0x9008d19f58aabd9ed0d60971565aa8510560ab41`. Other networks retain raw typed-data
+review until their deployment/native-asset mapping is reviewed and added.
+The profile requires the exact `Gnosis Protocol` / `v2` domain, signed/request
+chain equality, canonical domain schema/hash and the canonical ordered
+12-field `Order` schema. Additional domain/message/type fields, unsupported
+flags, malformed scalars, zero amounts, overflowing sell-plus-fee amounts and
+invalid native-asset positions suppress the friendly profile. Missing
+`EIP712Domain` uses the canonical inferred domain; a supplied schema must match.
+
+After the existing enabled-setting check, CoW-looking `Order` payloads use the
+local guard and local profile, even if a remote descriptor is available. This
+is an intentional exception to remote-first resolution: remote/proxy metadata
+cannot weaken protocol recognition or hide a signed fee. A rejected profile
+falls back to `TypedDataDisplay`; it does not reject or authorize signing.
+Recognition establishes the signed protocol, not the requesting website's
+identity or order safety. The real origin remains visible.
+
+The renderer pairs each amount with its chain-qualified token, treats the
+CoW `0xeeee…` sentinel as native only for buys, and resolves zero receiver to
+the pinned signer without mutating the signed message. Sell orders show
+Sell amount / Minimum received; buy orders show Maximum sold / Buy amount.
+Partial orders show full-order limits and explicit partial-fill wording.
+Nonzero signed fees are separate sell-token amounts (full-order fees for
+partial orders); nonstandard Balancer Vault balance modes remain visible.
+The appData commitment, default balance modes, raw message, domain, types and
+hashes remain accessible through Advanced details; no appData metadata is
+fetched or interpreted. A zero signed fee does not claim zero total fees.
+
+The shared token renderer retains logos, fiat estimates and contract hover/focus
+disclosure. Missing token metadata shows base units plus the token address.
+CoW amounts opt out of unlimited-approval sentinel formatting. Every shortened
+amount exposes full precision on hover/focus; clear-signing dates include
+seconds and the viewer's local timezone. Descriptor results and token metadata/
+prices are bound to the current payload/asset so old asynchronous results cannot
+decorate a different request or token.
+
+QA: `tests/clearSigning/cowOrder.test.ts`, existing clear-signing tests and
+`node scripts/cow-order-qa.mjs` against `pnpm dev:preview`. The synthetic browser
+matrix mounts the production signature review for private-key, seed, Bankr,
+Ledger and Trezor props plus reject-only Safe/view-only cases in both themes.
+It does not replace actual signing or real-device Ledger/Trezor QA.
 
 ## Supported field formats
 

@@ -3099,3 +3099,17 @@ Loading shows a status label; unavailable or incomplete history renders no notic
 Absence of warnings is never presented as proof of recipient safety. Only address-record updates are
 queried; ownership and resolver-change events do not trigger warnings. Offchain/L2
 Basename records are excluded.
+
+### CoW order presentation boundary
+
+The Base-only CoW profile binds the exact signed Gnosis Protocol/v2 domain and
+canonical EIP712Domain/Order schemas to the reviewed chain/settlement pair.
+Unknown domains, chains, schemas, scalar values and unsupported token/balance
+combinations retain raw review; neither registry nor proxy descriptors can
+bypass the CoW-looking-order guard. Native sentinels are positional, receiver
+zero resolves only through the pinned signer, signed fees remain visible, and
+partial orders are labelled as limits. Token names/prices and receiver labels
+are display metadata, not protocol identity or authorization. Opaque appData is
+never fetched/interpreted. No signature input, backend authorization, secret,
+message route or persisted shape changes. Existing five-signer, master/agent,
+Safe/view-only and final-release policies remain authoritative.

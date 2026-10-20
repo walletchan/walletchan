@@ -4739,6 +4739,18 @@ resolution is remote-first, local-second:
   falls back to the local registry before recording `clearSignedMeta`; builder
   or history-write failures remain optional and never delay transaction flow.
 
+### CoW order clear signing
+
+`lib/clearSigning/cowOrder.ts` owns presentation-only recognition for the reviewed
+Base CoW settlement deployment. Canonical domain/hash, request chain, exact
+Order schema and bounded order semantics must all match before the existing
+clear-signing field renderer pairs amounts with tokens, resolves zero receiver,
+and formats expiry. The local profile takes precedence for CoW-looking orders;
+remote descriptors cannot bypass the guard. Failure preserves generic typed-data
+review. Signed payloads, permissions, password policies and all signer dispatch/
+release gates remain unchanged. See `CLEAR_SIGNING.md` for supported order
+variants, profile scope and QA; other chains currently retain the raw fallback.
+
 ### Typed Data Display
 
 EIP-712 typed data signatures show structured display:
