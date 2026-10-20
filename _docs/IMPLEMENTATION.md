@@ -3578,6 +3578,21 @@ exact WalletChan sender EIP-712 signature before forwarding
 recover to that same sender and use the official delegate and exact route
 chain. `PIMLICO_PROXY_DISABLED=true` is the operational kill switch.
 
+The proxy also accepts Safe4337Module v0.3.0 operations using its 77-byte
+`validAfter || validUntil || ownerSignature` format. `safePolicy.ts` verifies
+SafeOp typed data through the additive `@walletchan/shared/safe4337` export,
+requires zero validAfter and a future expiry within five minutes, and reads
+current authority at one block using trusted viem chain RPC defaults. It
+requires the canonical Safe 1.4.1 proxy/singleton, one owner with threshold one,
+and the pinned module runtime enabled as both module and fallback handler.
+Safe operations cannot attach EIP-7702 authorizations. Estimation alone permits
+an exact sender-only balance override for this signature format; submissions
+never accept overrides. Existing 65-byte EOA verification remains unchanged.
+Rate limiting runs before signature/authority checks to bound unauthenticated
+RPC work; rejected signatures consume the existing send budget (10/minute/IP).
+This backend must be deployed before Bunker self-paid submissions can work;
+updating the extension alone leaves the old proxy rejecting Safe signatures.
+
 Every built-in EVM chain addition runs the Pimlico discovery and live-quote
 gate in `.agents/skills/walletchan-chain-research/SKILL.md`. The extension fee
 catalog and website proxy catalog must change together; the fee-payment token

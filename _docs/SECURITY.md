@@ -839,6 +839,16 @@ chain/token address pair from the reviewed catalog, and cryptographically verifi
 signature before forwarding `eth_sendUserOperation`. Any attached 7702 tuple
 must target the official delegate on the route chain with fixed-width `r/s`
 and valid parity, and its signer must recover to the UserOperation sender.
+Safe4337Module submissions use a separate 77-byte signature verifier: zero
+validAfter, expiry within five minutes, recovered SafeOp signer matching the
+sole current owner, threshold one, canonical Safe 1.4.1 proxy/singleton, and
+pinned module bytecode enabled with the expected fallback handler. Authority
+reads share one block and use trusted chain RPC defaults; any failed read or
+check rejects submission. The existing 65-byte EOA path remains unchanged.
+Safe estimation can override only the sender balance to the exact fixed preview
+value; code/storage overrides and all submission overrides remain forbidden.
+The existing per-IP send rate limit applies before expensive signature/RPC
+verification, including rejected signatures.
 Immediately before broadcast, WalletChan persists only the locally computed
 EntryPoint v0.7 operation hash and public recovery routing. A definite provider
 rejection removes the record; a transport/5xx/malformed or hash-mismatched
