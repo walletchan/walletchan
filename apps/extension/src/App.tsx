@@ -1,3 +1,4 @@
+import { useResolvedTransactionNavigation } from "@/app/hooks/useResolvedTransactionNavigation";
 import { useSafeRequestNavigation } from "@/app/hooks/useSafeRequestNavigation";
 import { loadInitialSafeProposals } from "@/app/initialSafeRequests";
 import {
@@ -1216,12 +1217,7 @@ function App() {
                 // Let the animation play; popup will close itself
               } else {
                 setSelectedTxRequest(null);
-                // Only route to "main" if there are no other pending request
-                // types. If batch/sig/crossDappBatch are still queued, let the
-                // async handler (handleTxRejected / handleTxConfirmed) navigate
-                // directly to the next view — going via "main" first would
-                // cause a visible txConfirm→main→next slide instead of a
-                // single txConfirm→next transition.
+                // Defer queued-request routing to the confirmation callback.
                 const hasOtherPending =
                   pendingBatchRequests.length > 0 ||
                   pendingErc7715PermissionRequests.length > 0 ||
@@ -1819,18 +1815,22 @@ function App() {
       openPrivateActivity();
     }
     const requests = await loadPendingRequests();
-    // Check if more pending requests (use fresh data from loadPendingRequests)
     const remaining = requests.filter((r) => r.id !== currentTxId);
     if (remaining.length > 0) {
       setSelectedTxRequest(remaining[0]);
     } else {
       setSelectedTxRequest(null);
-      setActivityTabTrigger((k) => k + 1);
-      setView("main");
+      returnToActivity();
     }
   // Follow-up routing reads the current pending-request helpers.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openPrivateActivity, selectedTxRequest?.id]);
+  }, [openPrivateActivity, returnToActivity, selectedTxRequest?.id]);
+
+  useResolvedTransactionNavigation({
+    enabled: view === "txConfirm" && (isInSidePanel || isFullscreenTab),
+    requestId: selectedTxRequest?.id,
+    onResolved: handleTxConfirmed,
+  });
 
   const handleTxRejected = useCallback(async () => {
     // If onBeforeReject pre-navigated to an adjacent pending request, the
