@@ -3863,7 +3863,14 @@ The animation shows:
 - "Your transaction has been submitted" subtext
 - Auto-closes popup after 1 second
 
-In sidepanel mode, the view navigates back immediately without the animation (sidepanel stays open for further interactions).
+Sidepanel and fullscreen confirmation views return to Activity after submission.
+`app/hooks/useResolvedTransactionNavigation.ts` also reconciles the selected
+transaction against fresh local pending-request storage on mount, storage
+changes, focus, and visibility restoration. A request resolved in another
+renderer follows the existing confirmation navigation callback, with Activity
+selection taking precedence over earlier Assets selections. Read failures do
+not imply resolution, and disposed/stale reads cannot navigate a newer review.
+Popup success animations retain their existing lifecycle.
 
 ### Receipt Polling & Flashblocks
 
