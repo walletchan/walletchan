@@ -4355,6 +4355,11 @@ the locally fixed provider rather than the production backend.
   totals and snapshots.
 - Fresh popup/sidepanel mounts hydrate asynchronously from the reset-aware
   `chrome.storage.local.portfolioHoldingsCache` before the live fetch starts.
+  The fast catalog paint applies hydrated RPC balances before filtering empty
+  rows. Custom-chain native and custom ERC-20 zero placeholders therefore keep
+  their cached holdings during revalidation, including failed RPC reads; a
+  successful zero read still removes the holding. Browser regression coverage:
+  `tests/portfolio/portfolioCachedRpcRefresh.test.ts`.
   Cache V4 is keyed by address plus the visible-chain reload key, capped to four
   entries, limited to 4 MiB total and 1,000 tokens per entry, TTL-pruned after
   24 hours, and treated as optional display data. V3 invalidates older unbounded
