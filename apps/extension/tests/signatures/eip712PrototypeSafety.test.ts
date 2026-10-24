@@ -91,6 +91,18 @@ test("EIP-712 rejects a domain value that cannot be hashed as its type", () => {
     domain: { arr: [{ f: "abc" }] },
   });
   assert.equal(heavy.valid, true);
+  // A malformed primitive beside a struct or array field is still caught.
+  const mixed = validateEIP712TypedData("eth_signTypedData_v4", {
+    ...base,
+    types: {
+      ...undeclared,
+      EIP712Domain: [{ name: "arr", type: "T[]" }, { name: "chainId", type: "uint256" }],
+      T: [{ name: "f", type: "uint256" }],
+    },
+    domain: { arr: [{ f: 1 }], chainId: "abc" },
+  });
+  assert.equal(mixed.valid, false);
+  assert.equal(mixed.error, "Invalid domain: a value does not match its type");
   // Common valid encodings must still pass, declared or derived.
   const full = [
     { name: "name", type: "string" }, { name: "version", type: "string" }, { name: "chainId", type: "uint256" },

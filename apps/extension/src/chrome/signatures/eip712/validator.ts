@@ -114,18 +114,16 @@ export function validateEIP712TypedData(
     if (!result.valid) return result;
   }
   // A value of the wrong type (chainId "abc", a short address) also makes viem throw only after approval.
-  // Last, so the policy errors win. Only primitive domain fields (all the standard ones) are hashed:
-  // struct or array fields can make hashing cost seconds, and this runs before the user approves.
+  // Last, so the policy errors win. Only the primitive domain fields (all the standard ones) are hashed, even
+  // beside a struct or array field: those can make hashing cost seconds, and this runs before the user approves.
   const domainTypes: Array<{ type: string }> = data.types.EIP712Domain ?? getTypesForEIP712Domain({ domain: data.domain });
-  const primitiveDomain = domainTypes.every(
+  const primitiveFields = domainTypes.filter(
     (field) => !field.type.endsWith("]") && !Object.prototype.hasOwnProperty.call(data.types, field.type),
   );
-  if (primitiveDomain) {
-    try {
-      hashDomain({ domain: data.domain, types: { ...data.types, EIP712Domain: domainTypes } });
-    } catch {
-      return { valid: false, error: "Invalid domain: a value does not match its type" };
-    }
+  try {
+    hashDomain({ domain: data.domain, types: { ...data.types, EIP712Domain: primitiveFields } });
+  } catch {
+    return { valid: false, error: "Invalid domain: a value does not match its type" };
   }
 
   return { valid: true, sanitized: sanitizeEip712TypedData(data) };
