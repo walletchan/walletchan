@@ -76,7 +76,7 @@ export function compareRawAmounts(a: string, b: string): number {
   }
 }
 
-export function formatUnit(raw: string, decimals: number): string {
+export function formatUnit(raw: string, decimals: number, allowUnlimited = true): string {
   if (decimals <= 0) return raw;
   let big: bigint;
   try {
@@ -84,7 +84,7 @@ export function formatUnit(raw: string, decimals: number): string {
   } catch {
     return raw;
   }
-  if (big === MAX_UINT256 || big === MAX_UINT160) return "unlimited";
+  if (allowUnlimited && (big === MAX_UINT256 || big === MAX_UINT160)) return "unlimited";
   const neg = big < 0n;
   if (neg) big = -big;
   const divisor = 10n ** BigInt(decimals);
@@ -135,4 +135,4 @@ export function formatDurationLabel(seconds: number): string {
 }
 
 export const formatTimestamp = (ts: number): string =>
-  formatAbsoluteTimestamp(ts, { includeYear: true, separator: " · " });
+  formatAbsoluteTimestamp(ts, { includeYear: true, separator: " · ", includeTimeZone: true, includeSeconds: true });

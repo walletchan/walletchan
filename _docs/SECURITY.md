@@ -839,6 +839,16 @@ chain/token address pair from the reviewed catalog, and cryptographically verifi
 signature before forwarding `eth_sendUserOperation`. Any attached 7702 tuple
 must target the official delegate on the route chain with fixed-width `r/s`
 and valid parity, and its signer must recover to the UserOperation sender.
+Safe4337Module submissions use a separate 77-byte signature verifier: zero
+validAfter, expiry within five minutes, recovered SafeOp signer matching the
+sole current owner, threshold one, canonical Safe 1.4.1 proxy/singleton, and
+pinned module bytecode enabled with the expected fallback handler. Authority
+reads share one block and use trusted chain RPC defaults; any failed read or
+check rejects submission. The existing 65-byte EOA path remains unchanged.
+Safe estimation can override only the sender balance to the exact fixed preview
+value; code/storage overrides and all submission overrides remain forbidden.
+The existing per-IP send rate limit applies before expensive signature/RPC
+verification, including rejected signatures.
 Immediately before broadcast, WalletChan persists only the locally computed
 EntryPoint v0.7 operation hash and public recovery routing. A definite provider
 rejection removes the record; a transport/5xx/malformed or hash-mismatched
@@ -3118,3 +3128,17 @@ Loading shows a status label; unavailable or incomplete history renders no notic
 Absence of warnings is never presented as proof of recipient safety. Only address-record updates are
 queried; ownership and resolver-change events do not trigger warnings. Offchain/L2
 Basename records are excluded.
+
+### CoW order presentation boundary
+
+The Base-only CoW profile binds the exact signed Gnosis Protocol/v2 domain and
+canonical EIP712Domain/Order schemas to the reviewed chain/settlement pair.
+Unknown domains, chains, schemas, scalar values and unsupported token/balance
+combinations retain raw review; neither registry nor proxy descriptors can
+bypass the CoW-looking-order guard. Native sentinels are positional, receiver
+zero resolves only through the pinned signer, signed fees remain visible, and
+partial orders are labelled as limits. Token names/prices and receiver labels
+are display metadata, not protocol identity or authorization. Opaque appData is
+never fetched/interpreted. No signature input, backend authorization, secret,
+message route or persisted shape changes. Existing five-signer, master/agent,
+Safe/view-only and final-release policies remain authoritative.

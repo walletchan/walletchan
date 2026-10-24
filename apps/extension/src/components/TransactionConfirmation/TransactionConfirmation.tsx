@@ -224,6 +224,7 @@ function TransactionConfirmation({
           label="Copy transaction JSON"
           value={JSON.stringify(
             {
+              from: tx.from,
               to: tx.to || null,
               value: review.parsedTxValue.ok
                 ? review.parsedTxValue.wei.toString()

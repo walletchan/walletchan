@@ -158,7 +158,13 @@ function validFreshAccountStateOverride(
 ): boolean {
   const operation = object(userOperation);
   const override = object(value);
-  if (!operation || !operation.eip7702Auth || !override) return false;
+  if (!operation || !override) return false;
+  if (!operation.eip7702Auth) {
+    const entries = Object.entries(override);
+    if (entries.length !== 1 || !sameAddress(entries[0][0], String(operation.sender))) return false;
+    const account = object(entries[0][1]);
+    return /^0x[0-9a-fA-F]{154}$/.test(String(operation.signature)) && !!account && Object.keys(account).length === 1 && account.balance === "0xffffffffffffffffffffffffffffffff";
+  }
   const entries = Object.entries(override);
   if (entries.length !== 1) return false;
   const [address, accountOverrideValue] = entries[0]!;
@@ -260,6 +266,10 @@ export async function verifyPimlicoSendEnvelope(
 ): Promise<boolean> {
   if (envelope.method !== "eth_sendUserOperation") return true;
   const op = envelope.params[0] as ProxyUserOperation;
+  if (/^0x[0-9a-fA-F]{154}$/.test(op.signature)) {
+    const { verifySafeUserOperation } = await import("./safePolicy");
+    return verifySafeUserOperation(op, chainId);
+  }
   if (!/^0x[0-9a-fA-F]{130}$/.test(op.signature)) return false;
   if (op.eip7702Auth) {
     try {

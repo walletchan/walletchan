@@ -3635,6 +3635,21 @@ exact WalletChan sender EIP-712 signature before forwarding
 recover to that same sender and use the official delegate and exact route
 chain. `PIMLICO_PROXY_DISABLED=true` is the operational kill switch.
 
+The proxy also accepts Safe4337Module v0.3.0 operations using its 77-byte
+`validAfter || validUntil || ownerSignature` format. `safePolicy.ts` verifies
+SafeOp typed data through the additive `@walletchan/shared/safe4337` export,
+requires zero validAfter and a future expiry within five minutes, and reads
+current authority at one block using trusted viem chain RPC defaults. It
+requires the canonical Safe 1.4.1 proxy/singleton, one owner with threshold one,
+and the pinned module runtime enabled as both module and fallback handler.
+Safe operations cannot attach EIP-7702 authorizations. Estimation alone permits
+an exact sender-only balance override for this signature format; submissions
+never accept overrides. Existing 65-byte EOA verification remains unchanged.
+Rate limiting runs before signature/authority checks to bound unauthenticated
+RPC work; rejected signatures consume the existing send budget (10/minute/IP).
+This backend must be deployed before Bunker self-paid submissions can work;
+updating the extension alone leaves the old proxy rejecting Safe signatures.
+
 Every built-in EVM chain addition runs the Pimlico discovery and live-quote
 gate in `.agents/skills/walletchan-chain-research/SKILL.md`. The extension fee
 catalog and website proxy catalog must change together; the fee-payment token
@@ -3905,7 +3920,14 @@ The animation shows:
 - "Your transaction has been submitted" subtext
 - Auto-closes popup after 1 second
 
-In sidepanel mode, the view navigates back immediately without the animation (sidepanel stays open for further interactions).
+Sidepanel and fullscreen confirmation views return to Activity after submission.
+`app/hooks/useResolvedTransactionNavigation.ts` also reconciles the selected
+transaction against fresh local pending-request storage on mount, storage
+changes, focus, and visibility restoration. A request resolved in another
+renderer follows the existing confirmation navigation callback, with Activity
+selection taking precedence over earlier Assets selections. Read failures do
+not imply resolution, and disposed/stale reads cannot navigate a newer review.
+Popup success animations retain their existing lifecycle.
 
 ### Receipt Polling & Flashblocks
 
@@ -4397,6 +4419,11 @@ the locally fixed provider rather than the production backend.
   totals and snapshots.
 - Fresh popup/sidepanel mounts hydrate asynchronously from the reset-aware
   `chrome.storage.local.portfolioHoldingsCache` before the live fetch starts.
+  The fast catalog paint applies hydrated RPC balances before filtering empty
+  rows. Custom-chain native and custom ERC-20 zero placeholders therefore keep
+  their cached holdings during revalidation, including failed RPC reads; a
+  successful zero read still removes the holding. Browser regression coverage:
+  `tests/portfolio/portfolioCachedRpcRefresh.test.ts`.
   Cache V4 is keyed by address plus the visible-chain reload key, capped to four
   entries, limited to 4 MiB total and 1,000 tokens per entry, TTL-pruned after
   24 hours, and treated as optional display data. V3 invalidates older unbounded
@@ -4737,6 +4764,12 @@ continue to fail the main audience gate.
 and EIP-712 messages before the raw decoder/typed-data panel. Descriptor
 resolution is remote-first, local-second:
 
+- The website descriptor API indexes upstream `master` directly from a bounded
+  in-memory archive. Next's persistent Data Cache revalidates that index daily
+  on traffic, retaining the previous successful index on refresh errors and
+  using a committed snapshot on cold failure. New registry deployments require
+  no manual rebuild/redeploy. Existing extension hit/miss TTLs still apply.
+  See `CLEAR_SIGNING.md` for cache timing, limits, and fallback maintenance.
 - `chrome/clearSigningHandlers.ts` is the stable facade over the focused
   `chrome/clearSigning/` audit domain. `descriptorCache.ts` owns the exact v3
   key/schema and 1-day hit / 1-day miss TTL; `descriptorClient.ts` owns the
@@ -4774,6 +4807,18 @@ resolution is remote-first, local-second:
   If the remote registry misses or has no matching format, the ERC-7730 builder
   falls back to the local registry before recording `clearSignedMeta`; builder
   or history-write failures remain optional and never delay transaction flow.
+
+### CoW order clear signing
+
+`lib/clearSigning/cowOrder.ts` owns presentation-only recognition for the reviewed
+Base CoW settlement deployment. Canonical domain/hash, request chain, exact
+Order schema and bounded order semantics must all match before the existing
+clear-signing field renderer pairs amounts with tokens, resolves zero receiver,
+and formats expiry. The local profile takes precedence for CoW-looking orders;
+remote descriptors cannot bypass the guard. Failure preserves generic typed-data
+review. Signed payloads, permissions, password policies and all signer dispatch/
+release gates remain unchanged. See `CLEAR_SIGNING.md` for supported order
+variants, profile scope and QA; other chains currently retain the raw fallback.
 
 ### Typed Data Display
 

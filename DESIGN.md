@@ -2122,3 +2122,14 @@ The Send recipient field shows a compact warning for address updates within
 sits beneath, aligned with the heading. Existing warning tint, border and radius
 remain; the long bold sentence is removed. Loading shows muted “Checking ENS history…” status text; unavailable history
 stays silent. Only address-record events trigger the warning (2026-10-16).
+
+## CoW order review (2026-10-20)
+
+CoW order clear signing extends the existing trustworthy, precise, approachable
+financial review. It reuses Warm Midnight/Bauhaus type, neutral surfaces, intent
+tokens, aligned values, token logos and identity disclosures. No new palette,
+card treatment or motion is introduced. Amounts retain fiat subvalues and expose
+full precision on hover/focus; expiration includes timezone and seconds. Minimum/
+maximum and partial-fill wording describes the signed limits. Audit: keyboard
+access to precision and contract disclosures, compact wrapping, two-theme and
+320px review are covered by the focused browser QA script.

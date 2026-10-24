@@ -12,6 +12,7 @@
     "./bungee": "./src/bungee.ts",
     "./assets/*": "./assets/*",
     "./privacy/aspPolicy": "./src/privacy/aspPolicy.ts",
-    "./privacy/rootSnapshotCache": "./src/privacy/rootSnapshotCache.ts"
+    "./privacy/rootSnapshotCache": "./src/privacy/rootSnapshotCache.ts",
+    "./safe4337": "./src/safe4337.ts"
   }
 }

@@ -33,21 +33,23 @@ function AmountText({
   symbol,
   thresholdRaw,
   thresholdMessage,
+  allowUnlimited = true,
 }: {
   amountRaw: string;
   decimals: number;
   symbol: string;
   thresholdRaw?: string;
   thresholdMessage?: string;
+  allowUnlimited?: boolean;
 }) {
-  const unlimited = isUnlimitedAmount(amountRaw);
+  const unlimited = allowUnlimited && isUnlimitedAmount(amountRaw);
   const thresholdHit =
     thresholdRaw !== undefined &&
     thresholdMessage &&
     compareRawAmounts(amountRaw, thresholdRaw) >= 0;
   const displayText = thresholdHit
     ? thresholdMessage
-    : formatUnit(amountRaw, decimals);
+    : formatUnit(amountRaw, decimals, allowUnlimited);
   const text = (
     <Text
       fontSize="lg"
@@ -62,17 +64,19 @@ function AmountText({
       {displayText}
     </Text>
   );
-  if (!unlimited && !thresholdHit) return text;
+  const fullText = formatUnitFull(amountRaw, decimals);
+  const compactText = displayText.replace(/,/g, "");
+  if (!unlimited && !thresholdHit && compactText === fullText.replace(/,/g, "")) return text;
   return (
     <Tooltip
-      label={`${formatUnitFull(amountRaw, decimals)} ${symbol}`}
+      label={`${fullText} ${symbol}`}
       placement="top"
       hasArrow
       openDelay={150}
     >
       {/* Box wrapper so the tooltip can fire on touch / focus without
           requiring the Text itself to forward refs. */}
-      <Box as="span" minW={0} maxW="full" cursor="help" borderBottom="1px dotted" borderColor="fg.muted">
+      <Box as="span" tabIndex={0} minW={0} maxW="full" cursor="help" borderBottom="1px dotted" borderColor="fg.muted">
         {text}
       </Box>
     </Tooltip>
@@ -87,6 +91,7 @@ export function TokenAmountInline({
   thresholdRaw,
   thresholdMessage,
   metadataHint,
+  allowUnlimited,
 }: {
   amountRaw: string;
   tokenAddress?: string;
@@ -95,6 +100,7 @@ export function TokenAmountInline({
   thresholdRaw?: string;
   thresholdMessage?: string;
   metadataHint?: TokenMetadataHint;
+  allowUnlimited?: boolean;
 }) {
   const initialInfo =
     !native && metadataHint
@@ -102,8 +108,11 @@ export function TokenAmountInline({
       : !native && tokenAddress
         ? toTokenInfo(getCachedTokenMetadataSync(chainId, tokenAddress))
         : null;
-  const [info, setInfo] = useState<TokenInfo | null>(() => initialInfo);
-  const [priceUsd, setPriceUsd] = useState<number>(0);
+  const assetKey = `${chainId}:${native ? "native" : tokenAddress?.toLowerCase()}`;
+  const [resolvedInfo, setResolvedInfo] = useState<{ key: string; info: TokenInfo | null }>(() => ({ key: assetKey, info: initialInfo }));
+  const info = metadataHint ? toTokenInfo(metadataHint) : resolvedInfo.key === assetKey ? resolvedInfo.info : initialInfo;
+  const [price, setPrice] = useState({ key: "", usd: 0 });
+  const priceUsd = price.key === assetKey ? price.usd : 0;
   const { networksInfo } = useNetworks();
   const nativeInfo = useMemo(
     () => (native ? getNativeAssetMeta(chainId, networksInfo) : null),
@@ -116,7 +125,7 @@ export function TokenAmountInline({
 
   useEffect(() => {
     if (native || !tokenAddress) {
-      setInfo(metadataHint ? toTokenInfo(metadataHint) : null);
+      setResolvedInfo({ key: assetKey, info: metadataHint ? toTokenInfo(metadataHint) : null });
       return;
     }
     let cancelled = false;
@@ -129,22 +138,22 @@ export function TokenAmountInline({
       if (cancelled) return;
       const next = toTokenInfo(metadata);
       if (!next) {
-        setInfo(null);
+        setResolvedInfo({ key: assetKey, info: null });
         return;
       }
-      setInfo(next);
+      setResolvedInfo({ key: assetKey, info: next });
     };
 
     const cached =
       metadataHint ?? getCachedTokenMetadataSync(chainId, tokenAddress);
     if (cached !== undefined) applyMetadata(cached);
-    else setInfo(null);
+    else setResolvedInfo({ key: assetKey, info: null });
 
     resolveTokenMetadataClient(chainId, tokenAddress).then(applyMetadata);
     return () => {
       cancelled = true;
     };
-  }, [tokenAddress, chainId, native, metadataHint]);
+  }, [tokenAddress, chainId, native, metadataHint, assetKey]);
 
   // USD price resolution — uses the same cached CoinGecko handlers that power
   // the portfolio (5-min storage cache), so when a token is already in the
@@ -172,7 +181,7 @@ export function TokenAmountInline({
         (res: { success: boolean; data?: Array<{ priceUsd: number }> }) => {
           if (cancelled) return;
           const p = res?.data?.[0]?.priceUsd;
-          if (p && p > 0) setPriceUsd(p);
+          if (p && p > 0) setPrice({ key: assetKey, usd: p });
         },
       );
     } else if (
@@ -189,14 +198,14 @@ export function TokenAmountInline({
         (res: { success: boolean; data?: Array<{ priceUsd: number }> }) => {
           if (cancelled) return;
           const p = res?.data?.[0]?.priceUsd;
-          if (p && p > 0) setPriceUsd(p);
+          if (p && p > 0) setPrice({ key: assetKey, usd: p });
         },
       );
     }
     return () => {
       cancelled = true;
     };
-  }, [tokenAddress, chainId, native, nativeInfo]);
+  }, [tokenAddress, chainId, native, nativeInfo, assetKey]);
 
   // Friendly amount color: `fg.primary` (white in Midnight, black in Bauhaus).
   // Bumped to `lg` size — token amounts are the headline value the user needs
@@ -226,6 +235,7 @@ export function TokenAmountInline({
             symbol={symbol}
             thresholdRaw={thresholdRaw}
             thresholdMessage={thresholdMessage}
+            allowUnlimited={allowUnlimited}
           />
           <TokenLogo
             nativeChainId={chainId}
@@ -256,9 +266,16 @@ export function TokenAmountInline({
 
   if (!info) {
     return (
-      <Text fontSize="sm" fontFamily="mono" color="fg.muted" maxW="full" overflowWrap="anywhere">
-        {amountRaw}
-      </Text>
+      <VStack align="end" spacing={1} maxW="full">
+        <Text fontSize="sm" fontFamily="mono" color="fg.muted" maxW="full" overflowWrap="anywhere">
+          {amountRaw} (base units)
+        </Text>
+        {tokenAddress && (
+          <TokenContractPopover address={tokenAddress} explorer={explorer} symbol="Unknown">
+            <Text fontSize="xs" fontFamily="mono">{tokenAddress.slice(0, 6)}…{tokenAddress.slice(-4)}</Text>
+          </TokenContractPopover>
+        )}
+      </VStack>
     );
   }
 
@@ -280,6 +297,7 @@ export function TokenAmountInline({
           symbol={info.symbol}
           thresholdRaw={thresholdRaw}
           thresholdMessage={thresholdMessage}
+          allowUnlimited={allowUnlimited}
         />
         {tokenAddress && /^0x[a-fA-F0-9]{40}$/.test(tokenAddress) ? (
           <TokenContractPopover

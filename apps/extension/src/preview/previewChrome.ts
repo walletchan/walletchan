@@ -12,6 +12,7 @@ import extensionPackage from "../../package.json";
 import { previewAssets } from "./previewAssets";
 import { previewHistoryPage, previewSendRecipientReferences } from "./previewHistory";
 import { previewSafeAccountRecords, previewSafeProposals } from "./safeHomePreview";
+import { previewTokenMetadata } from "./tokenMetadataFixtures";
 import { PREVIEW_EPOCH_MS, previewCustomToken } from "./fixtures";
 import { getPreviewFeePaymentOptions, getPreviewFeePaymentQuote } from "./feePaymentFixtures";
 import { previewShieldPortfolioResponse } from "./shieldFixtures";
@@ -769,45 +770,13 @@ export function responseForPreviewMessage(
         },
       };
     }
+    case "GET_CLEAR_SIGNING_DESCRIPTOR":
+      return { descriptor: null, enabled: true };
     case "resolveTokenMetadata":
       if (route === "permission" && scenario === "metadata-unverified") {
         return { success: false, data: null };
       }
-      if (
-        String(message?.tokenAddress || "").toLowerCase() ===
-        previewCustomToken.contractAddress.toLowerCase()
-      ) {
-        return {
-          success: true,
-          data: {
-            name: "WalletChan",
-            symbol: "WCHAN",
-            decimals: 18,
-            logoUrl: previewAssets.brand.walletChan,
-          },
-        };
-      }
-      return {
-        success: true,
-        data: {
-          name:
-            String(message?.tokenAddress || "").toLowerCase() === "native"
-              ? "Ether"
-              : "USD Coin",
-          symbol:
-            String(message?.tokenAddress || "").toLowerCase() === "native"
-              ? "ETH"
-              : "USDC",
-          decimals:
-            String(message?.tokenAddress || "").toLowerCase() === "native"
-              ? 18
-              : 6,
-          logoUrl:
-            String(message?.tokenAddress || "").toLowerCase() === "native"
-              ? previewAssets.chains.ethereum
-              : previewAssets.tokens.usdc,
-        },
-      };
+      return previewTokenMetadata(message?.tokenAddress, previewCustomToken.contractAddress);
     case "resolveCoinGeckoNativeAssets":
       return {
         success: true,

@@ -182,10 +182,10 @@ function mountInputDataTabs(
     .panel[hidden] { display: none; }
     iframe { display: block; width: 100%; height: ${FALLBACK_PANEL_HEIGHT}px; border: 0; background: transparent; }
     @media (max-width: 900px) { .panel { width: 100%; min-width: 0; } }
-    :host-context(html[data-bs-theme="dark"]) .tabs { border-bottom-color: rgba(255, 255, 255, .14); }
-    :host-context(html[data-bs-theme="dark"]) .tab { color: #98a2b3; }
-    :host-context(html[data-bs-theme="dark"]) .tab:hover { background: rgba(255, 255, 255, .06); color: #e4e7ec; }
-    :host-context(html[data-bs-theme="dark"]) .tab[aria-selected="true"] { color: #f2f4f7; }
+    :host-context(html:is([data-bs-theme="dark"], [data-bs-theme="dim"])) .tabs { border-bottom-color: rgba(255, 255, 255, .14); }
+    :host-context(html:is([data-bs-theme="dark"], [data-bs-theme="dim"])) .tab { color: #98a2b3; }
+    :host-context(html:is([data-bs-theme="dark"], [data-bs-theme="dim"])) .tab:hover { background: rgba(255, 255, 255, .06); color: #e4e7ec; }
+    :host-context(html:is([data-bs-theme="dark"], [data-bs-theme="dim"])) .tab[aria-selected="true"] { color: #f2f4f7; }
   `;
 
   const tabList = document.createElement("div");

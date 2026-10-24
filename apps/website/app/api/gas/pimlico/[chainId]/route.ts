@@ -135,12 +135,12 @@ export async function POST(
   if (!parsed.ok) return jsonError(parsed.error, 400);
 
   const isSend = parsed.envelope.method === "eth_sendUserOperation";
-  if (isSend && !(await verifyPimlicoSendEnvelope(parsed.envelope, chainId))) {
-    return jsonError("UserOperation signature is invalid", 401);
-  }
   const rateKey = `${clientKey(request)}:${isSend ? "send" : "read"}`;
   if (!consumeRateLimit(rateKey, isSend ? SEND_RATE_LIMIT : READ_RATE_LIMIT)) {
     return jsonError("Rate limit exceeded", 429);
+  }
+  if (isSend && !(await verifyPimlicoSendEnvelope(parsed.envelope, chainId))) {
+    return jsonError("UserOperation signature is invalid", 401);
   }
 
   const controller = new AbortController();

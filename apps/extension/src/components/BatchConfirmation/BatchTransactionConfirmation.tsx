@@ -245,6 +245,7 @@ function BatchTransactionConfirmation(props: BatchTransactionConfirmationProps) 
         onBack={onBack}
         bg={pageBgColor ?? "surface.base"}
         trailing={<CopyButton label="Copy batch JSON" value={JSON.stringify(calls.map((call) => ({
+          from: fromAddress,
           to: call.to || null,
           value: call.value && call.value !== "0x0" ? call.value : "0",
           data: call.data || "0x",

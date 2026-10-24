@@ -42,6 +42,7 @@ export function RenderedValueView({
           chainId={value.chainId ?? chainId}
           thresholdRaw={value.thresholdRaw}
           thresholdMessage={value.thresholdMessage}
+          allowUnlimited={value.allowUnlimited}
           metadataHint={value.tokenMetadata}
         />
       );
