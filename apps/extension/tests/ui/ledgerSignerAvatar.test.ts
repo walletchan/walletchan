@@ -14,7 +14,7 @@ test("shared signer identity uses the Ledger mark when ENS has no avatar", async
   );
   assert.match(
     source,
-    /ens\?\.avatar[\s\S]*?fromAccount\?\.type === "bankr"[\s\S]*?fromAccount\?\.type === "ledger"[\s\S]*?<LedgerAvatar size=\{20\} \/>[\s\S]*?blo\(/,
+    /ens\?\.avatar[\s\S]*?fromAccount\?\.type === "bankr"[\s\S]*?fromAccount\?\.type === "ledger"[\s\S]*?<LedgerAvatar size=\{20\}[^/]*\/>[\s\S]*?blo\(/,
   );
 });
 

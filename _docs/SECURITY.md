@@ -1806,6 +1806,15 @@ These must always hold true. Violations indicate a security bug.
    write is deferred until the master credential is initialized under the
    active onboarding marker, so the existing rollback removes any partial
    credential and Ledger metadata together.
+   Keycard Shell accounts are Ledger rows with `vendor: "keycardShell"` and
+   cross the same boundary: the vendor field only selects the offscreen signer
+   (`shellSigner.ts` vs `ledgerSigner.ts`) after the exact-sender check, account
+   import stays master-only through the existing Ledger handler, and the Shell
+   is re-bound by its canonical address before every scan/sign. Because the
+   Shell's `v` is unreliable, the service worker accepts only the parity that
+   recovers to the pinned address and fails closed otherwise. Shell sessions
+   are exclusive until every HID handle has actually closed, and pairing
+   binds only when every connected Shell entry reports the same wallet.
    Fee-payment capability discovery rejects Ledger before inspecting any
    onchain delegate, so even a pre-delegated address cannot enter the ERC-4337
    token-funded gas path that has no hardware signing implementation.
@@ -2489,12 +2498,32 @@ When reviewing or making changes to extension code, verify the following:
 - [ ] Does the offscreen listener authorize the exact extension service-worker sender before dispatch?
 - [ ] Is the connected device re-bound through the canonical public identity before every scan/sign?
 - [ ] Is the recovered transaction/message/EIP-712 signer checked against the pinned account?
+- [ ] For `vendor: "keycardShell"`, does routing still happen only after the exact-sender check, and is the Shell parity hint accepted only when it recovers to the pinned account?
 - [ ] Do account mutations remain master-only while agent sessions can sign but cannot reveal/add/remove?
 - [ ] Does first-account onboarding defer Ledger persistence until after master credential initialization and retain the rollback marker through the write?
 - [ ] Do Firefox builds omit the `offscreen` permission and offscreen JavaScript target?
 - [ ] Were normal Bankr, private-key, seed-phrase, Ledger, Trezor, and
       view-only paths regression-tested at the appropriate automated/device
       boundary?
+
+Keycard Shell shares the Ledger account type, bridge and offscreen document.
+The `vendor` field only selects the offscreen signer and the device record key.
+It never widens what a message may do: `ledgerConnect` and `ledgerScan` stay
+wallet-UI-only messages; `readVendor` accepts only `"keycardShell"`;
+`addLedgerAccounts` still needs a live master session and stores the same
+public metadata plus `vendor`. Shell
+signatures pass the same pinned-account recovery as Ledger, with the device `v`
+treated only as a parity hint.
+
+### If you modified Keycard Shell support:
+
+- [ ] Does WebHID permission for the Shell IDs still come only from the trusted-UI Connect gesture?
+- [ ] Does any value of `vendor` other than `"keycardShell"` fall back to Ledger, never to a new path?
+- [ ] Is the Shell re-bound through its canonical address before every scan and sign, and does connect refuse several Shells holding different wallets?
+- [ ] Does every Shell signature recover to the pinned account under the accepted parity, and is any other signer rejected?
+- [ ] Is a message rejected unless it is non-empty, well-formed hex, so the device cannot sign truncated bytes?
+- [ ] Does an ended session keep the signer busy until its HID handles have closed?
+- [ ] Do Shell device records stay keyed apart from Ledger records for the same seed?
 
 Trezor is explicitly classified as a direct signing EOA by
 `accounts/accountTypePolicy.ts`, so external V3/V4 verifier protection includes

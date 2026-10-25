@@ -14,6 +14,8 @@ import {
 } from "@/components/shared/AccountTypeIcons";
 import { LedgerLogo } from "@/components/Ledger/LedgerLogo";
 import { TrezorLogo } from "@/components/Trezor/TrezorLogo";
+import { HardwareWalletLogo } from "@/components/HardwareWallet/HardwareWalletLogo";
+import { KEYCARD_SHELL_HARDWARE_WALLET_BRAND } from "@/components/KeycardShell/keycardShellBrand";
 import { TREZOR_BUILD_ENABLED } from "@/app/buildFeatures";
 
 export type AccountType =
@@ -22,6 +24,7 @@ export type AccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "keycard-shell"
   | "impersonator"
   | "safe";
 
@@ -67,6 +70,13 @@ const accountTypes = [
     iconColor: "fg.primary",
   },
   {
+    type: "keycard-shell" as const,
+    title: "Keycard Shell",
+    icon: null,
+    iconBg: "surface.sunken",
+    iconColor: "fg.primary",
+  },
+  {
     type: "safe" as const,
     title: "Safe",
     icon: SafeIcon,
@@ -106,7 +116,7 @@ export function AddAccountTypeGrid({
         }) => {
         const isDisabled =
           (type === "bankr" && hasBankrAccount) ||
-          (type === "ledger" && ledgerUnavailable) ||
+          ((type === "ledger" || type === "keycard-shell") && ledgerUnavailable) ||
           (type === "trezor" && trezorUnavailable);
 
         return (
@@ -138,6 +148,8 @@ export function AddAccountTypeGrid({
               >
                 {type === "ledger" ? (
                   <LedgerLogo variant="lettermark" w="20px" />
+                ) : type === "keycard-shell" ? (
+                  <HardwareWalletLogo brand={KEYCARD_SHELL_HARDWARE_WALLET_BRAND} variant="lettermark" w="20px" aria-hidden />
                 ) : type === "trezor" ? (
                   <TrezorLogo variant="lettermark" h="22px" />
                 ) : TypeIcon ? (

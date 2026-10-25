@@ -10,6 +10,7 @@ import {
 import { setActiveAccountId } from "../accounts/selectionStorage";
 import { withStorageLock } from "../storageLock";
 import { isValidBip32Path } from "../../lib/bip32Path";
+import { ledgerDeviceKey } from "./deviceKey";
 
 export const LEDGER_DEVICES_STORAGE_KEY = "ledgerDevices";
 
@@ -37,6 +38,7 @@ export async function addLedgerAccounts(input: {
     assertAccountStorageAuthorized(expectedAuthEpoch);
     const deviceId = normalizeDeviceId(input.deviceId);
     const label = input.deviceLabel.trim().slice(0, 64) || "Ledger";
+    const model = input.deviceModel.trim().slice(0, 64) || "Ledger";
     if (input.addresses.length < 1 || input.addresses.length > 20) {
       throw new Error("Select between 1 and 20 Ledger accounts.");
     }
@@ -61,15 +63,17 @@ export async function addLedgerAccounts(input: {
       return {
         id: crypto.randomUUID(), type: "ledger", address: checksummedAddress, deviceId,
         hdPath: entry.hdPath, hdIndex: entry.hdIndex,
+        ...(model === "keycardShell" ? { vendor: "keycardShell" as const } : {}),
         displayName: entry.displayName?.trim().slice(0, 64) || undefined,
         createdAt: Date.now(),
       };
     });
     const devices = await getLedgerDevices();
-    devices[deviceId] = {
+    const key = ledgerDeviceKey(created[0]);
+    devices[key] = {
       label,
-      model: input.deviceModel.trim().slice(0, 64) || "Ledger",
-      addedAt: devices[deviceId]?.addedAt ?? Date.now(),
+      model,
+      addedAt: devices[key]?.addedAt ?? Date.now(),
     };
     assertAccountStorageAuthorized(expectedAuthEpoch);
     await chrome.storage.local.set({
@@ -88,15 +92,16 @@ export async function addLedgerAccounts(input: {
 }
 
 export async function removeLedgerDeviceIfUnused(
-  deviceId: string,
+  removed: Pick<LedgerAccount, "deviceId" | "vendor">,
   expectedAuthEpoch?: string,
 ): Promise<void> {
+  const key = ledgerDeviceKey(removed);
   await withStorageLock(ACCOUNTS_LOCK_KEY, async () => {
     const accounts = await getAccounts();
-    if (accounts.some((account) => account.type === "ledger" && account.deviceId === deviceId)) return;
+    if (accounts.some((account) => account.type === "ledger" && ledgerDeviceKey(account) === key)) return;
     const devices = await getLedgerDevices();
-    if (!(deviceId in devices)) return;
-    delete devices[deviceId];
+    if (!(key in devices)) return;
+    delete devices[key];
     assertAccountStorageAuthorized(expectedAuthEpoch);
     await chrome.storage.local.set({ [LEDGER_DEVICES_STORAGE_KEY]: devices });
   });

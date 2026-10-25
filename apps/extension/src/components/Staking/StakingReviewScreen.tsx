@@ -93,7 +93,7 @@ export function StakingReviewScreen(props: {
 
           {props.accountType === "ledger" && props.plan.transactions.length > 1 && (
             <Text fontSize="xs" color="fg.secondary">
-              Your Ledger will ask you to review each transaction in order.
+              Your hardware wallet will ask you to review each transaction in order.
             </Text>
           )}
 

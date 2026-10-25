@@ -10,6 +10,8 @@ import {
   ListSurface,
   ScreenSection,
 } from "@/components/ui";
+import { hardwareName } from "@/components/accountIdentityLabels";
+import { ledgerDeviceKey } from "@/chrome/ledger/deviceKey";
 
 interface StoredHardwareDevice {
   label: string;
@@ -24,6 +26,7 @@ export default function HardwareAccountDetails({
   account,
 }: HardwareAccountDetailsProps) {
   const [device, setDevice] = useState<StoredHardwareDevice | null>(null);
+  const deviceKey = account.type === "ledger" ? ledgerDeviceKey(account) : account.deviceId;
 
   useEffect(() => {
     let active = true;
@@ -32,7 +35,7 @@ export default function HardwareAccountDetails({
     void chrome.runtime
       .sendMessage({ type: messageType })
       .then((devices: Record<string, StoredHardwareDevice> | undefined) => {
-        if (active) setDevice(devices?.[account.deviceId] ?? null);
+        if (active) setDevice(devices?.[deviceKey] ?? null);
       })
       .catch(() => {
         if (active) setDevice(null);
@@ -40,9 +43,9 @@ export default function HardwareAccountDetails({
     return () => {
       active = false;
     };
-  }, [account.deviceId, account.type]);
+  }, [deviceKey, account.type]);
 
-  const providerName = account.type === "ledger" ? "Ledger" : "Trezor";
+  const providerName = account.type === "ledger" ? hardwareName(account) : "Trezor";
 
   return (
     <ScreenSection
@@ -53,7 +56,7 @@ export default function HardwareAccountDetails({
           <ListItemContent>
             <ListItemTitle>{device?.label || providerName}</ListItemTitle>
             <ListItemDescription>
-              {device?.model || `${providerName} model unavailable`}
+              {(device?.model === "keycardShell" ? "Keycard Shell" : device?.model) || `${providerName} model unavailable`}
             </ListItemDescription>
           </ListItemContent>
         </ListItem>

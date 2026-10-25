@@ -3,6 +3,7 @@ import {
   cancelLedgerOperation,
   connectLedger,
   scanLedgerAddresses,
+  type LedgerVendor,
 } from "./offscreenBridge";
 import { handleUnlockWallet } from "../authHandlers";
 import { getAuthCeremonyEpoch } from "../authTransition";
@@ -19,6 +20,7 @@ export async function handleLedgerConnect(message: Record<string, unknown>) {
   return connectLedger(
     requireString(message.opId, "operation ID"),
     typeof message.productName === "string" ? message.productName.slice(0, 128) : undefined,
+    readVendor(message),
   );
 }
 
@@ -35,6 +37,7 @@ export async function handleLedgerScan(message: Record<string, unknown>) {
     count,
     scheme: scheme as "ledgerLive" | "bip44" | "legacyMew" | "custom",
     customTemplate: typeof message.customTemplate === "string" ? message.customTemplate : undefined,
+    vendor: readVendor(message),
   });
 }
 
@@ -75,6 +78,10 @@ export async function handleGetLedgerDevices() {
 export async function handleLedgerCancel(message: Record<string, unknown>) {
   await cancelLedgerOperation(requireString(message.opId, "operation ID"));
   return { success: true };
+}
+
+function readVendor(message: Record<string, unknown>): LedgerVendor {
+  return message.vendor === "keycardShell" ? "keycardShell" : undefined;
 }
 
 function requireWebHid(): void {

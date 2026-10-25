@@ -83,13 +83,19 @@ export function normalizeLedgerError(error: unknown): LedgerError {
   );
 }
 
+/** Re-words a shared Ledger message for the Keycard Shell. */
+export function keycardShellMessage(message: string): string {
+  return message.replace(/Ledger Wallet or /g, "").replace(/Ledger/g, "Keycard Shell")
+    .replace(" and open the Ethereum app", "");
+}
+
 function technicalMessage(error: unknown): string {
   if (error instanceof Error) return error.message || error.name;
   if (typeof error === "string") return error;
   try { return JSON.stringify(error); } catch { return String(error); }
 }
 
-function statusCode(error: unknown): number | null {
+export function statusCode(error: unknown): number | null {
   if (!error || typeof error !== "object") return null;
   const value = error as Record<string, unknown>;
   for (const key of ["statusCode", "status", "code"]) {

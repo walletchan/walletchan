@@ -19,6 +19,7 @@ import {
 import { AccountAvatar } from "@/components/AccountIdentity";
 import { useAccountIdentityLabels } from "@/hooks/useAccountIdentityLabels";
 import type { ShieldSourceAccount } from "./model/shieldQuote";
+import { hardwareName } from "@/components/accountIdentityLabels";
 
 interface ShieldSourceAccountPickerProps {
   accounts: Account[];
@@ -34,7 +35,7 @@ function accountTypeCopy(account: Account): string {
       ? "Bankr"
       : "Bankr · Shielding unavailable";
   }
-  if (account.type === "ledger") return "Ledger";
+  if (account.type === "ledger") return hardwareName(account);
   if (account.type === "trezor") return "Trezor";
   if (account.type === "safe") return "Safe accounts cannot shield";
   return "View-only accounts cannot shield";

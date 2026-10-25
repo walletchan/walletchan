@@ -7,6 +7,9 @@ device error normalization, and Ledger-specific transaction/message signing.
   master authorization for account import.
 - `storage.ts` atomically commits Ledger accounts and public device metadata
   under the shared account repository lock.
+- `deviceKey.ts` maps an account to its `ledgerDevices` key: the canonical
+  `deviceId` for Ledger, `keycardShell:<deviceId>` for Keycard Shell, so the
+  two vendors on one seed never share a device record.
 - `offscreenBridge.ts` lazily creates and tears down the packaged offscreen
   document; it never accepts page-originated messages.
 - `signing.ts` prepares unsigned payloads, verifies the returned signer address,

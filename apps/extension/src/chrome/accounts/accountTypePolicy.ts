@@ -50,5 +50,6 @@ export type RawForceInclusionAccountType = {
 export type RawForceInclusionAccount = Extract<Account, { type: RawForceInclusionAccountType }>;
 
 export function isRawForceInclusionAccount(account: Account | null): account is RawForceInclusionAccount {
-  return isDirectSigningAccount(account) && ACCOUNT_TYPE_CAPABILITIES[account.type].forceInclusion === "raw";
+  return isDirectSigningAccount(account) && ACCOUNT_TYPE_CAPABILITIES[account.type].forceInclusion === "raw"
+    && !(account.type === "ledger" && account.vendor === "keycardShell");
 }

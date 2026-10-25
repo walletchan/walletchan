@@ -10,6 +10,7 @@ interface TransactionActionNoticeProps {
   accountType?: TransactionAccountType;
   canSendImpersonatedTransaction: boolean;
   hardwareWaiting: boolean;
+  hardwareVendor?: "keycardShell";
   simulationUnavailable: boolean;
 }
 
@@ -18,6 +19,7 @@ export function TransactionActionNotice({
   accountType,
   canSendImpersonatedTransaction,
   hardwareWaiting,
+  hardwareVendor,
   simulationUnavailable,
 }: TransactionActionNoticeProps) {
   const hasActionError = actions.state === "error" && !!actions.error;
@@ -36,7 +38,7 @@ export function TransactionActionNotice({
         <ViewOnlySigningNotice message={canSendImpersonatedTransaction
           ? "Developer RPC will send this transaction without a signature" : undefined} />
       ) : accountType === "ledger" || accountType === "trezor" ? (
-        <HardwareAccountSigningStatus accountType={accountType} active={hardwareWaiting} />
+        <HardwareAccountSigningStatus accountType={accountType} active={hardwareWaiting} vendor={hardwareVendor} />
       ) : null}
     </VStack>
   );

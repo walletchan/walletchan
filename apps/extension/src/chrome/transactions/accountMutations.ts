@@ -155,7 +155,7 @@ export async function handleRemoveAccount(
       if (account.type === "ledger") {
         clearNoncesForAddress(account.address);
         await removeLedgerDeviceIfUnused(
-          account.deviceId,
+          account,
           expectedAuthEpoch,
         );
       }

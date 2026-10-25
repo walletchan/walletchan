@@ -56,7 +56,7 @@ interface AddAccountProps {
 const accountTypeTitles: Record<AccountType, string> = {
   privateKey: "Private key",
   seedPhrase: "Seed phrase",
-  ledger: "Ledger", trezor: "Trezor",
+  ledger: "Ledger", trezor: "Trezor", "keycard-shell": "Keycard Shell",
   bankr: "Bankr API",
   impersonator: "View-only account",
   safe: "Safe",
@@ -169,7 +169,7 @@ function AddAccount({
 
   const handleAccountTypeSelect = useCallback(
     async (type: AccountType) => {
-      if (type === "ledger" || type === "trezor") {
+      if (type === "ledger" || type === "trezor" || type === "keycard-shell") {
         await openHardwareSetupTab(type);
         return;
       }

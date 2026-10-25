@@ -18,7 +18,7 @@ export function getWalletTypeLabel(
   if (account.type === "seedPhrase") {
     return getSeedAccountLabel(account, seedGroupMap) || "Seed phrase";
   }
-  if (account.type === "ledger") return `Ledger · Account ${account.hdIndex + 1}`;
+  if (account.type === "ledger") return `${hardwareName(account)} · Account ${account.hdIndex + 1}`;
   if (account.type === "trezor") return `Trezor · Account ${account.hdIndex + 1}`;
   if (account.type === "safe") return "Safe multisig";
   return "View only";
@@ -33,7 +33,7 @@ export function getAccountSettingsTypeLabel(account: Account): string {
     case "seedPhrase":
       return `Seed · #${account.derivationIndex}`;
     case "ledger":
-      return "Ledger";
+      return hardwareName(account);
     case "trezor":
       return "Trezor";
     case "impersonator":
@@ -41,4 +41,14 @@ export function getAccountSettingsTypeLabel(account: Account): string {
     case "safe":
       return "Safe";
   }
+}
+
+export function hardwareName(account: Extract<Account, { type: "ledger" }>): string {
+  return account.vendor === "keycardShell" ? "Keycard Shell" : "Ledger";
+}
+
+/** Hardware vendor of a stored account, for UI that only receives an account ID. */
+export function getHardwareVendor(accounts: readonly Account[], accountId: string | undefined) {
+  const account = accounts.find((candidate) => candidate.id === accountId);
+  return account?.type === "ledger" ? account.vendor : undefined;
 }

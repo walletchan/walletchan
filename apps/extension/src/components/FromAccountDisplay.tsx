@@ -66,7 +66,7 @@ export function FromAccountDisplay({ address, chainId: _chainId = 1 }: FromAccou
           borderColor="border.default"
         />
       ) : fromAccount?.type === "ledger" ? (
-        <LedgerAvatar size={20} />
+        <LedgerAvatar size={20} vendor={fromAccount.vendor} />
       ) : fromAccount?.type === "trezor" ? (
         <TrezorAvatar size={20} />
       ) : (

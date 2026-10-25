@@ -4,6 +4,7 @@ import type {
   HardwareWalletDevice,
   HardwareWalletFlowProvider,
 } from "@/components/HardwareWallet/types";
+import { keycardShellMessage, normalizeLedgerError } from "@/chrome/ledger/errors";
 import { LEDGER_HARDWARE_WALLET_BRAND } from "./ledgerBrand";
 import {
   LEDGER_DERIVATION_OPTIONS,
@@ -30,41 +31,57 @@ async function getExistingAccounts() {
 }
 
 async function connect(opId: string): Promise<HardwareWalletDevice> {
+  return connectHidDevice(opId, { vendorId: 0x2c97 });
+}
+
+/** Grants WebHID access from this visible tab, then connects in the shared offscreen signer. */
+export async function connectHidDevice(
+  opId: string,
+  filter: { vendorId: number; productId?: number },
+  vendor?: "keycardShell",
+): Promise<HardwareWalletDevice> {
+  const name = vendor === "keycardShell" ? "Keycard Shell" : "Ledger";
   const hid = (
     navigator as Navigator & {
       hid?: {
         requestDevice(options: {
-          filters: Array<{ vendorId: number }>;
+          filters: Array<{ vendorId: number; productId?: number }>;
         }): Promise<Array<{ productName?: string }>>;
       };
     }
   ).hid;
-  if (!hid) throw new Error("Ledger support requires Chrome 124 or newer.");
-  const chosen = await hid.requestDevice({
-    filters: [{ vendorId: 0x2c97 }],
+  if (!hid) throw new Error(`${name} support requires Chrome 124 or newer.`);
+  // A dismissed chooser gives [] or NotFoundError; any other rejection is a real failure (policy, no user gesture).
+  const chosen = await hid.requestDevice({ filters: [filter] }).catch((error: unknown) => {
+    console.warn(`[${name}] WebHID device request failed:`, error);
+    if ((error as { name?: unknown })?.name === "NotFoundError") return [];
+    const { userMessage } = normalizeLedgerError(error);
+    throw new Error(vendor === "keycardShell" ? keycardShellMessage(userMessage) : userMessage);
   });
-  if (!chosen.length) throw new Error("No Ledger device selected.");
+  if (!chosen.length) throw new Error("No device selected.");
   const response = await chrome.runtime.sendMessage({
     type: "ledgerConnect",
     opId,
     productName: chosen[0].productName,
+    vendor,
   });
   if (!response?.success) {
-    throw new Error(response?.error || "Could not connect to Ledger.");
+    throw new Error(response?.error || `Could not connect to ${name}.`);
   }
   return response as HardwareWalletDevice & { success: true };
 }
 
-async function scan(input: {
+export async function scan(input: {
   opId: string;
   deviceId: string;
   startIndex: number;
   count: number;
   scheme: LedgerDerivationScheme;
-}): Promise<HardwareWalletAddressSelection[]> {
+}, vendor?: "keycardShell"): Promise<HardwareWalletAddressSelection[]> {
   const response = await chrome.runtime.sendMessage({
     type: "ledgerScan",
     ...input,
+    vendor,
   });
   if (!response?.success) {
     throw new Error(response?.error || "Could not read Ledger addresses.");
@@ -134,7 +151,7 @@ export const ledgerHardwareWalletProvider: HardwareWalletFlowProvider<LedgerDeri
     operations: {
       getExistingAccounts,
       connect,
-      scan,
+      scan: (input) => scan(input),
       commitAccounts,
       subscribeStatus,
       cancel,

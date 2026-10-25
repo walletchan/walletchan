@@ -140,7 +140,8 @@ async function handleConfirmHardwareTransaction(
   if (forceInclusion) {
     if (provider === "trezor") return fail("Force inclusion is not supported for Trezor accounts");
     const { isForceInclusionSupportedForAccount } = await import("@/constants/chainRegistry");
-    if (!isForceInclusionSupportedForAccount(pending.tx.chainId, pinned.account.type)) {
+    const vendor = pinned.account.type === "ledger" ? pinned.account.vendor : undefined;
+    if (!isForceInclusionSupportedForAccount(pending.tx.chainId, pinned.account.type, "single", vendor)) {
       return fail("Chain does not support force inclusion for this account");
     }
     if (pending.replacement || pending.privacyShieldMeta || pending.privacyRagequitMeta || pending.privacyUnshieldMeta) {

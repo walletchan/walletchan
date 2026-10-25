@@ -1139,6 +1139,27 @@ Activity/Holdings triggers by whichever counter is newer.
 - **Device binding:** the stable device identity is the lowercase address at
   `m/44'/60'/0'/0/0`. Every scan/sign session re-derives and checks it before
   using the connected device.
+- **Keycard Shell vendor:** a Keycard Shell is stored as a `type: "ledger"`
+  account with `vendor: "keycardShell"` (absent means Ledger) and reuses the
+  same trusted-UI connect/scan/import routes, offscreen bridge, device binding,
+  and recovered-signer checks. The add-account tile opens the same full-tab
+  setup with a Shell WebHID filter. Background `ledger/` messages carry the
+  account's `vendor`; `offscreen/ledgerMessageHandler.ts` routes
+  `vendor: "keycardShell"` to `src/offscreen/shellSigner.ts` (Keycard
+  `@choppu/shelljs`/`-web-hid`) and everything else to `ledgerSigner.ts`, and
+  cancel-by-`opId` reaches the signer that owns the operation. The Shell signer
+  runs one session at a time: cancel or the 10-minute timeout closes HID
+  handles directly; the caller is released after at most 5 seconds, but a
+  close still pending keeps new sessions out (`TRANSPORT_BUSY`) until it lands.
+  Pairing with several Shell entries binds only if all report one wallet.
+  The Shell returns `v` with a truncated chain ID, so `ledger/signing.ts`
+  treats its parity as a hint and accepts only the parity that recovers to the
+  pinned account (Ledger keeps the strict check). Shell status words map
+  through the Shell's own table (`0x6982` = rejected). Empty `personal_sign`
+  messages are refused before any device I/O because ShellJS 1.0.1 cannot send
+  an empty payload. Force inclusion is off for Shell accounts. Shell
+  `ledgerDevices` entries are keyed `keycardShell:<deviceId>`, apart from a
+  Ledger on the same seed.
 - **Persistence:** Ledger accounts extend public `accounts` metadata with
   `deviceId`, `hdPath`, and `hdIndex`. `ledgerDevices` stores only public label,
   model, and creation metadata; no hardware secret enters extension storage.
@@ -1202,6 +1223,42 @@ Wallet-UI messages `ledgerConnect`, `ledgerScan`, `ledgerCancel`,
 `background/ledgerRouter.ts`. A pinned Ledger transaction confirms through
 `confirmTransactionAsyncLedger`; Ledger signatures branch inside the existing
 trusted `confirmSignatureRequest` route.
+
+#### Keycard Shell on the Ledger path
+
+- **Account shape:** a Keycard Shell account is a `type: "ledger"` row with
+  `vendor: "keycardShell"`; a missing `vendor` means Ledger, so existing rows
+  need no migration. `deviceId`, `hdPath`, and `hdIndex` keep the Ledger
+  meaning. Its `ledgerDevices` entry is keyed `keycardShell:<deviceId>`
+  (`chrome/ledger/deviceKey.ts`), so a Ledger and a Shell on the same seed keep
+  separate label/model records.
+- **Setup:** the full-tab `?route=add-keycard-shell` screen reuses the shared
+  hardware add-account flow through `components/KeycardShell/keycardShellFlowAdapter.ts`.
+  The Connect button's gesture calls `navigator.hid.requestDevice()` with the
+  Shell USB IDs (`0x1209`/`0x21f7`); connect and scan then send the normal
+  `ledgerConnect`/`ledgerScan` messages with `vendor: "keycardShell"`, and the
+  import goes through `addLedgerAccounts` with `deviceModel: "keycardShell"`.
+- **Vendor routing:** the background passes the account's `vendor` on every
+  offscreen Ledger message. `offscreen/ledgerMessageHandler.ts` picks
+  `offscreen/shellSigner.ts` for `keycardShell` and `ledgerSigner.ts`
+  otherwise, and routes `offscreen:ledgerCancel` to the signer that owns the
+  active `opId`.
+- **Operation lifecycle:** `shellSigner.ts` runs one session at a time. It
+  opens only already-granted HID devices with the Shell product ID and re-binds
+  the canonical identity before every scan or sign. The offscreen page cannot
+  tell which Shell the chooser picked, so connect with several entries
+  proceeds only when every one answers with the same canonical address; an
+  entry that fails its probe fails the connect. Cancel and the ten-minute
+  timeout close the HID handle directly. The caller is released after at most
+  five seconds, but a close still running keeps the signer busy until it lands
+  or the Shell is unplugged, so a new session can never reopen a handle
+  mid-close.
+- **Signing boundaries:** messages must be non-empty, well-formed hex (the
+  ShellJS 1.0.1 chunker sends nothing for zero bytes). Transaction, message,
+  and typed-data `v` from the Shell is only a parity hint: the background
+  accepts only the parity that recovers to the pinned account and rejects any
+  other signer. Force inclusion is off for Shell accounts; every Ledger
+  exclusion above also applies.
 
 ### Trezor Architecture
 

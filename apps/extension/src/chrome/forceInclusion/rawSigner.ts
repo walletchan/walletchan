@@ -1,6 +1,6 @@
 import { keccak256, type Hex, type LocalAccount } from "viem";
 import { privateKeyToAccount, toAccount } from "viem/accounts";
-import type { RawForceInclusionAccount, RawForceInclusionAccountType } from "../accounts/accountTypePolicy";
+import { isRawForceInclusionAccount, type RawForceInclusionAccount, type RawForceInclusionAccountType } from "../accounts/accountTypePolicy";
 import { getAccountById } from "../accountStorage";
 import { getLocalPrivateKeyForAccount } from "../accounts/localKeyResolver";
 import { getAuthCeremonyEpoch, isCurrentAuthCeremonyEpoch } from "../authTransition";
@@ -88,6 +88,9 @@ export const RAW_FORCE_INCLUSION_SIGNERS = {
 export function createRawForceInclusionSigner<Type extends RawForceInclusionAccountType>(
   input: FactoryInput<Type>,
 ): Promise<RawForceInclusionSigner> {
+  if (!isRawForceInclusionAccount(input.account)) {
+    return Promise.reject(new Error("Force inclusion is not supported for this account"));
+  }
   // Preserve the mapped key/input relationship through the indexed dispatch.
   const factories: SignerFactories = RAW_FORCE_INCLUSION_SIGNERS;
   return (factories[input.account.type] as (value: FactoryInput<Type>) => Promise<RawForceInclusionSigner>)(input);
@@ -101,7 +104,7 @@ function bindAuthority(expected: RawForceInclusionAccount, signal?: AbortSignal)
       throw new Error("Wallet authorization changed during signing");
     }
     if (!current || current.type !== expected.type || current.address.toLowerCase() !== expected.address.toLowerCase() ||
-      (expected.type === "ledger" && (current.type !== "ledger" || current.deviceId !== expected.deviceId || current.hdPath !== expected.hdPath))) {
+      (expected.type === "ledger" && (current.type !== "ledger" || current.deviceId !== expected.deviceId || current.hdPath !== expected.hdPath || current.vendor !== expected.vendor))) {
       throw new Error("Signing account is no longer available");
     }
   };

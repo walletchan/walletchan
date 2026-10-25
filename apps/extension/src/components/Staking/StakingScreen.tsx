@@ -182,7 +182,7 @@ export default function StakingScreen(props: StakingScreenProps) {
                 {canBatchApproval
                   ? "Approval and staking will be submitted in batch."
                   : props.accountType === "ledger"
-                    ? "Approval and staking will be reviewed on your Ledger and broadcast in order."
+                    ? "Approval and staking will be reviewed on your hardware wallet and broadcast in order."
                     : props.accountType === "trezor"
                       ? "Built-in staking is unavailable for Trezor accounts."
                     : "Approval and staking will be broadcast sequentially."}

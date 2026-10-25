@@ -3,18 +3,22 @@ import {
   LedgerErrorCode,
   normalizeLedgerError,
 } from "../chrome/ledger/errors";
-import * as signer from "./ledgerSigner";
+import * as ledgerSigner from "./ledgerSigner";
+import * as shellSigner from "./shellSigner";
 import type { HdPathScheme, LedgerSignerStatus } from "./ledgerSigner";
 
 let activeOperationId: string | null = null;
+// Cancel carries only opId, so remember which signer owns the active operation.
+let activeSigner: { cancelActiveOperation(): void } = ledgerSigner;
 
 export async function handleLedgerOffscreenMessage(
   message: Record<string, unknown>,
 ) {
   const opId = typeof message.opId === "string" ? message.opId : "";
   const dispatch = makeDispatch(opId);
+  const signer = message.vendor === "keycardShell" ? shellSigner : ledgerSigner;
   if (message.type === "offscreen:ledgerCancel") {
-    if (opId && activeOperationId === opId) signer.cancelActiveOperation();
+    if (opId && activeOperationId === opId) activeSigner.cancelActiveOperation();
     return { ok: true, payload: true };
   }
   try {
@@ -31,13 +35,16 @@ export async function handleLedgerOffscreenMessage(
       );
     }
     activeOperationId = opId;
+    activeSigner = signer;
     let payload: unknown;
     switch (message.type) {
       case "offscreen:ledgerConnect":
-        payload = await signer.connectLedger(
-          message.productName as string | undefined,
-          dispatch,
-        );
+        payload = message.vendor === "keycardShell"
+          ? await shellSigner.connectShell(dispatch)
+          : await ledgerSigner.connectLedger(
+            message.productName as string | undefined,
+            dispatch,
+          );
         break;
       case "offscreen:ledgerScan":
         payload = await signer.scanAddresses(
@@ -69,7 +76,7 @@ export async function handleLedgerOffscreenMessage(
         payload = await signer.signTypedData(
           message.deviceId as string,
           message.hdPath as string,
-          message.typedData as Parameters<typeof signer.signTypedData>[2],
+          message.typedData as Parameters<typeof ledgerSigner.signTypedData>[2],
           dispatch,
         );
         break;

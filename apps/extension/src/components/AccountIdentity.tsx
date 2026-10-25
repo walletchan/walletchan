@@ -53,7 +53,7 @@ export function AccountAvatar({
     );
   }
   if (account.type === "ledger") {
-    return <LedgerAvatar size={size} />;
+    return <LedgerAvatar size={size} vendor={account.vendor} />;
   }
   if (account.type === "trezor") {
     return <TrezorAvatar size={size} />;
