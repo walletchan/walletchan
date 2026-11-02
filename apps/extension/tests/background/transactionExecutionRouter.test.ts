@@ -19,6 +19,7 @@ function dependencies(
     handleConfirmTransactionAsyncPK: async () => ({ success: true }),
     handleConfirmTransactionAsyncLedger: async () => ({ success: true }),
     handleConfirmTransactionAsyncTrezor: async () => ({ success: true }),
+    handleConfirmTransactionAsyncLattice: async () => ({ success: true }),
     handleConfirmImpersonatedTransaction: async () => ({ success: true }),
     handleInitiateTransfer: async () => ({ success: true, txId: "tx-new" }),
     runPendingRequestResolution: async (options: any) => options.resolve(),
@@ -460,4 +461,42 @@ test("internal transfer intake forwards the complete message without a signing c
   assert.equal(claimed, false);
   assert.deepEqual(result.response, { success: true, txId: "created" });
   assert.deepEqual(result.route, { handled: true, keepChannelOpen: true });
+});
+
+test("Lattice transactions route through the Lattice hardware confirmation", async () => {
+  const calls: unknown[][] = [];
+  const claims: string[] = [];
+  const deps = dependencies({
+    runPendingRequestResolution: async (options: any) => {
+      claims.push(`${options.family}:${options.requestId}:${options.action}`);
+      return options.resolve();
+    },
+    handleConfirmTransactionAsyncLattice: async (...args) => {
+      calls.push(["lattice", ...args]);
+      return { success: true };
+    },
+    handleConfirmTransactionAsyncLedger: async (...args) => {
+      calls.push(["ledger", ...args]);
+      return { success: true };
+    },
+  });
+  const result = await dispatch(
+    deps,
+    {
+      type: "confirmTransactionAsyncLattice",
+      txId: "lattice-1",
+      password: "agent",
+      functionName: "transfer",
+      gasOverrides: { gasLimit: "0x5208" },
+      forceInclusion: false,
+      nonce: 15,
+    },
+    { tab: { id: 20 } } as chrome.runtime.MessageSender,
+  );
+  assert.deepEqual(result.response, { success: true });
+  assert.deepEqual(claims, ["transaction:lattice-1:confirm"]);
+  assert.deepEqual(calls, [
+    ["lattice", "lattice-1", "agent", 20, "transfer", { gasLimit: "0x5208" }, false, 15],
+  ]);
+  assert.ok(BACKGROUND_TRANSACTION_EXECUTION_MESSAGE_TYPES.includes("confirmTransactionAsyncLattice"));
 });

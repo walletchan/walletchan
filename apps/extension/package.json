@@ -89,6 +89,7 @@
     "@ledgerhq/device-management-kit": "1.7.1",
     "@ledgerhq/device-signer-kit-ethereum": "1.16.0",
     "@ledgerhq/device-transport-kit-web-hid": "1.2.4",
+    "@noble/curves": "1.9.1",
     "@number-flow/react": "^0.6.1",
     "@openchainxyz/abi-guesser": "^1.0.2",
     "@reown/walletkit": "1.5.5",

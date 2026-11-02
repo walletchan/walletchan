@@ -182,7 +182,7 @@ export function SafeProposalConfirmation({
       ? ownerAccounts.find((account) => account.id === ownerAccountId) ?? null
       : selectedOwner;
   const isLedgerWaiting =
-    (selectedAccount?.type === "ledger" || selectedAccount?.type === "trezor") &&
+    (selectedAccount?.type === "ledger" || selectedAccount?.type === "trezor" || selectedAccount?.type === "lattice") &&
     (operation === "approve" || operation === "execute" || operation === "signAndExecute");
   const actionAccounts = primaryActionKind === "execute"
     ? executors

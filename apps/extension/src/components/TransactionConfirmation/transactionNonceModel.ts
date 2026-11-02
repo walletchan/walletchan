@@ -7,6 +7,7 @@ export function supportsEditableTransactionNonce(
     accountType === "privateKey" ||
     accountType === "seedPhrase" ||
     accountType === "ledger" ||
-    accountType === "trezor"
+    accountType === "trezor" ||
+    accountType === "lattice"
   );
 }

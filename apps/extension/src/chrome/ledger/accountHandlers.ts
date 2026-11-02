@@ -81,12 +81,12 @@ function requireWebHid(): void {
   if (!chrome.offscreen) throw new Error("Ledger support is only available in Chrome.");
 }
 
-function requireString(value: unknown, name: string): string {
+export function requireString(value: unknown, name: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error(`Missing ${name}.`);
   return value.trim().slice(0, 256);
 }
 
-function requireInteger(value: unknown, name: string, min: number, max: number): number {
+export function requireInteger(value: unknown, name: string, min: number, max: number): number {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < min || number > max) {
     throw new Error(`Invalid ${name}.`);

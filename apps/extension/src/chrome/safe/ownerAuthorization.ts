@@ -8,6 +8,8 @@ import { signLedgerTypedDataForAccount } from "../ledger/signing";
 import { ensureTrezorSigningSession } from "../trezor/session";
 import { createTrezorOperationId } from "../trezor/operationId";
 import { signTrezorTypedDataForAccount } from "../trezor/signing";
+import { ensureLatticeSigningSession } from "../lattice/session";
+import { signLatticeTypedDataForAccount } from "../lattice/signing";
 import { getPasswordType } from "../sessionCache";
 import { getUnlockedBankrApiKey } from "../transactions/bankrSession";
 import { getSafeAccountRecord } from "./accountRepository";
@@ -116,6 +118,14 @@ async function signForOwner(input: {
       chainId: input.proposal.chainId,
     });
   }
+  if (input.account.type === "lattice") {
+    return signLatticeTypedDataForAccount({
+      opId: `safe-approval:${input.proposal.id}`,
+      account: input.account,
+      typedData,
+      chainId: input.proposal.chainId,
+    });
+  }
   if (input.account.type === "trezor") {
     return signTrezorTypedDataForAccount({
       opId: createTrezorOperationId(),
@@ -139,6 +149,10 @@ async function ensureSafeSigningSession(
   }
   if (signingPath === "trezor") {
     await ensureTrezorSigningSession("");
+    return;
+  }
+  if (signingPath === "lattice") {
+    await ensureLatticeSigningSession("");
     return;
   }
   const material = signingPath === "bankr"
@@ -179,7 +193,8 @@ export async function approveSafeProposalWithOwner(input: {
       refreshedAuthority.ownerAddress !== authority.ownerAddress ||
       refreshedAuthority.account.type !== authority.account.type ||
       ((authority.account.type === "ledger" ||
-        authority.account.type === "trezor") &&
+        authority.account.type === "trezor" ||
+        authority.account.type === "lattice") &&
         (refreshedAuthority.account.type !== authority.account.type ||
           refreshedAuthority.account.deviceId !== authority.account.deviceId ||
           refreshedAuthority.account.hdPath !== authority.account.hdPath))

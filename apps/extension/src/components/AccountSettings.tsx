@@ -861,7 +861,7 @@ function AccountSettings({
                 </HStack>
               </FormControl>
             </ScreenSection>
-            {(account.type === "ledger" || account.type === "trezor") && <HardwareAccountDetails account={account} />}
+            {(account.type === "ledger" || account.type === "trezor" || account.type === "lattice") && <HardwareAccountDetails account={account} />}
             {account.type === "seedPhrase" && (
               <ScreenSection
                 title="Seed group"

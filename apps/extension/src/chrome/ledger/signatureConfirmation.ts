@@ -12,8 +12,10 @@ import { signLedgerSignatureRequest } from "./signing";
 import { ensureTrezorSigningSession } from "../trezor/session";
 import { createTrezorOperationId } from "../trezor/operationId";
 import { signTrezorSignatureRequest } from "../trezor/signing";
+import { ensureLatticeSigningSession } from "../lattice/session";
+import { signLatticeSignatureRequest } from "../lattice/signing";
 
-type HardwareProvider = "ledger" | "trezor";
+type HardwareProvider = "ledger" | "trezor" | "lattice";
 
 /** Confirms a pinned Ledger message or EIP-712 signature request. */
 export async function handleConfirmLedgerSignatureRequest(
@@ -47,6 +49,10 @@ export async function handleConfirmTrezorSignatureRequest(
   );
 }
 
+/** Confirms a pinned Lattice message or EIP-712 signature request. */
+export const handleConfirmLatticeSignatureRequest: typeof handleConfirmLedgerSignatureRequest = (...args) =>
+  handleConfirmHardwareSignatureRequest("lattice", ...args);
+
 async function handleConfirmHardwareSignatureRequest(
   provider: HardwareProvider,
   sigId: string,
@@ -64,6 +70,8 @@ async function handleConfirmHardwareSignatureRequest(
   try {
     if (account.type === "ledger") {
       await ensureLedgerSigningSession(password);
+    } else if (account.type === "lattice") {
+      await ensureLatticeSigningSession(password);
     } else {
       await ensureTrezorSigningSession(password);
     }
@@ -81,7 +89,15 @@ async function handleConfirmHardwareSignatureRequest(
       effectGuard.beginEffect();
       let signature: `0x${string}`;
       try {
-        if (account.type === "ledger") {
+        if (account.type === "lattice") {
+          signature = await signLatticeSignatureRequest({
+            opId: sigId,
+            account,
+            method: pending.signature.method,
+            params: pending.signature.params,
+            chainId: pending.signature.chainId,
+          });
+        } else if (account.type === "ledger") {
           signature = await signLedgerSignatureRequest({
             opId: sigId,
             account,
@@ -128,7 +144,7 @@ async function handleConfirmHardwareSignatureRequest(
       error:
         error instanceof Error
           ? error.message
-          : `${provider === "ledger" ? "Ledger" : "Trezor"} signing failed`,
+          : `${provider === "ledger" ? "Ledger" : provider === "lattice" ? "Lattice" : "Trezor"} signing failed`,
     };
   }
 }

@@ -9,6 +9,7 @@ export type SwapAccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator"
   | "safe";
 

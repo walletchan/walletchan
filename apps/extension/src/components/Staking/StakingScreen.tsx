@@ -46,7 +46,7 @@ export default function StakingScreen(props: StakingScreenProps) {
     onTransactionInitiated: props.onTransactionInitiated,
   });
   const isImpersonator = props.accountType === "impersonator";
-  const isTrezor = props.accountType === "trezor";
+  const isTrezor = props.accountType === "trezor" || props.accountType === "lattice";
 
   if (controller.plan) {
     return (
@@ -185,6 +185,8 @@ export default function StakingScreen(props: StakingScreenProps) {
                     ? "Approval and staking will be reviewed on your Ledger and broadcast in order."
                     : props.accountType === "trezor"
                       ? "Built-in staking is unavailable for Trezor accounts."
+                    : props.accountType === "lattice"
+                      ? "Built-in staking is unavailable for Lattice accounts."
                     : "Approval and staking will be broadcast sequentially."}
               </Text>
             </HStack>

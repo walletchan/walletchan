@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { HStack, Text, VStack } from "@chakra-ui/react";
 
-import type { LedgerAccount, TrezorAccount } from "@/chrome/types";
+import type { LatticeAccount, LedgerAccount, TrezorAccount } from "@/chrome/types";
 import {
   ListItem,
   ListItemContent,
@@ -14,10 +14,22 @@ import {
 interface StoredHardwareDevice {
   label: string;
   model: string;
+  /** Lattice only. */
+  relayDeviceId?: string;
+  endpoint?: string | null;
+  walletKind?: "internal" | "safecard";
 }
 
+const DEVICE_MESSAGES = {
+  ledger: "getLedgerDevices",
+  trezor: "getTrezorDevices",
+  lattice: "getLatticeDevices",
+} as const;
+
+const PROVIDER_NAMES = { ledger: "Ledger", trezor: "Trezor", lattice: "Lattice" } as const;
+
 interface HardwareAccountDetailsProps {
-  account: LedgerAccount | TrezorAccount;
+  account: LedgerAccount | TrezorAccount | LatticeAccount;
 }
 
 export default function HardwareAccountDetails({
@@ -27,8 +39,7 @@ export default function HardwareAccountDetails({
 
   useEffect(() => {
     let active = true;
-    const messageType =
-      account.type === "ledger" ? "getLedgerDevices" : "getTrezorDevices";
+    const messageType = DEVICE_MESSAGES[account.type];
     void chrome.runtime
       .sendMessage({ type: messageType })
       .then((devices: Record<string, StoredHardwareDevice> | undefined) => {
@@ -42,7 +53,7 @@ export default function HardwareAccountDetails({
     };
   }, [account.deviceId, account.type]);
 
-  const providerName = account.type === "ledger" ? "Ledger" : "Trezor";
+  const providerName = PROVIDER_NAMES[account.type];
 
   return (
     <ScreenSection
@@ -57,6 +68,27 @@ export default function HardwareAccountDetails({
             </ListItemDescription>
           </ListItemContent>
         </ListItem>
+        {account.type === "lattice" && device?.relayDeviceId && (
+          <ListItem>
+            <ListItemContent>
+              <ListItemTitle>Connection</ListItemTitle>
+              <VStack spacing={0} align="stretch">
+                <HStack spacing={1}>
+                  <ListItemDescription>Device ID</ListItemDescription>
+                  <Text color="fg.secondary" fontFamily="mono" fontSize="sm">
+                    {device.relayDeviceId}
+                  </Text>
+                </HStack>
+                <ListItemDescription>
+                  {device.endpoint ? `Relay: ${device.endpoint}` : "Relay: GridPlus"}
+                </ListItemDescription>
+                <ListItemDescription>
+                  {device.walletKind === "safecard" ? "Wallet: SafeCard" : "Wallet: internal"}
+                </ListItemDescription>
+              </VStack>
+            </ListItemContent>
+          </ListItem>
+        )}
         <ListItem>
           <ListItemContent>
             <ListItemTitle>Derivation path</ListItemTitle>

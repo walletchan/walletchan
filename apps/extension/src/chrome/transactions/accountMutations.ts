@@ -25,6 +25,7 @@ import type { Account } from "../types";
 import { addKeyToVault, removeKeyFromVault } from "../vaultCrypto";
 import { removeLedgerDeviceIfUnused } from "../ledger/storage";
 import { removeTrezorDeviceIfUnused } from "../trezor/storage";
+import { removeLatticeDeviceIfUnused } from "../lattice/storage";
 import { removeSafeAccountRecord } from "../safe/accountRepository";
 
 /** Adds one locally encrypted private-key account. */
@@ -155,6 +156,13 @@ export async function handleRemoveAccount(
       if (account.type === "ledger") {
         clearNoncesForAddress(account.address);
         await removeLedgerDeviceIfUnused(
+          account.deviceId,
+          expectedAuthEpoch,
+        );
+      }
+      if (account.type === "lattice") {
+        clearNoncesForAddress(account.address);
+        await removeLatticeDeviceIfUnused(
           account.deviceId,
           expectedAuthEpoch,
         );

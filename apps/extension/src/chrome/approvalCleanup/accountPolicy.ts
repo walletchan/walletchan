@@ -4,6 +4,7 @@ export type ApprovalCleanupEoaAccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator";
 
 export function supportsAtomicEoaApprovalCleanup(

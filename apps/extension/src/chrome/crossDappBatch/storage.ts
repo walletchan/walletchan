@@ -35,7 +35,7 @@ export interface CrossDappBatchEntry {
     method: string;
   };
   trustedInternal?: true;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "lattice" | "impersonator";
   bankrCredentialTag?: string;
 }
 

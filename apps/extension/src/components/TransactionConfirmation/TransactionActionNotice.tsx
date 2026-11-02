@@ -35,7 +35,7 @@ export function TransactionActionNotice({
       {accountType === "impersonator" ? (
         <ViewOnlySigningNotice message={canSendImpersonatedTransaction
           ? "Developer RPC will send this transaction without a signature" : undefined} />
-      ) : accountType === "ledger" || accountType === "trezor" ? (
+      ) : accountType === "ledger" || accountType === "trezor" || accountType === "lattice" ? (
         <HardwareAccountSigningStatus accountType={accountType} active={hardwareWaiting} />
       ) : null}
     </VStack>

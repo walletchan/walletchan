@@ -150,7 +150,7 @@ export interface CompletedTransaction {
   broadcastUncertain?: boolean;
   error?: string;
   jobId?: string;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "lattice" | "impersonator";
   functionName?: string;
   gasData?: GasData;
   swapMeta?: SwapMeta;

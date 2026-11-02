@@ -39,7 +39,7 @@ import {
   Erc7715PermissionConfirmation,
   HiddenPortfolioTokensView,
   HideTokensView,
-  LedgerSetupScreen,
+  LedgerSetupScreen, LatticeSetupScreen,
   TrezorSetupScreen,
   MoreActionsView,
   PendingTxList,
@@ -2412,7 +2412,7 @@ function App() {
   // Hardware setup uses a full tab so provider approval is not popup-constrained.
   if (view === "addAccount" && hardwareSetupProviderRef.current) {
     const HardwareSetupScreen = hardwareSetupProviderRef.current === "trezor"
-      ? TrezorSetupScreen : LedgerSetupScreen;
+      ? TrezorSetupScreen : hardwareSetupProviderRef.current === "lattice" ? LatticeSetupScreen : LedgerSetupScreen;
     return (
       <Suspense fallback={<LoadingFallback />}>
         <HardwareSetupScreen onBack={leaveHardwareSetupRoute} onComplete={async () => {

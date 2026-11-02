@@ -184,7 +184,7 @@ export function SwapQuoteSection({
           </Text>
         </Box>
       )}
-      {accountType === "ledger" && (
+      {(accountType === "ledger" || accountType === "lattice") && (
         <Box
           bg="status.info.bg"
           color="status.info.fg"
@@ -194,8 +194,8 @@ export function SwapQuoteSection({
           p={3}
         >
           <Text fontSize="sm" fontWeight="600">
-            WalletChan&apos;s built-in swap does not yet support Ledger. Use a
-            swap dapp and approve it through the normal Ledger confirmation.
+            WalletChan&apos;s built-in swap does not yet support {accountType === "lattice" ? "Lattice" : "Ledger"}. Use a
+            swap dapp and approve it through the normal {accountType === "lattice" ? "Lattice" : "Ledger"} confirmation.
           </Text>
         </Box>
       )}

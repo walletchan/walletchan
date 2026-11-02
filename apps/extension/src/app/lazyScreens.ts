@@ -27,6 +27,9 @@ export const AddAccount = lazy(() => import("@/components/AddAccount"));
 export const LedgerSetupScreen = lazy(
   () => import("@/components/Ledger/LedgerSetupScreen"),
 );
+export const LatticeSetupScreen = lazy(
+  () => import("@/components/Lattice/LatticeSetupScreen"),
+);
 export const TrezorSetupScreen = lazy(
   () =>
     TREZOR_BUILD_ENABLED
@@ -110,6 +113,7 @@ if (typeof window !== "undefined") {
     void import("@/components/Chat/ChatView");
     void import("@/components/AddAccount");
     void import("@/components/Ledger/LedgerSetupScreen");
+    void import("@/components/Lattice/LatticeSetupScreen");
     if (TREZOR_BUILD_ENABLED) {
       void import("@/components/Trezor/TrezorSetupScreen");
     }

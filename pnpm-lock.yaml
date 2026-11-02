@@ -132,6 +132,9 @@ importers:
       '@ledgerhq/device-transport-kit-web-hid':
         specifier: 1.2.4
         version: 1.2.4(@ledgerhq/device-management-kit@1.7.1(bufferutil@4.1.0)(rxjs@7.8.2)(utf-8-validate@5.0.10))(rxjs@7.8.2)
+      '@noble/curves':
+        specifier: 1.9.1
+        version: 1.9.1
       '@number-flow/react':
         specifier: ^0.6.1
         version: 0.6.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

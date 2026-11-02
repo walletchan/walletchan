@@ -7,6 +7,7 @@
 
 import type { Account, AccountType } from "../types";
 import { decodeTrezorAccount } from "../trezor/codecs";
+import { decodeLatticeAccount } from "../lattice/codecs";
 import {
   WALLET_SECRET_STORAGE_LOCK_KEY,
   withStorageLock,
@@ -26,13 +27,14 @@ export async function getAccounts(): Promise<Account[]> {
   const result = await chrome.storage.local.get(ACCOUNTS_STORAGE_KEY);
   const accounts = result[ACCOUNTS_STORAGE_KEY] || [];
   if (!Array.isArray(accounts)) throw new Error("Invalid account storage");
-  return accounts.map((account) =>
-    account &&
-    typeof account === "object" &&
-    (account as { type?: unknown }).type === "trezor"
-      ? decodeTrezorAccount(account)
-      : (account as Account),
-  );
+  return accounts.map((account) => {
+    const type = account && typeof account === "object"
+      ? (account as { type?: unknown }).type
+      : undefined;
+    if (type === "trezor") return decodeTrezorAccount(account);
+    if (type === "lattice") return decodeLatticeAccount(account);
+    return account as Account;
+  });
 }
 
 export async function saveAccounts(accounts: Account[]): Promise<void> {

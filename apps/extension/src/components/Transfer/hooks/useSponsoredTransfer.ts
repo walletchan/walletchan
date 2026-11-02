@@ -128,6 +128,7 @@ export function useSponsoredTransfer({
       accountType === "impersonator" ||
       accountType === "ledger" ||
       accountType === "trezor" ||
+      accountType === "lattice" ||
       accountType === "safe"
     ) return;
     const key = `${fromAddress.toLowerCase()}:8453:usdc`;

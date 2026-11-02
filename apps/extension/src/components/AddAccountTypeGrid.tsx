@@ -14,6 +14,7 @@ import {
 } from "@/components/shared/AccountTypeIcons";
 import { LedgerLogo } from "@/components/Ledger/LedgerLogo";
 import { TrezorLogo } from "@/components/Trezor/TrezorLogo";
+import { LatticeLogo } from "@/components/Lattice/LatticeLogo";
 import { TREZOR_BUILD_ENABLED } from "@/app/buildFeatures";
 
 export type AccountType =
@@ -22,6 +23,7 @@ export type AccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator"
   | "safe";
 
@@ -55,6 +57,13 @@ const accountTypes = [
   {
     type: "ledger" as const,
     title: "Ledger",
+    icon: null,
+    iconBg: "surface.sunken",
+    iconColor: "fg.primary",
+  },
+  {
+    type: "lattice" as const,
+    title: "Lattice",
     icon: null,
     iconBg: "surface.sunken",
     iconColor: "fg.primary",
@@ -140,6 +149,8 @@ export function AddAccountTypeGrid({
                   <LedgerLogo variant="lettermark" w="20px" />
                 ) : type === "trezor" ? (
                   <TrezorLogo variant="lettermark" h="22px" />
+                ) : type === "lattice" ? (
+                  <LatticeLogo variant="lettermark" w="18px" />
                 ) : TypeIcon ? (
                   <TypeIcon boxSize="19px" />
                 ) : (

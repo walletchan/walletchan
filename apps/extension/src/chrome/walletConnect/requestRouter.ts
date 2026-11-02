@@ -192,10 +192,10 @@ export async function handleWalletConnectSessionRequest(
         chainId,
         requestedErc7715Account(method, requestParams),
       );
-      if (account.type === "ledger" || account.type === "trezor") {
+      if (account.type === "ledger" || account.type === "trezor" || account.type === "lattice") {
         throw new Error(
           `Delegated permissions are not supported for ${
-            account.type === "trezor" ? "Trezor" : "Ledger"
+            account.type === "trezor" ? "Trezor" : account.type === "lattice" ? "Lattice" : "Ledger"
           } accounts`,
         );
       }

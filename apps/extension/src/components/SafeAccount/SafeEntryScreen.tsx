@@ -215,7 +215,7 @@ export function SafeEntryScreen({
                 <Alert status="info">
                   <AlertIcon />
                   <AlertDescription fontSize="sm">
-                    Add a Bankr, private-key, seed-phrase, or Ledger account to search by owner.
+                    Add a Bankr, private-key, seed-phrase, Ledger, or Lattice account to search by owner.
                   </AlertDescription>
                 </Alert>
               )}

@@ -25,6 +25,7 @@ export function SponsorshipEligibilityNotice({
     accountType === "impersonator" ||
     accountType === "ledger" ||
     accountType === "trezor" ||
+    accountType === "lattice" ||
     accountType === "safe"
   ) {
     return null;
@@ -88,6 +89,7 @@ export function TransferNotices({
         accountType !== "impersonator" &&
         accountType !== "ledger" &&
         accountType !== "trezor" &&
+        accountType !== "lattice" &&
         accountType !== "safe" && (
           <Box
             bg="status.success.bg"

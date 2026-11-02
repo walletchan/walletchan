@@ -14,6 +14,8 @@ export const WALLET_LOCAL_STORAGE_KEYS = [
   "accounts",
   "ledgerDevices",
   "trezorDevices",
+  "latticeDevices",
+  "latticeAppKeyVault",
   "safeAccounts",
   "safeProposals",
   "safeSyncState",

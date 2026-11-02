@@ -9,6 +9,7 @@ export type AccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator"
   | "safe";
 
@@ -67,6 +68,32 @@ export interface TrezorDevice {
   addedAt: number;
 }
 
+/**
+ * GridPlus Lattice1 account. `deviceId` is the lowercase canonical address at
+ * m/44'/60'/0'/0/0 of the wallet (internal or SafeCard) used at setup.
+ */
+export interface LatticeAccount extends BaseAccount {
+  type: "lattice";
+  deviceId: string;
+  hdPath: string;
+  hdIndex: number;
+}
+
+/**
+ * Public Lattice metadata. `relayDeviceId` routes requests through the relay;
+ * `endpoint` is an optional self-hosted relay URL; `walletUid` pins the active
+ * wallet (internal or SafeCard) the accounts came from. No secret lives here.
+ */
+export interface LatticeDevice {
+  label: string;
+  model: string;
+  addedAt: number;
+  relayDeviceId: string;
+  endpoint: string | null;
+  walletUid: string;
+  walletKind: "internal" | "safecard";
+}
+
 export interface ImpersonatorAccount extends BaseAccount {
   type: "impersonator";
 }
@@ -86,6 +113,7 @@ export type Account =
   | SeedPhraseAccount
   | LedgerAccount
   | TrezorAccount
+  | LatticeAccount
   | ImpersonatorAccount
   | SafeAccount;
 

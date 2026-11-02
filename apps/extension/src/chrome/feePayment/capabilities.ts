@@ -50,7 +50,9 @@ export function evaluateTokenFeePaymentEligibility(input: {
         ? "Ledger"
         : input.accountType === "trezor"
           ? "Trezor"
-          : null;
+          : input.accountType === "lattice"
+            ? "Lattice"
+            : null;
     return {
       available: false,
       unavailableReason: accountLabel

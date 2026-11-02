@@ -1203,6 +1203,40 @@ Wallet-UI messages `ledgerConnect`, `ledgerScan`, `ledgerCancel`,
 `confirmTransactionAsyncLedger`; Ledger signatures branch inside the existing
 trusted `confirmSignatureRequest` route.
 
+### Lattice Architecture
+
+- **Transport:** the GridPlus Lattice1 is reached over HTTPS through the
+  GridPlus relay (`GRIDPLUS_LATTICE_RELAY_URL`) or a per-device self-hosted
+  Lattice Connect endpoint. The protocol client
+  (`chrome/lattice/protocol/`, a TypeScript port of ape-grid-lattice with
+  byte-parity tests) runs in the service worker; no offscreen document is used.
+  It is stateless: each operation connects first and keeps the ephemeral key in
+  memory.
+- **Operations:** `chrome/lattice/operations.ts` runs one device operation at a
+  time, cancellable by operation ID, and emits advisory `latticeStatus`
+  messages (`connecting`, `awaiting-pairing`, `scanning`,
+  `awaiting-confirmation`).
+- **Setup:** `latticeConnect` (relay device ID, optional endpoint) loads the
+  stored pairing key or generates one in memory; an unpaired device returns
+  `needsPairing`, then `latticePair` sends the code shown on the device. The
+  canonical address at `m/44'/60'/0'/0/0` becomes `deviceId`, with the active
+  wallet UID and kind. `latticeScan` reads one address per path and records it
+  in the setup session. `addLatticeAccounts` (master only) takes relay, wallet,
+  and path facts from the session, accepts only scanned addresses, and writes
+  accounts, the device row and (first pairing) the encrypted key in one write.
+- **Signing:** `chrome/lattice/signing.ts` mirrors Ledger: prepare, sign exact
+  bytes, recover to the pinned account, then broadcast through the shared
+  hardware lifecycle (`confirmTransactionAsyncLattice`,
+  `handleConfirmLatticeSignatureRequest`). Personal messages use generic
+  signing; EIP-712 sends domain and message hashes (phase 1), recovered against
+  the full typed data. Payloads above 3,019 bytes are prehashed by the device.
+- **Capabilities:** Ledger's row without force inclusion and Privacy Pools.
+  Safe owner approval and native-gas execution, WalletConnect, replacement and
+  custom nonce are supported; batches, EIP-7702, ERC-7715, token gas,
+  sponsored transfers, direct swap and built-in staking fail closed.
+- **Storage:** `latticeDevices` (public) and `latticeAppKeyVault` (encrypted
+  with the general vault key); see `STORAGE.md` and `SECURITY.md` invariant 3b.
+
 ### Trezor Architecture
 
 - **Browser and dependency boundary:** Trezor is Chromium-only. Exact-pinned

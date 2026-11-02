@@ -182,7 +182,8 @@ export async function prepareTransactionReplacement(
         account.type !== "privateKey" &&
         account.type !== "seedPhrase" &&
         account.type !== "ledger" &&
-        account.type !== "trezor"
+        account.type !== "trezor" &&
+        account.type !== "lattice"
       ) {
         return { success: false, error: "Transaction account cannot be replaced" };
       }

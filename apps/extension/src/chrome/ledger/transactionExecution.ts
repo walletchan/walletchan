@@ -22,7 +22,7 @@ import {
   type PendingTxRequest,
 } from "../requests/pendingTxStorage";
 import { addTxToHistory, updateTxInHistory } from "../txHistoryStorage";
-import type { LedgerAccount, TrezorAccount } from "../types";
+import type { LatticeAccount, LedgerAccount, TrezorAccount } from "../types";
 import { lookupFunctionName } from "../transactions/displayMetadata";
 import { handleTransactionFailure } from "../transactions/failure";
 import {
@@ -57,11 +57,14 @@ import { cancelTrezorOperation } from "../trezor/offscreenBridge";
 import { createTrezorOperationId } from "../trezor/operationId";
 import { ensureTrezorSigningSession } from "../trezor/session";
 import { signAndBroadcastTrezorTransaction } from "../trezor/signing";
+import { cancelLatticeOperation } from "../lattice/operations";
+import { ensureLatticeSigningSession } from "../lattice/session";
+import { signAndBroadcastLatticeTransaction } from "../lattice/signing";
 import { validateTransactionNonceSelection } from "../transactions/noncePolicy";
 import { replacementGasSelectionError } from "@/lib/transactionReplacement";
 
 type ConfirmationResult = { success: boolean; error?: string };
-type HardwareProvider = "ledger" | "trezor";
+type HardwareProvider = "ledger" | "trezor" | "lattice";
 
 /** Confirms one pinned Ledger transaction and starts device execution. */
 export async function handleConfirmTransactionAsyncLedger(
@@ -107,6 +110,10 @@ export async function handleConfirmTransactionAsyncTrezor(
   );
 }
 
+/** Confirms one pinned Lattice transaction through the shared hardware lifecycle. */
+export const handleConfirmTransactionAsyncLattice: typeof handleConfirmTransactionAsyncLedger = (...args) =>
+  handleConfirmHardwareTransaction("lattice", ...args);
+
 async function handleConfirmHardwareTransaction(
   provider: HardwareProvider,
   txId: string,
@@ -134,11 +141,14 @@ async function handleConfirmHardwareTransaction(
     return fail(
       provider === "ledger"
         ? "Account does not support Ledger signing"
-        : "Account does not support Trezor signing",
+        : provider === "lattice"
+          ? "Account does not support Lattice signing"
+          : "Account does not support Trezor signing",
     );
   }
   if (forceInclusion) {
     if (provider === "trezor") return fail("Force inclusion is not supported for Trezor accounts");
+    if (provider === "lattice") return fail("Force inclusion is not supported for Lattice accounts");
     const { isForceInclusionSupportedForAccount } = await import("@/constants/chainRegistry");
     if (!isForceInclusionSupportedForAccount(pending.tx.chainId, pinned.account.type)) {
       return fail("Chain does not support force inclusion for this account");
@@ -151,7 +161,9 @@ async function handleConfirmHardwareTransaction(
     return fail(
       provider === "ledger"
         ? "EIP-7702 delegation is not supported for Ledger accounts"
-        : "EIP-7702 delegation is not supported for Trezor accounts",
+        : provider === "lattice"
+          ? "EIP-7702 delegation is not supported for Lattice accounts"
+          : "EIP-7702 delegation is not supported for Trezor accounts",
     );
   }
   if (
@@ -177,6 +189,8 @@ async function handleConfirmHardwareTransaction(
   try {
     if (provider === "ledger") {
       await ensureLedgerSigningSession(password);
+    } else if (provider === "lattice") {
+      await ensureLatticeSigningSession(password);
     } else {
       await ensureTrezorSigningSession(password);
     }
@@ -216,7 +230,7 @@ async function processLedgerTransaction(input: {
   provider: HardwareProvider;
   txId: string;
   pending: PendingTxRequest;
-  account: LedgerAccount | TrezorAccount;
+  account: LedgerAccount | TrezorAccount | LatticeAccount;
   functionName?: string;
   gasOverrides?: GasOverrides;
   nonce?: number;
@@ -248,7 +262,9 @@ async function processLedgerTransaction(input: {
       void (
         provider === "ledger"
           ? cancelLedgerOperation(txId)
-          : cancelTrezorOperation(hardwareOperationId)
+          : provider === "lattice"
+            ? cancelLatticeOperation(txId)
+            : cancelTrezorOperation(hardwareOperationId)
       ).catch(() => undefined),
     { once: true },
   );
@@ -360,6 +376,11 @@ async function processLedgerTransaction(input: {
           ...signerInput,
           account,
         });
+      } else if (account.type === "lattice") {
+        result = await signAndBroadcastLatticeTransaction({
+          ...signerInput,
+          account,
+        });
       } else {
         result = await signAndBroadcastTrezorTransaction({
           ...signerInput,
@@ -425,7 +446,7 @@ async function processLedgerTransaction(input: {
     const errorMessage =
       error instanceof Error
         ? error.message
-        : `${provider === "ledger" ? "Ledger" : "Trezor"} transaction failed`;
+        : `${provider === "ledger" ? "Ledger" : provider === "lattice" ? "Lattice" : "Trezor"} transaction failed`;
     if (publishedTxHash) {
       console.error(
         `[${provider}-transaction] Post-broadcast history update failed`,

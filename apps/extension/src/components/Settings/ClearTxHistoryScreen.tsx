@@ -47,6 +47,8 @@ function accountTypeLabel(account: Account): string {
       return `Ledger · Account ${account.hdIndex + 1}`;
     case "trezor":
       return `Trezor · Account ${account.hdIndex + 1}`;
+    case "lattice":
+      return `Lattice · Account ${account.hdIndex + 1}`;
     case "impersonator":
       return "View-Only";
     case "safe":

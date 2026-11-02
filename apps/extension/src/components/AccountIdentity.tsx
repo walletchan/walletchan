@@ -4,6 +4,7 @@ import type { Account } from "@/chrome/types";
 import { useCachedAvatarSrc } from "@/hooks/useCachedAvatarSrc";
 import { LedgerAvatar } from "@/components/Ledger/LedgerAvatar";
 import { TrezorAvatar } from "@/components/Trezor/TrezorAvatar";
+import { LatticeAvatar } from "@/components/Lattice/LatticeAvatar";
 import { SafeIcon } from "@/components/shared/AccountTypeIcons";
 
 function BlockieAvatar({ address, size }: { address: string; size: number }) {
@@ -57,6 +58,9 @@ export function AccountAvatar({
   }
   if (account.type === "trezor") {
     return <TrezorAvatar size={size} />;
+  }
+  if (account.type === "lattice") {
+    return <LatticeAvatar size={size} />;
   }
 
   if (account.type === "safe") {
