@@ -178,7 +178,31 @@ const TYPED: Array<{ name: string; payload: unknown }> = [
     },
   },
   {
-    name: "19 fields, prehashed by field count",
+    name: "2,000-character string, one extra frame",
+    payload: {
+      types: {
+        EIP712Domain: [{ name: "name", type: "string" }, { name: "chainId", type: "uint256" }],
+        Long: [{ name: "text", type: "string" }, { name: "id", type: "uint256" }],
+      },
+      primaryType: "Long",
+      domain: { name: "Long", chainId: 1 },
+      message: { text: "WalletChan Lattice ".repeat(106).slice(0, 2000), id: 0 },
+    },
+  },
+  {
+    name: "37 fields, prehashed by field count",
+    payload: {
+      types: {
+        EIP712Domain: [{ name: "name", type: "string" }, { name: "chainId", type: "uint256" }],
+        Wide: Array.from({ length: 37 }, (_, i) => ({ name: `f${i}`, type: "uint256" })),
+      },
+      primaryType: "Wide",
+      domain: { name: "Wide", chainId: 1 },
+      message: Object.fromEntries(Array.from({ length: 37 }, (_, i) => [`f${i}`, String(i)])),
+    },
+  },
+  {
+    name: "19 fields, sent in full (limit is 36 on firmware 0.14+)",
     payload: {
       types: {
         EIP712Domain: [{ name: "name", type: "string" }, { name: "chainId", type: "uint256" }],

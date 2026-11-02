@@ -32,6 +32,7 @@ import {
   parseLatticeResponse,
   type LatticeSecpSignResponse,
 } from "./encoding";
+import { encodeTypedDataRequest } from "./eip712";
 import { LatticeProtocolError } from "./errors";
 import {
   formatLatticeFirmware,
@@ -174,8 +175,28 @@ export class LatticeProtocolClient {
     signal?: AbortSignal;
   }): Promise<LatticePersonalSignResult> {
     const request = encodePersonalSignRequest({ signerPath: input.signerPath, message: input.message, fw: this.fw });
-    const data = await this.sendSignFrames(LatticeSignSchema.ETH_MSG, request.base, request.extraPayloads, input.signal);
-    return { ...parseEthMsgSignResponse(data), prehashed: request.prehashed, displayHex: request.displayHex };
+    return { ...(await this.signEthMsg(request, input.signal)), prehashed: request.prehashed, displayHex: request.displayHex };
+  }
+
+  /**
+   * EIP-712 over ETH_MSG so the device shows the fields. Returns null, without
+   * contacting the device, when the data cannot be shown as fields.
+   */
+  async signTypedData(input: {
+    signerPath: readonly number[];
+    typedData: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<{ r: Uint8Array; s: Uint8Array; signer: Uint8Array } | null> {
+    const request = encodeTypedDataRequest({ signerPath: input.signerPath, typedData: input.typedData, fw: this.fw });
+    return request ? this.signEthMsg(request, input.signal) : null;
+  }
+
+  private async signEthMsg(
+    request: { base: Uint8Array; extraPayloads: readonly Uint8Array[] },
+    signal?: AbortSignal,
+  ): Promise<{ r: Uint8Array; s: Uint8Array; signer: Uint8Array }> {
+    const data = await this.sendSignFrames(LatticeSignSchema.ETH_MSG, request.base, request.extraPayloads, signal);
+    return parseEthMsgSignResponse(data);
   }
 
   /** Sends the base request, then chains EXTRA_DATA frames; returns the final reply. */

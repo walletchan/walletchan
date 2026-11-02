@@ -24,7 +24,7 @@ import { publicKeyToAddress } from "viem/accounts";
 import { isValidBip32Path } from "../../../lib/bip32Path";
 import { bytesToBigInt, equalBytes } from "./bytes";
 import type { LatticeProtocolClient } from "./client";
-import { LATTICE_HARDENED_OFFSET, LatticeSignEncoding, LatticeSignHash } from "./constants";
+import { LATTICE_HARDENED_OFFSET, LatticeResponseCode, LatticeSignEncoding, LatticeSignHash } from "./constants";
 import { recoverYParity } from "./encoding";
 import { LatticeProtocolError } from "./errors";
 
@@ -150,8 +150,16 @@ export async function signLatticePersonalMessage(
   input: { signerPath: readonly number[]; message: Uint8Array; signal?: AbortSignal },
 ): Promise<LatticeEvmSignature> {
   const result = await client.signPersonal(input);
+  return finishEthMsgSignature(result, keccak256(personalSignPayload(input.message), "bytes"), result.prehashed);
+}
+
+/** ETH_MSG replies name their signer: the signature must recover to it from the local digest. */
+function finishEthMsgSignature(
+  result: { r: Uint8Array; s: Uint8Array; signer: Uint8Array },
+  digest: Uint8Array,
+  prehashed: boolean,
+): LatticeEvmSignature {
   if (bytesToBigInt(result.s) > HALF_N) throw new LatticeProtocolError("Lattice returned a high-s signature.");
-  const digest = keccak256(personalSignPayload(input.message), "bytes");
   const signer = getAddress(bytesToHex(result.signer));
   const signature = new secp256k1.Signature(bytesToBigInt(result.r), bytesToBigInt(result.s));
   for (const yParity of [0, 1] as const) {
@@ -169,7 +177,7 @@ export async function signLatticePersonalMessage(
         yParity,
         digest: bytesToHex(digest),
         signer,
-        prehashed: result.prehashed,
+        prehashed,
         decoderAttached: false,
       };
     }
@@ -177,7 +185,37 @@ export async function signLatticePersonalMessage(
   throw new LatticeProtocolError("Lattice signature does not match its signer.");
 }
 
-/** Hash-only EIP-712 (phase 1). Full on-device fields need the ETH_MSG port. */
+/**
+ * EIP-712 with the fields on the device when it can show them; otherwise the
+ * domain and message hashes, like Ledger's blind signing. Falls back when the
+ * data has a shape the firmware lacks, or the device rejects the request
+ * format. Both paths sign keccak256(0x1901 || domainSeparator || messageHash),
+ * which stays the authority.
+ */
+export async function signLatticeTypedData(
+  client: LatticeProtocolClient,
+  input: {
+    signerPath: readonly number[];
+    typedData: Record<string, unknown>;
+    domainSeparator: Hex;
+    messageHash?: Hex;
+    signal?: AbortSignal;
+  },
+): Promise<LatticeEvmSignature & { fieldsShown: boolean }> {
+  let result: Awaited<ReturnType<LatticeProtocolClient["signTypedData"]>> = null;
+  try {
+    result = await client.signTypedData(input);
+  } catch (error) {
+    if (!(error instanceof LatticeProtocolError && error.responseCode === LatticeResponseCode.INVALID_MSG)) throw error;
+  }
+  if (result) {
+    const digest = keccak256(typedDataHashPayload(input.domainSeparator, input.messageHash), "bytes");
+    return { ...finishEthMsgSignature(result, digest, false), fieldsShown: true };
+  }
+  return { ...(await signLatticeTypedDataHashes(client, input)), fieldsShown: false };
+}
+
+/** EIP-712 as hashes: the device shows the domain separator and message hash. */
 export function signLatticeTypedDataHashes(
   client: LatticeProtocolClient,
   input: { signerPath: readonly number[]; domainSeparator: Hex; messageHash?: Hex; signal?: AbortSignal },

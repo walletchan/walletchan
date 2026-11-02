@@ -9,7 +9,7 @@ import test from "node:test";
 
 import { bytesToHex, hexToBytes } from "viem";
 
-import { encodePersonalSignRequest, encodeSignEnvelope, LatticeSignSchema } from "./protocolImports";
+import { encodePersonalSignRequest, encodeSignEnvelope, encodeTypedDataRequest, LatticeSignSchema } from "./protocolImports";
 
 interface SdkCase {
   name: string;
@@ -51,5 +51,24 @@ for (const fixture of fixtures.cases.filter((item) => item.protocol === "signPer
 }
 
 for (const fixture of fixtures.cases.filter((item) => item.protocol === "eip712")) {
-  test(`EIP-712 matches gridplus-sdk byte for byte: ${fixture.name}`, { todo: "ETH_MSG typedData encoder not built yet" }, () => {});
+  const prehashedBySdk = fixture.name.includes("prehashed");
+  test(`EIP-712 ${prehashedBySdk ? "falls back to hashes where gridplus-sdk prehashes" : "matches gridplus-sdk byte for byte"}: ${fixture.name}`, () => {
+    const request = encodeTypedDataRequest({
+      signerPath: fixtures.signerPath,
+      typedData: fixture.payload as Record<string, unknown>,
+    });
+    if (prehashedBySdk) {
+      assert.equal(request, null);
+      return;
+    }
+    assert.ok(request);
+    const envelope = encodeSignEnvelope({
+      schema: LatticeSignSchema.ETH_MSG,
+      walletUid: hexToBytes(fixtures.walletUid),
+      reqPayload: request.base,
+      hasExtraPayloads: request.extraPayloads.length > 0,
+    });
+    assert.equal(bytesToHex(envelope), padded(fixture.envelope, fixture.envelopeSize));
+    assert.deepEqual(request.extraPayloads.map((frame) => bytesToHex(frame)), fixture.extras);
+  });
 }

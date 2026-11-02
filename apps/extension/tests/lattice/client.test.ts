@@ -30,6 +30,7 @@ import {
   latticeSignerPath,
   signLatticePersonalMessage,
   signLatticeTransaction,
+  signLatticeTypedData,
   signLatticeTypedDataHashes,
 } from "./protocolImports";
 
@@ -270,6 +271,174 @@ test("EIP-712 hash-only signing recovers as typed data", async () => {
   });
   const signature = serializeSignature({ r: sig.r, s: sig.s, yParity: sig.yParity });
   assert.equal(await recoverTypedDataAddress({ ...typedData, signature }), device.addressFor(PATH));
+});
+
+type TypedInput = {
+  domain: Record<string, unknown>;
+  types: Record<string, Array<{ name: string; type: string }>>;
+  primaryType: string;
+  message: Record<string, unknown>;
+};
+
+/** The hashes WalletChan computes before signing, as in lattice/signing.ts. */
+function typedHashes(typedData: TypedInput) {
+  return {
+    domainSeparator: hashDomain({ domain: typedData.domain, types: typedData.types } as never),
+    messageHash: hashStruct({ data: typedData.message, primaryType: typedData.primaryType, types: typedData.types } as never),
+  };
+}
+
+async function signTyped(client: LatticeProtocolClient, typedData: TypedInput) {
+  const sig = await signLatticeTypedData(client, { signerPath: PATH, typedData, ...typedHashes(typedData) });
+  const signature = serializeSignature({ r: sig.r, s: sig.s, yParity: sig.yParity });
+  return { sig, recovered: await recoverTypedDataAddress({ ...typedData, signature } as never) };
+}
+
+const DOMAIN_FIELDS = [
+  { name: "name", type: "string" },
+  { name: "chainId", type: "uint256" },
+  { name: "verifyingContract", type: "address" },
+];
+
+const PERMIT: TypedInput = {
+  types: {
+    EIP712Domain: DOMAIN_FIELDS,
+    PermitDetails: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint160" },
+      { name: "expiration", type: "uint48" },
+      { name: "nonce", type: "uint48" },
+    ],
+    PermitSingle: [{ name: "details", type: "PermitDetails" }, { name: "spender", type: "address" }, { name: "sigDeadline", type: "uint256" }],
+  },
+  primaryType: "PermitSingle",
+  domain: { name: "Permit2", chainId: 1, verifyingContract: "0x000000000022D473030F116dDEE9F6B43aC78BA3" },
+  message: {
+    details: { token: TO, amount: "1000000", expiration: 1900000000, nonce: 0 },
+    spender: "0x2222222222222222222222222222222222222222",
+    sigDeadline: "1900000000",
+  },
+};
+
+test("EIP-712 shows the fields: the device receives the nested typed data and the signature recovers", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const { sig, recovered } = await signTyped(client, PERMIT);
+  assert.equal(sig.fieldsShown, true);
+  assert.equal(recovered, device.addressFor(PATH));
+  const record = device.signRecords.at(-1)!;
+  assert.equal(record.schema, LatticeSignSchema.ETH_MSG);
+  const shown = record.typedData as { message: { details: { amount: bigint }; spender: string } };
+  assert.equal(shown.message.details.amount, 1000000n);
+  assert.equal(shown.message.spender, "0x2222222222222222222222222222222222222222");
+});
+
+test("EIP-712 fields for a Safe transaction built with bigint values, as the Safe owner flow does", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const safeTx: TypedInput = {
+    types: {
+      EIP712Domain: [{ name: "chainId", type: "uint256" }, { name: "verifyingContract", type: "address" }],
+      SafeTx: [
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "data", type: "bytes" },
+        { name: "operation", type: "uint8" },
+        { name: "safeTxGas", type: "uint256" },
+        { name: "baseGas", type: "uint256" },
+        { name: "gasPrice", type: "uint256" },
+        { name: "gasToken", type: "address" },
+        { name: "refundReceiver", type: "address" },
+        { name: "nonce", type: "uint256" },
+      ],
+    },
+    primaryType: "SafeTx",
+    domain: { chainId: 1n, verifyingContract: "0x5aFE3855358E112B5647B952709E6165e1c1eEEe" },
+    message: {
+      to: TO,
+      value: 10n ** 18n,
+      data: "0x00",
+      operation: 0,
+      safeTxGas: 0n,
+      baseGas: 0n,
+      gasPrice: 0n,
+      gasToken: "0x0000000000000000000000000000000000000000",
+      refundReceiver: "0x0000000000000000000000000000000000000000",
+      nonce: 7n,
+    },
+  };
+  const { sig, recovered } = await signTyped(client, safeTx);
+  assert.equal(sig.fieldsShown, true);
+  assert.equal(recovered, device.addressFor(PATH));
+  // The SDK would send `data: 0x00` as empty bytes; the device must get the real byte.
+  assert.equal((device.signRecords.at(-1)!.typedData as { message: { data: string } }).message.data, "0x00");
+});
+
+test("EIP-712 arrays of structs and a 2,000-character string (one extra frame) show as fields", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const mail: TypedInput = {
+    types: {
+      EIP712Domain: DOMAIN_FIELDS,
+      Person: [{ name: "name", type: "string" }, { name: "wallets", type: "address[]" }],
+      Mail: [{ name: "from", type: "Person" }, { name: "to", type: "Person[]" }, { name: "contents", type: "string" }],
+    },
+    primaryType: "Mail",
+    domain: { name: "Ether Mail", chainId: 1, verifyingContract: TO },
+    message: { from: { name: "Cow", wallets: [TO] }, to: [{ name: "Bob", wallets: [TO, TO] }], contents: "x".repeat(2000) },
+  };
+  const { sig, recovered } = await signTyped(client, mail);
+  assert.equal(sig.fieldsShown, true);
+  assert.equal(recovered, device.addressFor(PATH));
+  assert.equal(device.signRecords.at(-1)!.extraFrames, 1);
+});
+
+test("EIP-712 with nested arrays falls back to hashes without asking the device to parse it", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const grid: TypedInput = {
+    types: { EIP712Domain: DOMAIN_FIELDS, Grid: [{ name: "cells", type: "uint256[][]" }] },
+    primaryType: "Grid",
+    domain: { name: "Grid", chainId: 1, verifyingContract: TO },
+    message: { cells: [[1n, 2n], [3n]] },
+  };
+  const { sig, recovered } = await signTyped(client, grid);
+  assert.equal(sig.fieldsShown, false);
+  assert.equal(recovered, device.addressFor(PATH));
+  assert.deepEqual(device.signRecords.map((r) => r.schema), [LatticeSignSchema.GENERIC]);
+});
+
+test("EIP-712 with more than 36 fields in a type falls back to hashes", async () => {
+  const { client } = setup();
+  await client.connect();
+  const wide: TypedInput = {
+    types: { EIP712Domain: DOMAIN_FIELDS, Wide: Array.from({ length: 37 }, (_, i) => ({ name: `f${i}`, type: "uint256" })) },
+    primaryType: "Wide",
+    domain: { name: "Wide", chainId: 1, verifyingContract: TO },
+    message: Object.fromEntries(Array.from({ length: 37 }, (_, i) => [`f${i}`, BigInt(i)])),
+  };
+  const { sig } = await signTyped(client, wide);
+  assert.equal(sig.fieldsShown, false);
+});
+
+test("EIP-712 falls back to hashes when the device rejects the typed-data request format", async () => {
+  const { device, client } = setup({ rejectTypedData: true });
+  await client.connect();
+  const { sig, recovered } = await signTyped(client, PERMIT);
+  assert.equal(sig.fieldsShown, false);
+  assert.equal(recovered, device.addressFor(PATH));
+  assert.deepEqual(device.signRecords.map((r) => r.schema), [LatticeSignSchema.GENERIC]);
+});
+
+test("a user rejection of EIP-712 fields does not fall back to a second prompt", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  device.queueError(LatticeResponseCode.USER_DECLINED);
+  await assert.rejects(
+    signTyped(client, PERMIT),
+    (err: unknown) => err instanceof LatticeProtocolError && err.responseCode === LatticeResponseCode.USER_DECLINED,
+  );
+  assert.equal(device.signRecords.length, 0);
 });
 
 test("a device digest that differs from the reviewed payload is rejected", async () => {

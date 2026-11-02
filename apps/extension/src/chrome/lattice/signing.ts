@@ -19,7 +19,7 @@ import type { SignedTransaction } from "../localSigner";
 import {
   signLatticePersonalMessage,
   signLatticeTransaction,
-  signLatticeTypedDataHashes,
+  signLatticeTypedData,
   type LatticeEvmSignature,
 } from "./protocol";
 import { withLatticeAccount } from "./operations";
@@ -80,9 +80,9 @@ export async function signAndBroadcastLatticeTransaction(input: {
 }
 
 /**
- * Sign exact chain-bound EIP-712 data. Phase 1 sends the domain and message
- * hashes, so the Lattice displays hashes; the result is recovered against the
- * full typed data and the pinned account.
+ * Sign exact chain-bound EIP-712 data. The Lattice shows the fields when it
+ * can, else the domain and message hashes; the result is recovered against
+ * the full typed data and the pinned account.
  */
 export async function signLatticeTypedDataForAccount(input: {
   opId: string;
@@ -117,7 +117,13 @@ export async function signLatticeTypedDataForAccount(input: {
   const signed = await withLatticeAccount(
     { opId: input.opId, account: input.account },
     ({ client, signerPath, signal }) =>
-      signLatticeTypedDataHashes(client, { signerPath, domainSeparator: domainHash, messageHash, signal }),
+      signLatticeTypedData(client, {
+        signerPath,
+        typedData: input.typedData as Record<string, unknown>,
+        domainSeparator: domainHash,
+        messageHash,
+        signal,
+      }),
   );
   assertSigner(signed.signer, input.account);
   const signature = signatureHex(signed);

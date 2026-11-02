@@ -8,9 +8,10 @@
  */
 import { p256 } from "@noble/curves/p256";
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { bytesToHex, concat, hashMessage, hexToBytes, keccak256, sha256, toBytes } from "viem";
+import { bytesToHex, concat, hashMessage, hashTypedData, hexToBytes, keccak256, sha256, toBytes } from "viem";
 import { publicKeyToAddress } from "viem/accounts";
 
+import { decodeCbor } from "./cbor";
 import {
   LATTICE_FW_DEFAULT,
   LatticeEncryptedRequestType,
@@ -56,6 +57,8 @@ export interface FakeSignRecord {
   digest: Uint8Array;
   decoder: Uint8Array | null;
   extraFrames: number;
+  /** ETH_MSG typedData: the typed data the device would show, or null when it got a digest. */
+  typedData?: Record<string, unknown> | null;
 }
 
 export interface FakeLatticeOptions {
@@ -68,6 +71,8 @@ export interface FakeLatticeOptions {
   omitDigest?: boolean;
   /** ETH_MSG: report this 20-byte signer instead of the real one (tamper test). */
   forgedSigner?: Uint8Array;
+  /** Answer ETH_MSG typedData requests with INVALID_MSG, like firmware that cannot parse them. */
+  rejectTypedData?: boolean;
   /** Encrypted wallet-info bytes in CONNECT; firmware 0.18.9 sends 144. */
   walletInfoSize?: number;
 }
@@ -95,6 +100,7 @@ export class FakeLattice implements LatticeTransport {
   private readonly forgedDigest?: Uint8Array;
   private readonly omitDigest: boolean;
   private readonly forgedSigner?: Uint8Array;
+  private readonly rejectTypedData: boolean;
   private readonly walletInfoSize: number;
   private readonly queuedCodes: number[] = [];
   private pendingSign: {
@@ -113,6 +119,7 @@ export class FakeLattice implements LatticeTransport {
     this.forgedDigest = options.forgedDigest;
     this.omitDigest = options.omitDigest ?? false;
     this.forgedSigner = options.forgedSigner;
+    this.rejectTypedData = options.rejectTypedData ?? false;
     this.walletInfoSize = options.walletInfoSize ?? 144;
   }
 
@@ -295,14 +302,79 @@ export class FakeLattice implements LatticeTransport {
   }
 
   private complete(schema: number, head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
-    return schema === LatticeSignSchema.ETH_MSG
-      ? this.signPersonal(head, extras, extraFrames)
-      : this.sign(head, extras, extraFrames);
+    if (schema !== LatticeSignSchema.ETH_MSG) return this.sign(head, extras, extraFrames);
+    if (head[0] === 0) return this.signPersonal(head, extras, extraFrames);
+    if (head[0] === 1 && !this.rejectTypedData) return this.signTypedData(head, extras, extraFrames);
+    return LatticeResponseCode.INVALID_MSG;
+  }
+
+  /**
+   * ETH_MSG typedData: protocol(1)=1 | signerPath(24) | cborLen(2 LE) | CBOR, or the
+   * EIP-712 digest when too large. Decodes the CBOR the way the firmware must:
+   * bignums back to integers, byte strings to hex, 1/0 to booleans.
+   */
+  private signTypedData(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+    try {
+      return this.signTypedDataUnchecked(head, extras, extraFrames);
+    } catch {
+      return LatticeResponseCode.INVALID_MSG;
+    }
+  }
+
+  private signTypedDataUnchecked(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array {
+    const fw = LATTICE_FW_DEFAULT;
+    const depth = u32le(head, 1);
+    const signerPath = Array.from({ length: depth }, (_, i) => u32le(head, 5 + 4 * i));
+    const payloadDataSz = u16le(head, 25);
+    let typedData: Record<string, unknown> | null = null;
+    let digest: Uint8Array;
+    if (payloadDataSz > fw.ethMsgMaxBaseSz + fw.extraDataMaxFrames * fw.extraDataFrameSz) {
+      digest = head.slice(27, 59);
+    } else {
+      const cbor = concat([head.subarray(27, 27 + fw.ethMsgMaxBaseSz), ...extras]).slice(0, payloadDataSz);
+      const decoded = decodeCbor(cbor) as { types: Record<string, Array<{ name: string; type: string }>>; primaryType: string; domain: unknown; message: unknown };
+      const fromDevice = (value: unknown, type: string): unknown => {
+        if (type.endsWith("]")) return (value as unknown[]).map((item) => fromDevice(item, type.slice(0, type.lastIndexOf("["))));
+        const fields = decoded.types[type];
+        if (fields) return Object.fromEntries(fields.map((f) => [f.name, fromDevice((value as Record<string, unknown>)[f.name], f.type)]));
+        if (type === "bool") return value === 1;
+        if (value instanceof Uint8Array) return bytesToHex(value);
+        return value;
+      };
+      typedData = {
+        types: decoded.types,
+        primaryType: decoded.primaryType,
+        domain: fromDevice(decoded.domain, "EIP712Domain"),
+        message: fromDevice(decoded.message, decoded.primaryType),
+      };
+      digest = hexToBytes(hashTypedData(typedData as never));
+    }
+    this.signRecords.push({
+      schema: LatticeSignSchema.ETH_MSG,
+      displayHex: null,
+      signerPath,
+      encoding: 0,
+      hashType: LatticeSignHash.KECCAK256,
+      payloadDataSz,
+      message: null,
+      digest,
+      decoder: null,
+      extraFrames,
+      typedData,
+    });
+    return this.ethMsgReply(digest, signerPath);
+  }
+
+  private ethMsgReply(digest: Uint8Array, signerPath: number[]): Uint8Array {
+    const key = this.keyFor(signerPath);
+    const resp = new Uint8Array(1090);
+    resp.set(secp256k1.sign(digest, key).toDERRawBytes(), 0);
+    resp.set(this.forgedSigner ?? hexToBytes(publicKeyToAddress(bytesToHex(secp256k1.getPublicKey(key, false)))), 74);
+    return resp;
   }
 
   /** ETH_MSG: protocol(1) | signerPath(24) | displayHex(1) | msgLen(2 LE) | message or EIP-191 digest. */
   private signPersonal(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
-    if (head[0] !== 0) return LatticeResponseCode.INVALID_MSG;
     const fw = LATTICE_FW_DEFAULT;
     const depth = u32le(head, 1);
     const signerPath = Array.from({ length: depth }, (_, i) => u32le(head, 5 + 4 * i));
@@ -328,11 +400,7 @@ export class FakeLattice implements LatticeTransport {
       decoder: null,
       extraFrames,
     });
-    const key = this.keyFor(signerPath);
-    const resp = new Uint8Array(1090);
-    resp.set(secp256k1.sign(digest, key).toDERRawBytes(), 0);
-    resp.set(this.forgedSigner ?? hexToBytes(publicKeyToAddress(bytesToHex(secp256k1.getPublicKey(key, false)))), 74);
-    return resp;
+    return this.ethMsgReply(digest, signerPath);
   }
 
   private sign(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array {
