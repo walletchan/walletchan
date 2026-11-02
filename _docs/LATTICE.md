@@ -1,9 +1,8 @@
 # GridPlus Lattice1 integration (private fork)
 
 Status (2026-11-02): phase 0 (protocol port) and phase 1 (account type)
-committed on branch `lattice`. The protocol layer passed real-device QA on
-2026-11-02 (below). The extension setup and signing flows have not run on the
-device yet.
+committed on branch `lattice`. Real-device QA passed on 2026-11-02 for the
+protocol layer and for the built extension's setup and signing flows (below).
 
 Templates:
 
@@ -47,6 +46,34 @@ encrypted wallet info (two 71-byte descriptors, AES-padded), and the decoder
 required exactly 160. gridplus-sdk 4.0.0 and ape_grid both slice "up to 160",
 so they never noticed. The decoder now accepts 144 to 160 block-aligned bytes,
 and the simulator sends 144 like the device.
+
+Built extension (2026-11-02, Chrome, unpacked `build/` from `982662e7`): Add
+Account, Lattice tile, device ID, pairing code, then the account at
+`m/44'/60'/0'/0/0`. A localhost test page drove dapp requests against a local
+anvil chain (31337) so no real network was touched. Each result was checked
+outside the wallet (`cast wallet verify`, viem `recoverTypedDataAddress`,
+`cast receipt`).
+
+| Request | Result |
+| --- | --- |
+| `eth_requestAccounts` | Lattice account returned |
+| `wallet_addEthereumChain` + switch to 31337 | ok |
+| `personal_sign` | signer recovers to the account |
+| `eth_signTypedData_v4` (hash-only on device) | signer recovers to the account |
+| `eth_sendTransaction` 0.001 ETH to self | mined: EIP-1559, chain 31337, nonce 0, status 1 |
+
+Observations from the run:
+
+- Pairing the extension's key appears to have removed the older pairing of
+  ape_grid's key, which the smoke script had paired under the same app name
+  ("WalletChan"). The Lattice likely keeps one pairing per app name. Not yet
+  confirmed.
+- Once, the page's provider chain flipped from 31337 back to 8453 (Base)
+  between the switch and the typed-data request, so intake rejected the
+  domain chain. This happens before any Lattice code runs. A second run with
+  `chainChanged` logging saw no flip.
+- The account list on the setup screen stalled once on "Standard" paths; the
+  cause is not known yet.
 
 Bundle budget: WalletChan pins the background bundle at 4,194,304 bytes
 (`privacy-prover.budgets.json`, `tests/privacy/protocolManifest.test.ts`). With
@@ -101,4 +128,124 @@ Follows the Ledger integration file for file; see `IMPLEMENTATION.md`
 | Built-in staking direct path | Add a Lattice branch next to `swaps/ledgerDirect.ts` |
 | Onboarding step | Add Lattice to the first-account onboarding flow |
 | Hash display in the review UI | Re-add a `detail` field to `latticeStatus` (digest, or EIP-712 domain and message hashes) together with the review UI that renders it |
-| Real-device QA | Smoke script passed 2026-11-02; still to run: the setup and signing flows in the built extension |
+| Real-device QA | Phase 1 core passed 2026-11-02; run the full matrix below after phase 2 |
+
+## Real-device test matrix
+
+`AGENTS.md` requires real-device QA for hardware signers, and the
+account-type checklist in `IMPLEMENTATION.md` adds Safe owner approval and
+execution. This matrix is the checklist for every Lattice QA session. Ledger
+parity needs every row except the "phase 3" rows to pass in one session on one
+build.
+
+### Setup for a session
+
+1. Build the extension stage by stage (see Tooling notes above) and load
+   `apps/extension/build` unpacked in Chrome. Turn off any store copy of
+   WalletChan in the same profile.
+2. Start a local chain and fund the Lattice account from an anvil test account:
+
+   ```
+   anvil --port 8563 --chain-id 31337
+   cast send --rpc-url http://127.0.0.1:8563 --unlocked \
+     --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 <lattice address> --value 1ether
+   ```
+
+3. Serve the QA page: `npx tsx scripts/lattice-qa.ts`, then open
+   http://localhost:8564. Its buttons carry the M and T row IDs below.
+4. After the session, run `npx tsx scripts/lattice-qa.ts --verify`. It
+   recovers every signature and reads every transaction from the chain,
+   independent of the wallet's own checks.
+5. Record each row's result, plus what the Lattice screen showed, in the
+   results log at the end.
+
+Record once per session: date, build commit, firmware, active wallet
+(internal or SafeCard), relay (GridPlus or self-hosted), browser.
+
+### S: setup and device
+
+| ID | Steps | Pass |
+| --- | --- | --- |
+| S1 | Add Account, Lattice tile, device ID, pairing code from the device | Account added; device label shows SafeCard or internal correctly |
+| S2 | Load addresses for each scheme: Standard, Ledger Live, Legacy MEW | Lists load; first five match `scripts/lattice-device-smoke.ts --path <scheme path>` |
+| S3 | Repeat S1 with no SafeCard inserted (internal wallet) | Account pinned to the internal wallet |
+| S4 | Add a SafeCard account, swap or remove the card, then sign | Fails closed: "Insert this account's SafeCard." No signature |
+| S5 | Set a self-hosted Lattice Connect endpoint, then add and sign once | Works with no request to signing.gridpl.us |
+| S6 | Lock the Lattice, then request a signature | Clear "Unlock your Lattice." error; works after unlock |
+| S7 | Power off the Lattice, then request a signature | Relay timeout reported, no hang; works after power-on |
+| S8 | Remove WalletChan's pairing on the device, then sign | Clear "not paired" error. No re-pair button exists yet; record whether removing and re-adding the account recovers |
+| S9 | Pair a second app key (another browser or ape_grid), then sign from both | Record whether both pairings survive (open question: one pairing per app name?) |
+
+### M: messages (QA page)
+
+| ID | Request | Pass |
+| --- | --- | --- |
+| M1 | `personal_sign`, UTF-8 text | Signer recovers. Record whether the device shows text or hex |
+| M2 | `personal_sign`, non-UTF-8 bytes | Signer recovers; device shows hex |
+| M3 | `eth_signTypedData_v4`, flat struct | Signer recovers. Phase 1: device shows domain and message hashes. Phase 2: device shows the fields |
+| M4 | `eth_signTypedData_v4`, nested struct (Permit2 `PermitSingle`) | As M3, including the nested `details` fields in phase 2 |
+| M5 | Reject M1 on the device | Dapp gets code 4001; no retry prompt |
+| M6 | M3 with the wallet on another chain | Rejected before the device: domain chain must match |
+
+### T: transactions (QA page, local chain)
+
+| ID | Request | Pass |
+| --- | --- | --- |
+| T1 | EIP-1559 send to self, 0.001 ETH | Mined, type 2, signer = account |
+| T2 | Legacy request (`gasPrice`) | Mined; record the type WalletChan chose |
+| T3 | EIP-2930 request (`gasPrice` + `accessList`) | Mined; record the type WalletChan chose |
+| T4 | 2,000 bytes of calldata | Mined; the request used an extra frame |
+| T5 | 4,000 bytes of calldata | Mined; device shows a digest. Phase 2: the review screen shows the same digest |
+| T6 | ERC-20 `transfer(address,uint256)` calldata | Mined. Phase 2: device shows the decoded function and arguments |
+| T7 | Reject T1 on the device | Dapp gets code 4001; nothing broadcast |
+| T8 | Send from the wallet's own Send screen | Mined |
+| T9 | Custom nonce on a send | Mined with that nonce |
+| T10 | Speed up a pending send (start anvil with `--no-mining`, then `cast rpc evm_mine`) | Replacement mined, original dropped |
+| T11 | Cancel a pending send (as T10) | Zero-value self-send mined at the same nonce |
+
+### C: channels and sessions
+
+| ID | Steps | Pass |
+| --- | --- | --- |
+| C1 | WalletConnect dapp: `personal_sign` and a send | Both succeed through the Lattice |
+| C2 | Agent session (agent password): M1 and T1 | Both succeed |
+| C3 | Stop the service worker mid-session (`chrome://serviceworker-internals`), then sign | Reconnects and signs |
+
+### F: Safe
+
+Use a Safe on Sepolia or a mainnet fork with the Lattice account as an owner.
+
+| ID | Steps | Pass |
+| --- | --- | --- |
+| F1 | Approve a Safe proposal with the Lattice owner | Confirmation recorded for the right `safeTxHash`. Phase 2: device shows SafeTx fields |
+| F2 | Execute a Safe transaction, native gas, with the Lattice owner | Executed |
+
+### L: lifecycle
+
+| ID | Steps | Pass |
+| --- | --- | --- |
+| L1 | Remove the last Lattice account | `latticeAppKeyVault` and `latticeDevices` entries go with it |
+| L2 | Wallet reset | Pairing key and device rows cleared |
+| L3 | Change or remove the password or passkey, then sign | Pairing survives; signing works |
+
+### P: phase 2 parity features
+
+| ID | Steps | Pass |
+| --- | --- | --- |
+| P1 | Force inclusion on an OP Stack chain | One device approval; inclusion completes |
+| P2 | Force inclusion on Arbitrum | Child then parent approvals; reject each once and retry |
+| P3 | Privacy Pools single transaction | Signs and completes |
+| P4 | Built-in staking direct path | Signs and completes |
+| P5 | Onboarding with a Lattice as the first account | Completes without another account type |
+
+### B: browsers (phase 3, optional)
+
+| ID | Steps | Pass |
+| --- | --- | --- |
+| B1 | Firefox build: S1, M1, T1 | Work over the relay with no offscreen document |
+
+### Results log
+
+| Date | Build | Firmware, wallet | Rows passed | Notes |
+| --- | --- | --- | --- | --- |
+| 2026-11-02 | `982662e7` | 0.18.9, SafeCard | S1, M1, M3 (hash-only), T1 | Run with an earlier version of the QA page; M1 device display not yet recorded. S2 stalled once on Standard, then loaded. Smoke script also passed: pairing, addresses, `personal_sign`, EIP-1559 |
