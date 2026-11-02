@@ -16,6 +16,9 @@ Templates:
 
 - Pure TypeScript. Crypto from `@noble/curves` 1.9.1 (exact pin, the same copy
   viem already uses), WebCrypto AES-CBC and viem. No gridplus-sdk dependency.
+  The SDK stays a pinned, dev-only reference in `tools/lattice-sdk-parity/`,
+  outside the pnpm workspace: it captures the SDK's real request bytes as test
+  fixtures, which the normal suite reads without installing the SDK.
 - Relay default `GRIDPLUS_LATTICE_RELAY_URL` in `constants/externalUrls.ts`.
   The transport also accepts a self-hosted Lattice Connect endpoint
   (`http://<host>:8080`).

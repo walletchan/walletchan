@@ -76,6 +76,12 @@ export class FakeLattice implements LatticeTransport {
   readonly internalUid = keccak256(toBytes("internal-wallet"), "bytes");
   readonly externalUid = keccak256(toBytes("safecard-wallet"), "bytes");
   readonly signRecords: FakeSignRecord[] = [];
+  /**
+   * ETH_MSG sign envelopes exactly as received, plus each EXTRA_DATA frame
+   * (`length(4 LE) | frame`, without the random next code). Parity fixtures
+   * compare these bytes across clients.
+   */
+  readonly ethMsgCaptures: Array<{ envelope: Uint8Array; extras: Uint8Array[] }> = [];
   requestCount = 0;
   connectCount = 0;
   pairedAppName: string | null = null;
@@ -257,6 +263,7 @@ export class FakeLattice implements LatticeTransport {
     const reqPayload = request.subarray(34);
 
     if (schema === LatticeSignSchema.GENERIC || schema === LatticeSignSchema.ETH_MSG) {
+      if (schema === LatticeSignSchema.ETH_MSG) this.ethMsgCaptures.push({ envelope: request.slice(), extras: [] });
       const head = reqPayload.slice(
         0,
         schema === LatticeSignSchema.GENERIC ? LATTICE_FW_DEFAULT.gsBaseReqSz : 28 + LATTICE_FW_DEFAULT.ethMsgMaxBaseSz,
@@ -272,6 +279,7 @@ export class FakeLattice implements LatticeTransport {
       if (!pending) return LatticeResponseCode.INVALID_MSG;
       if (!reqPayload.subarray(0, 8).every((b, i) => b === pending.nextCode[i])) return LatticeResponseCode.INVALID_MSG;
       const len = u32le(reqPayload, 8);
+      if (pending.schema === LatticeSignSchema.ETH_MSG) this.ethMsgCaptures.at(-1)?.extras.push(reqPayload.slice(8, 12 + len));
       pending.collected.push(reqPayload.slice(12, 12 + len));
       pending.extraFrames += 1;
       if (hasExtra) {

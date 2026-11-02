@@ -8,6 +8,12 @@ No-device coverage for the Lattice1 protocol port in
   ape-grid-lattice `tests/fixtures/fixtures.json`, which its `generate.js`
   produces with the npm libraries gridplus-sdk uses (crc-32, aes-js, elliptic,
   @ethereumjs/rlp).
+- `sdkParity.test.ts` checks ETH_MSG requests byte for byte against
+  `fixtures/gridplusSdkEthMsg.json`: the exact sign envelopes the real
+  gridplus-sdk 4.0.0 `Client` sent to the simulator. Regenerate with
+  `tools/lattice-sdk-parity` (repo root). EIP-712 cases stay TODO until the
+  typed-data encoder lands.
+- `personalSign.test.ts` checks the personal_sign layout and size limits.
 - `client.test.ts` drives the client against `fakeLattice.ts`, an in-process
   simulator that speaks the real wire protocol: CRC-checked frames, ECDH and
   AES-256-CBC, ephemeral-key rotation, P-256 pairing-signature checks,

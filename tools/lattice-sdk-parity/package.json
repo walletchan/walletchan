@@ -1,0 +1,12 @@
+{
+  "name": "lattice-sdk-parity",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only: captures gridplus-sdk request bytes as Lattice parity fixtures. Not part of the pnpm workspace or the extension build.",
+  "scripts": {
+    "generate": "../../apps/extension/node_modules/.bin/tsx generate.ts"
+  },
+  "dependencies": {
+    "gridplus-sdk": "4.0.0"
+  }
+}
