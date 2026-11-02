@@ -61,6 +61,14 @@ test("connect prefers the SafeCard wallet when one is inserted", async () => {
   assert.deepEqual(result.activeWalletUid, device.externalUid);
 });
 
+test("connect accepts 144- and 160-byte wallet info and rejects shorter", async () => {
+  for (const walletInfoSize of [144, 160]) {
+    const { device, client } = setup({ walletInfoSize, safeCardInserted: true });
+    assert.deepEqual((await client.connect()).activeWalletUid, device.externalUid);
+  }
+  await assert.rejects(setup({ walletInfoSize: 128 }).client.connect(), /wallet info missing/);
+});
+
 test("connect rejects firmware older than 0.15.0", async () => {
   const { client } = setup({ firmware: [0, 14, 9] });
   await assert.rejects(client.connect(), /older than the supported minimum 0\.15\.0/);

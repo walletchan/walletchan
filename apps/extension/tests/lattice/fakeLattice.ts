@@ -61,6 +61,8 @@ export interface FakeLatticeOptions {
   /** Return this digest instead of the real one (tamper test). */
   forgedDigest?: Uint8Array;
   omitDigest?: boolean;
+  /** Encrypted wallet-info bytes in CONNECT; firmware 0.18.9 sends 144. */
+  walletInfoSize?: number;
 }
 
 export class FakeLattice implements LatticeTransport {
@@ -79,6 +81,7 @@ export class FakeLattice implements LatticeTransport {
   private safeCardInserted: boolean;
   private readonly forgedDigest?: Uint8Array;
   private readonly omitDigest: boolean;
+  private readonly walletInfoSize: number;
   private readonly queuedCodes: number[] = [];
   private pendingSign: {
     head: Uint8Array;
@@ -94,6 +97,7 @@ export class FakeLattice implements LatticeTransport {
     this.safeCardInserted = options.safeCardInserted ?? false;
     this.forgedDigest = options.forgedDigest;
     this.omitDigest = options.omitDigest ?? false;
+    this.walletInfoSize = options.walletInfoSize ?? 144;
   }
 
   get activeUid(): Uint8Array {
@@ -164,7 +168,7 @@ export class FakeLattice implements LatticeTransport {
     const fw = Uint8Array.from([this.firmware[2], this.firmware[1], this.firmware[0], 0]);
     const head = concat([Uint8Array.from([0, this.paired ? 1 : 0]), ephPub, fw]);
     if (!this.paired) return head;
-    const wallets = new Uint8Array(160);
+    const wallets = new Uint8Array(this.walletInfoSize);
     wallets.set(this.internalUid, 0);
     if (this.safeCardInserted) wallets.set(this.externalUid, 71);
     const secret = latticeSharedSecret(this.ephPriv, this.appPub);

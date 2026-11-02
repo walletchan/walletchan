@@ -164,7 +164,7 @@ test("prehash path: payload above 3,019 bytes sends its keccak digest", () => {
 
 test("WebCrypto AES-CBC round-trips aligned frames without padding, for every final block", async () => {
   const key = b(fx.shared_secret_hex);
-  for (const size of [16, 160, 1728]) {
+  for (const size of [16, 144, 160, 1728]) {
     for (let trial = 0; trial < 8; trial += 1) {
       const plain = crypto.getRandomValues(new Uint8Array(size));
       const cipher = await latticeAesEncrypt(plain, key);

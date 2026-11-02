@@ -33,7 +33,10 @@ export interface LatticeConnectResult {
   activeWalletUid: Uint8Array | null;
 }
 
-const ENCRYPTED_WALLET_INFO_SIZE = 160;
+// Two 71-byte wallet descriptors, AES-padded. Firmware 0.18.9 sends 144 bytes;
+// gridplus-sdk reads up to 160.
+const MIN_WALLET_INFO_SIZE = 144;
+const MAX_WALLET_INFO_SIZE = 160;
 const WALLET_DESCRIPTOR_SIZE = 71;
 
 export async function decodeConnectResponse(payload: Uint8Array, appPrivateKey: Uint8Array): Promise<LatticeConnectResult> {
@@ -51,8 +54,8 @@ export async function decodeConnectResponse(payload: Uint8Array, appPrivateKey: 
   let walletUids: LatticeWalletUids | null = null;
   let activeWalletUid: Uint8Array | null = null;
   if (isPaired) {
-    const encWallet = payload.subarray(off, off + ENCRYPTED_WALLET_INFO_SIZE);
-    if (encWallet.length !== ENCRYPTED_WALLET_INFO_SIZE) throw new Error("Lattice wallet info missing");
+    const encWallet = payload.subarray(off, off + MAX_WALLET_INFO_SIZE);
+    if (encWallet.length < MIN_WALLET_INFO_SIZE || encWallet.length % 16) throw new Error("Lattice wallet info missing");
     const dec = await latticeAesDecrypt(encWallet, latticeSharedSecret(appPrivateKey, ephemeralPub));
     if (dec[dec.length - 1] !== 0 || dec[dec.length - 2] !== 0) {
       throw new Error("Failed to decrypt Lattice wallet info");

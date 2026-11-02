@@ -1,8 +1,9 @@
 # GridPlus Lattice1 integration (private fork)
 
-Status (2026-10-20): phase 0 (protocol port) and phase 1 (account type) built on
-branch `lattice`, uncommitted. Real-device QA has not run yet: the Lattice was
-offline during development.
+Status (2026-11-02): phase 0 (protocol port) and phase 1 (account type)
+committed on branch `lattice`. The protocol layer passed real-device QA on
+2026-11-02 (below). The extension setup and signing flows have not run on the
+device yet.
 
 Templates:
 
@@ -29,12 +30,27 @@ Templates:
 Tests: `apps/extension/tests/lattice/` (see its README).
 
 Verification (2026-10-20): 51 tests pass; typecheck, lint, the external-URL
-guard and all build stages pass. Real-device check pending: the GridPlus relay
-returned HTTP 504 (Lattice offline) for both this port and ape_grid.
+guard and all build stages pass.
+
+Real device (2026-11-02, firmware 0.18.9, SafeCard active, GridPlus relay),
+via `scripts/lattice-device-smoke.ts --ape-grid --pair --sign-message ... --sign-tx`:
+
+| Check | Result |
+| --- | --- |
+| Pairing with the on-screen code | pass |
+| Addresses at `m/44'/60'/0'/0/0` and `/1` vs ape_grid's saved accounts | match |
+| `personal_sign` recovered signer | match |
+| EIP-1559 Sepolia transaction recovered signer (not broadcast) | match |
+
+The device run found one bug. A paired CONNECT reply carries 144 bytes of
+encrypted wallet info (two 71-byte descriptors, AES-padded), and the decoder
+required exactly 160. gridplus-sdk 4.0.0 and ape_grid both slice "up to 160",
+so they never noticed. The decoder now accepts 144 to 160 block-aligned bytes,
+and the simulator sends 144 like the device.
 
 Bundle budget: WalletChan pins the background bundle at 4,194,304 bytes
 (`privacy-prover.budgets.json`, `tests/privacy/protocolManifest.test.ts`). With
-phase 1 the bundle is 4,194,085 bytes, 219 under. Getting there took: WebCrypto
+phase 1 the bundle is 4,194,124 bytes, 180 under. Getting there took: WebCrypto
 instead of `@noble/ciphers`, sharing Ledger's prepare-sign-broadcast, session
 and argument helpers, a shared Safe hardware branch, and shorter messages.
 Phase 2 adds code, so it needs an upstream decision on the budget.
@@ -75,4 +91,4 @@ Follows the Ledger integration file for file; see `IMPLEMENTATION.md`
 | Built-in staking direct path | Add a Lattice branch next to `swaps/ledgerDirect.ts` |
 | Onboarding step | Add Lattice to the first-account onboarding flow |
 | Hash display in the review UI | Re-add a `detail` field to `latticeStatus` (digest, or EIP-712 domain and message hashes) together with the review UI that renders it |
-| Real-device QA | Run `scripts/lattice-device-smoke.ts`, then the setup and signing flows in the built extension |
+| Real-device QA | Smoke script passed 2026-11-02; still to run: the setup and signing flows in the built extension |
