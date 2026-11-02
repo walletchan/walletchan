@@ -1,15 +1,16 @@
 /**
- * EVM payloads for Lattice generic signing, and signature finalisation.
+ * EVM payloads for Lattice signing, and signature finalisation.
  *
  * Mirrors ape-grid-lattice `ape_grid/client.py` (`build_tx_preimage`,
- * `sign_message`, `sign_typed_data`, `_sign_evm`). The local keccak digest is
- * the authority: a device-reported digest must match it, and y-parity is
- * recovered against it.
+ * `sign_typed_data`, `_sign_evm`); personal_sign uses the ETH_MSG request so
+ * the device shows the text. The local keccak digest is the authority: a
+ * device-reported digest must match it, and y-parity is recovered against it.
  */
 import { secp256k1 } from "@noble/curves/secp256k1";
 import {
   bytesToHex,
   concat,
+  getAddress,
   hexToBytes,
   keccak256,
   serializeTransaction,
@@ -139,16 +140,41 @@ export async function signLatticeTransaction(
   return { ...signature, serialized };
 }
 
-export function signLatticePersonalMessage(
+/**
+ * personal_sign over ETH_MSG, so the device shows ASCII messages as text. The
+ * local EIP-191 digest is the authority, and the signature must recover to the
+ * address the device reports.
+ */
+export async function signLatticePersonalMessage(
   client: LatticeProtocolClient,
   input: { signerPath: readonly number[]; message: Uint8Array; signal?: AbortSignal },
 ): Promise<LatticeEvmSignature> {
-  return signLatticeEvmPayload(client, {
-    signerPath: input.signerPath,
-    payload: personalSignPayload(input.message),
-    encoding: LatticeSignEncoding.NONE,
-    signal: input.signal,
-  });
+  const result = await client.signPersonal(input);
+  if (bytesToBigInt(result.s) > HALF_N) throw new LatticeProtocolError("Lattice returned a high-s signature.");
+  const digest = keccak256(personalSignPayload(input.message), "bytes");
+  const signer = getAddress(bytesToHex(result.signer));
+  const signature = new secp256k1.Signature(bytesToBigInt(result.r), bytesToBigInt(result.s));
+  for (const yParity of [0, 1] as const) {
+    let recovered: Address | null = null;
+    try {
+      const pubkey = signature.addRecoveryBit(yParity).recoverPublicKey(digest).toRawBytes(false);
+      recovered = publicKeyToAddress(bytesToHex(pubkey));
+    } catch {
+      // try the other recovery id
+    }
+    if (recovered === signer) {
+      return {
+        r: bytesToHex(result.r),
+        s: bytesToHex(result.s),
+        yParity,
+        digest: bytesToHex(digest),
+        signer,
+        prehashed: result.prehashed,
+        decoderAttached: false,
+      };
+    }
+  }
+  throw new LatticeProtocolError("Lattice signature does not match its signer.");
 }
 
 /** Hash-only EIP-712 (phase 1). Full on-device fields need the ETH_MSG port. */

@@ -48,6 +48,7 @@ export const LatticeGetAddressesFlag = {
 } as const;
 
 export const LatticeSignSchema = {
+  ETH_MSG: 3,
   EXTRA_DATA: 4,
   GENERIC: 5,
 } as const;

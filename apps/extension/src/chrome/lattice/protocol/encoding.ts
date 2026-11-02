@@ -4,9 +4,10 @@
  * Ported from ape-grid-lattice `ape_grid/protocol/encoding.py`, which mirrors
  * gridplus-sdk `protocol/secureMessages.ts`, `util.ts`,
  * `functions/getAddresses.ts`, `functions/sign.ts` and `genericSigning.ts`.
+ * The ETH_MSG personal-sign request follows gridplus-sdk 4.0.0 `ethereum.ts`.
  */
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { keccak256, sha256 } from "viem";
+import { hashMessage, keccak256, sha256 } from "viem";
 
 import {
   bytesToBigInt,
@@ -295,11 +296,7 @@ export function encodeGenericSigningRequest(input: {
     } else {
       const full = dataToCopy;
       dataToCopy = full.subarray(0, fw.gsBaseDataSz);
-      const overflow = full.subarray(fw.gsBaseDataSz);
-      for (let i = 0; i < overflow.length; i += fw.extraDataFrameSz) {
-        const frame = overflow.subarray(i, i + fw.extraDataFrameSz);
-        extraPayloads.push(concatBytes(u32LE(frame.length), frame));
-      }
+      extraPayloads.push(...extraDataFrames(full.subarray(fw.gsBaseDataSz), fw.extraDataFrameSz));
     }
   }
 
@@ -312,6 +309,62 @@ export function encodeGenericSigningRequest(input: {
   writeU16LE(base, 31, payload.length);
   base.set(dataToCopy, 33);
   return { base, extraPayloads, prehashed, decoderAttached };
+}
+
+/** `[length(4 LE) | frame]` chunks for EXTRA_DATA envelopes. */
+function extraDataFrames(overflow: Uint8Array, frameSz: number): Uint8Array[] {
+  const frames: Uint8Array[] = [];
+  for (let i = 0; i < overflow.length; i += frameSz) {
+    const frame = overflow.subarray(i, i + frameSz);
+    frames.push(concatBytes(u32LE(frame.length), frame));
+  }
+  return frames;
+}
+
+// ---------- ETH_MSG personal sign ----------
+
+export interface PersonalSignRequest {
+  /** Goes into an ETH_MSG sign envelope. */
+  base: Uint8Array;
+  extraPayloads: Uint8Array[];
+  /** True when the message exceeded the firmware limit and the device signs its digest. */
+  prehashed: boolean;
+  /** True when the device shows hex because the message is not ASCII. */
+  displayHex: boolean;
+}
+
+/**
+ * gridplus-sdk `buildPersonalSignRequest`. The device adds the EIP-191 prefix
+ * and shows ASCII messages as text.
+ * Layout: protocol(1)=0 | signerPath(24) | displayHex(1) | msgLen(2 LE)
+ *         | message, or keccak256(EIP-191 preimage) when prehashed
+ */
+export function encodePersonalSignRequest(input: {
+  signerPath: readonly number[];
+  message: Uint8Array;
+  fw?: LatticeFirmwareConstants;
+}): PersonalSignRequest {
+  const fw = input.fw ?? LATTICE_FW_DEFAULT;
+  const { message } = input;
+  if (message.length > 0xffff) throw new Error("Message too large");
+  // The SDK tests the decoded string against /^[\x00-\x7F]+$/, so empty shows hex too.
+  const displayHex = message.length === 0 || message.some((byte) => byte > 0x7f);
+  const maxFull = fw.ethMsgMaxBaseSz + fw.extraDataMaxFrames * fw.extraDataFrameSz - fw.personalSignHeaderSz;
+  const prehashed = message.length > maxFull;
+  const body = prehashed ? hashMessage({ raw: message }, "bytes") : message.subarray(0, fw.ethMsgMaxBaseSz);
+  const base = new Uint8Array(28 + body.length);
+  base.set(buildSignerPathBuf(input.signerPath, fw.varAddrPathSzAllowed), 1);
+  base[25] = displayHex ? 1 : 0;
+  writeU16LE(base, 26, message.length);
+  base.set(body, 28);
+  const extraPayloads = prehashed ? [] : extraDataFrames(message.subarray(fw.ethMsgMaxBaseSz), fw.extraDataFrameSz);
+  return { base, extraPayloads, prehashed, displayHex };
+}
+
+/** ETH_MSG reply: DER signature (74-byte slot) | signer address(20). */
+export function parseEthMsgSignResponse(data: Uint8Array): { r: Uint8Array; s: Uint8Array; signer: Uint8Array } {
+  const { r, s } = parseDerSignature(data.subarray(0, 2 + data[1]));
+  return { r: fixLength(r, 32), s: fixLength(s, 32), signer: data.slice(74, 94) };
 }
 
 // ---------- signature response ----------

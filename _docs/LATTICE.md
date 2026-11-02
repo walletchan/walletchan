@@ -119,9 +119,18 @@ Follows the Ledger integration file for file; see `IMPLEMENTATION.md`
 
 ## Not yet at Ledger parity
 
+Closed 2026-11-02: `personal_sign` now goes over the `ETH_MSG` request
+(schema 3, protocol `signPersonal`), ported from gridplus-sdk 4.0.0
+`buildPersonalSignRequest`. The device adds the EIP-191 prefix and shows ASCII
+messages as text; other bytes show as hex. Messages above 2,968 bytes are
+prehashed. The reply is a DER signature plus the 20-byte signer, and the
+signature must recover to that signer from the local EIP-191 digest. Phase 1
+had sent the prefixed bytes through generic signing, which the device showed
+as hex (`0x1945…`).
+
 | Gap | Plan |
 | --- | --- |
-| EIP-712 shows hashes on the device | Port the `ETH_MSG` EIP-712 encoding with new parity fixtures |
+| EIP-712 shows hashes on the device | Add the `ETH_MSG` `typedData` protocol (enum 1) on the same request path, with parity checks against gridplus-sdk `buildEIP712Request` |
 | Calldata shows raw on the device | Attach decoders from WalletChan's ABI resolution; add tuples to `calldata.ts` |
 | Force inclusion | Add a Lattice factory to `RAW_FORCE_INCLUSION_SIGNERS` |
 | Privacy Pools single transactions | Add `lattice` to the Privacy Pools account validators and flip the capability |
@@ -142,8 +151,12 @@ build.
 
 1. Build the extension stage by stage (see Tooling notes above) and load
    `apps/extension/build` unpacked in Chrome. Turn off any store copy of
-   WalletChan in the same profile.
-2. Start a local chain and fund the Lattice account from an anvil test account:
+   WalletChan in the same profile. After every rebuild, click the extension's
+   reload arrow at `chrome://extensions` and refresh the QA page: Chrome keeps
+   running the old background code until then.
+2. Start a local chain and fund the Lattice account from an anvil test account.
+   Keep it running for the whole session; with its RPC down, WalletChan moved
+   the page back to Ethereum.
 
    ```
    anvil --port 8563 --chain-id 31337
@@ -180,7 +193,7 @@ Record once per session: date, build commit, firmware, active wallet
 
 | ID | Request | Pass |
 | --- | --- | --- |
-| M1 | `personal_sign`, UTF-8 text | Signer recovers. Record whether the device shows text or hex |
+| M1 | `personal_sign`, UTF-8 text | Signer recovers; device shows the text |
 | M2 | `personal_sign`, non-UTF-8 bytes | Signer recovers; device shows hex |
 | M3 | `eth_signTypedData_v4`, flat struct | Signer recovers. Phase 1: device shows domain and message hashes. Phase 2: device shows the fields |
 | M4 | `eth_signTypedData_v4`, nested struct (Permit2 `PermitSingle`) | As M3, including the nested `details` fields in phase 2 |
@@ -192,9 +205,9 @@ Record once per session: date, build commit, firmware, active wallet
 | ID | Request | Pass |
 | --- | --- | --- |
 | T1 | EIP-1559 send to self, 0.001 ETH | Mined, type 2, signer = account |
-| T2 | Legacy request (`gasPrice`) | Mined; record the type WalletChan chose |
-| T3 | EIP-2930 request (`gasPrice` + `accessList`) | Mined; record the type WalletChan chose |
-| T4 | 2,000 bytes of calldata | Mined; the request used an extra frame |
+| T2 | Legacy request (`gasPrice`) | Mined; record the type WalletChan chose. On chain 31337 it sent EIP-1559, so the device's legacy path needs a chain without EIP-1559 |
+| T3 | EIP-2930 request (`gasPrice` + `accessList`) | As T2 |
+| T4 | 2,000 bytes of calldata | Mined; the request used an extra frame. WalletChan may warn "likely to fail" although the chain estimates 53,000 gas; proceed |
 | T5 | 4,000 bytes of calldata | Mined; device shows a digest. Phase 2: the review screen shows the same digest |
 | T6 | ERC-20 `transfer(address,uint256)` calldata | Mined. Phase 2: device shows the decoded function and arguments |
 | T7 | Reject T1 on the device | Dapp gets code 4001; nothing broadcast |
@@ -248,4 +261,5 @@ Use a Safe on Sepolia or a mainnet fork with the Lattice account as an owner.
 
 | Date | Build | Firmware, wallet | Rows passed | Notes |
 | --- | --- | --- | --- | --- |
-| 2026-11-02 | `982662e7` | 0.18.9, SafeCard | S1, M1, M3 (hash-only), T1 | Run with an earlier version of the QA page; M1 device display not yet recorded. S2 stalled once on Standard, then loaded. Smoke script also passed: pairing, addresses, `personal_sign`, EIP-1559 |
+| 2026-11-02 | `982662e7` | 0.18.9, SafeCard | S1, M1, M3 (hash-only), T1 | Run with an earlier version of the QA page. M1 showed hex on the device. S2 stalled once on Standard, then loaded. Smoke script also passed: pairing, addresses, `personal_sign`, EIP-1559 |
+| 2026-11-02 | `ETH_MSG` commit | 0.18.9, SafeCard | M1 (text on device), M2, M3 and M4 (hash-only), T1 to T6 | `--verify` passed all ten rows. M1 first ran before the extension reload and showed `0x1945…`; after the reload the device showed the text. T2 and T3 went out as EIP-1559. T4 drew a false "likely to fail" warning. T4 and T5 were rejected once each (code 4001, nothing broadcast) before passing |

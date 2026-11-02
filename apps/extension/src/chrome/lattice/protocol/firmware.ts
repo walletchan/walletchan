@@ -1,6 +1,7 @@
 /**
- * Firmware limits for the generic-signing path (firmware >= 0.15.0).
- * Ported from ape-grid-lattice `ape_grid/protocol/firmware.py`.
+ * Firmware limits for the generic-signing and ETH_MSG paths (firmware >= 0.15.0).
+ * Ported from ape-grid-lattice `ape_grid/protocol/firmware.py`; the ETH_MSG
+ * limits come from gridplus-sdk `getFwVersionConst`.
  */
 
 export interface LatticeFirmwareConstants {
@@ -13,6 +14,10 @@ export interface LatticeFirmwareConstants {
   readonly gsBaseDataSz: number;
   readonly decoderReserved: number;
   readonly decoderMaxSz: number;
+  /** ETH_MSG message bytes in the base frame: reqMaxDataSz - 128 - 10. */
+  readonly ethMsgMaxBaseSz: number;
+  /** Room the device reserves for the EIP-191 header it adds. */
+  readonly personalSignHeaderSz: number;
 }
 
 export const LATTICE_FW_DEFAULT: LatticeFirmwareConstants = Object.freeze({
@@ -25,6 +30,8 @@ export const LATTICE_FW_DEFAULT: LatticeFirmwareConstants = Object.freeze({
   gsBaseDataSz: 1519,
   decoderReserved: 2895728,
   decoderMaxSz: 1024,
+  ethMsgMaxBaseSz: 1540,
+  personalSignHeaderSz: 72,
 });
 
 /** Largest payload the device receives in full; larger payloads are prehashed. */

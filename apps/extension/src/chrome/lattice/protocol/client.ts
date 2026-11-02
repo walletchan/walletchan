@@ -24,8 +24,10 @@ import {
   decryptLatticeResponse,
   encodeGenericSigningRequest,
   encodeGetAddressesRequest,
+  encodePersonalSignRequest,
   encodeSignEnvelope,
   newLatticeMsgId,
+  parseEthMsgSignResponse,
   parseGenericSigningResponseSecp256k1,
   parseLatticeResponse,
   type LatticeSecpSignResponse,
@@ -65,6 +67,15 @@ export interface LatticeGenericSignInput {
 export interface LatticeGenericSignResult extends LatticeSecpSignResponse {
   prehashed: boolean;
   decoderAttached: boolean;
+}
+
+export interface LatticePersonalSignResult {
+  r: Uint8Array;
+  s: Uint8Array;
+  /** 20-byte address the device reports it signed with. */
+  signer: Uint8Array;
+  prehashed: boolean;
+  displayHex: boolean;
 }
 
 export class LatticeProtocolClient {
@@ -148,17 +159,39 @@ export class LatticeProtocolClient {
       fw: this.fw,
       decoder: input.decoder,
     });
-    const extras = [...request.extraPayloads];
-    let data = await this.sendSignEnvelope(LatticeSignSchema.GENERIC, request.base, extras.length > 0, input.signal);
-    while (extras.length > 0) {
-      const reqPayload = concat([data.slice(0, 8), extras.shift() as Uint8Array]);
-      data = await this.sendSignEnvelope(LatticeSignSchema.EXTRA_DATA, reqPayload, extras.length > 0, input.signal);
-    }
+    const data = await this.sendSignFrames(LatticeSignSchema.GENERIC, request.base, request.extraPayloads, input.signal);
     return {
       ...parseGenericSigningResponseSecp256k1(data),
       prehashed: request.prehashed,
       decoderAttached: request.decoderAttached,
     };
+  }
+
+  /** ETH_MSG personal_sign: the device adds the EIP-191 prefix and shows ASCII messages as text. */
+  async signPersonal(input: {
+    signerPath: readonly number[];
+    message: Uint8Array;
+    signal?: AbortSignal;
+  }): Promise<LatticePersonalSignResult> {
+    const request = encodePersonalSignRequest({ signerPath: input.signerPath, message: input.message, fw: this.fw });
+    const data = await this.sendSignFrames(LatticeSignSchema.ETH_MSG, request.base, request.extraPayloads, input.signal);
+    return { ...parseEthMsgSignResponse(data), prehashed: request.prehashed, displayHex: request.displayHex };
+  }
+
+  /** Sends the base request, then chains EXTRA_DATA frames; returns the final reply. */
+  private async sendSignFrames(
+    schema: number,
+    base: Uint8Array,
+    extraPayloads: readonly Uint8Array[],
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    const extras = [...extraPayloads];
+    let data = await this.sendSignEnvelope(schema, base, extras.length > 0, signal);
+    while (extras.length > 0) {
+      const reqPayload = concat([data.slice(0, 8), extras.shift() as Uint8Array]);
+      data = await this.sendSignEnvelope(LatticeSignSchema.EXTRA_DATA, reqPayload, extras.length > 0, signal);
+    }
+    return data;
   }
 
   private requireActiveWallet(): Uint8Array {

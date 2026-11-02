@@ -3,11 +3,12 @@
  *
  * It speaks the real wire protocol: CRC-checked frames, ECDH + AES-256-CBC,
  * ephemeral-key rotation, P-256 pairing-signature verification, EXTRA_DATA
- * reassembly, prehash detection and secp256k1 signing with per-path keys.
+ * reassembly, prehash detection and secp256k1 signing with per-path keys, for
+ * both generic signing and ETH_MSG personal_sign.
  */
 import { p256 } from "@noble/curves/p256";
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { bytesToHex, concat, keccak256, sha256, toBytes } from "viem";
+import { bytesToHex, concat, hashMessage, hexToBytes, keccak256, sha256, toBytes } from "viem";
 import { publicKeyToAddress } from "viem/accounts";
 
 import {
@@ -42,6 +43,10 @@ function writeU32BE(buf: Uint8Array, off: number, v: number): void {
 }
 
 export interface FakeSignRecord {
+  /** LatticeSignSchema.GENERIC or ETH_MSG. */
+  schema: number;
+  /** ETH_MSG only: true when the device would show hex instead of text. */
+  displayHex: boolean | null;
   signerPath: number[];
   encoding: number;
   hashType: number;
@@ -61,6 +66,8 @@ export interface FakeLatticeOptions {
   /** Return this digest instead of the real one (tamper test). */
   forgedDigest?: Uint8Array;
   omitDigest?: boolean;
+  /** ETH_MSG: report this 20-byte signer instead of the real one (tamper test). */
+  forgedSigner?: Uint8Array;
   /** Encrypted wallet-info bytes in CONNECT; firmware 0.18.9 sends 144. */
   walletInfoSize?: number;
 }
@@ -81,9 +88,11 @@ export class FakeLattice implements LatticeTransport {
   private safeCardInserted: boolean;
   private readonly forgedDigest?: Uint8Array;
   private readonly omitDigest: boolean;
+  private readonly forgedSigner?: Uint8Array;
   private readonly walletInfoSize: number;
   private readonly queuedCodes: number[] = [];
   private pendingSign: {
+    schema: number;
     head: Uint8Array;
     collected: Uint8Array[];
     nextCode: Uint8Array;
@@ -97,6 +106,7 @@ export class FakeLattice implements LatticeTransport {
     this.safeCardInserted = options.safeCardInserted ?? false;
     this.forgedDigest = options.forgedDigest;
     this.omitDigest = options.omitDigest ?? false;
+    this.forgedSigner = options.forgedSigner;
     this.walletInfoSize = options.walletInfoSize ?? 144;
   }
 
@@ -246,10 +256,13 @@ export class FakeLattice implements LatticeTransport {
     if (!uid.every((b, i) => b === this.activeUid[i])) return LatticeResponseCode.WRONG_WALLET;
     const reqPayload = request.subarray(34);
 
-    if (schema === LatticeSignSchema.GENERIC) {
-      const head = reqPayload.slice(0, LATTICE_FW_DEFAULT.gsBaseReqSz);
-      if (!hasExtra) return this.sign(head, [], 0);
-      this.pendingSign = { head, collected: [], nextCode: crypto.getRandomValues(new Uint8Array(8)), extraFrames: 0 };
+    if (schema === LatticeSignSchema.GENERIC || schema === LatticeSignSchema.ETH_MSG) {
+      const head = reqPayload.slice(
+        0,
+        schema === LatticeSignSchema.GENERIC ? LATTICE_FW_DEFAULT.gsBaseReqSz : 28 + LATTICE_FW_DEFAULT.ethMsgMaxBaseSz,
+      );
+      if (!hasExtra) return this.complete(schema, head, [], 0);
+      this.pendingSign = { schema, head, collected: [], nextCode: crypto.getRandomValues(new Uint8Array(8)), extraFrames: 0 };
       const resp = new Uint8Array(1090);
       resp.set(this.pendingSign.nextCode);
       return resp;
@@ -268,9 +281,50 @@ export class FakeLattice implements LatticeTransport {
         return resp;
       }
       this.pendingSign = null;
-      return this.sign(pending.head, pending.collected, pending.extraFrames);
+      return this.complete(pending.schema, pending.head, pending.collected, pending.extraFrames);
     }
     return LatticeResponseCode.INVALID_MSG;
+  }
+
+  private complete(schema: number, head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+    return schema === LatticeSignSchema.ETH_MSG
+      ? this.signPersonal(head, extras, extraFrames)
+      : this.sign(head, extras, extraFrames);
+  }
+
+  /** ETH_MSG: protocol(1) | signerPath(24) | displayHex(1) | msgLen(2 LE) | message or EIP-191 digest. */
+  private signPersonal(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+    if (head[0] !== 0) return LatticeResponseCode.INVALID_MSG;
+    const fw = LATTICE_FW_DEFAULT;
+    const depth = u32le(head, 1);
+    const signerPath = Array.from({ length: depth }, (_, i) => u32le(head, 5 + 4 * i));
+    const payloadDataSz = u16le(head, 26);
+    const maxFull = fw.ethMsgMaxBaseSz + fw.extraDataMaxFrames * fw.extraDataFrameSz - fw.personalSignHeaderSz;
+    let message: Uint8Array | null = null;
+    let digest: Uint8Array;
+    if (payloadDataSz > maxFull) {
+      digest = head.slice(28, 60);
+    } else {
+      message = concat([head.subarray(28, 28 + fw.ethMsgMaxBaseSz), ...extras]).slice(0, payloadDataSz);
+      digest = hashMessage({ raw: message }, "bytes");
+    }
+    this.signRecords.push({
+      schema: LatticeSignSchema.ETH_MSG,
+      displayHex: head[25] === 1,
+      signerPath,
+      encoding: 0,
+      hashType: LatticeSignHash.KECCAK256,
+      payloadDataSz,
+      message,
+      digest,
+      decoder: null,
+      extraFrames,
+    });
+    const key = this.keyFor(signerPath);
+    const resp = new Uint8Array(1090);
+    resp.set(secp256k1.sign(digest, key).toDERRawBytes(), 0);
+    resp.set(this.forgedSigner ?? hexToBytes(publicKeyToAddress(bytesToHex(secp256k1.getPublicKey(key, false)))), 74);
+    return resp;
   }
 
   private sign(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array {
@@ -295,7 +349,18 @@ export class FakeLattice implements LatticeTransport {
         decoder = tail.slice(8, 8 + u32le(tail, 4));
       }
     }
-    this.signRecords.push({ signerPath, encoding, hashType, payloadDataSz, message, digest, decoder, extraFrames });
+    this.signRecords.push({
+      schema: LatticeSignSchema.GENERIC,
+      displayHex: null,
+      signerPath,
+      encoding,
+      hashType,
+      payloadDataSz,
+      message,
+      digest,
+      decoder,
+      extraFrames,
+    });
 
     const key = this.keyFor(signerPath);
     const sig = secp256k1.sign(digest, key);

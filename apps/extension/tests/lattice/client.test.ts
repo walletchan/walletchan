@@ -6,6 +6,7 @@ import {
   encodeFunctionData,
   erc20Abi,
   hashDomain,
+  hashMessage,
   hashStruct,
   hexToBytes,
   keccak256,
@@ -22,6 +23,7 @@ import {
   LatticeProtocolClient,
   LatticeProtocolError,
   LatticeResponseCode,
+  LatticeSignSchema,
   encodeEvmDecoder,
   evmTransactionPayload,
   generateLatticeAppPrivateKey,
@@ -185,14 +187,61 @@ test("calldata decoder is attached for the device to display", async () => {
   assert.deepEqual(device.signRecords.at(-1)!.decoder, decoder);
 });
 
-test("personal_sign recovers with viem", async () => {
+test("personal_sign goes over ETH_MSG: the device gets the bare ASCII text and recovers with viem", async () => {
   const { device, client } = setup();
   await client.connect();
   const message = new TextEncoder().encode("Sign in to WalletChan");
   const sig = await signLatticePersonalMessage(client, { signerPath: PATH, message });
   const signature = serializeSignature({ r: sig.r, s: sig.s, yParity: sig.yParity });
   assert.equal(await recoverMessageAddress({ message: { raw: message }, signature }), device.addressFor(PATH));
-  assert.equal(device.signRecords.at(-1)!.encoding, 1);
+  const record = device.signRecords.at(-1)!;
+  assert.equal(record.schema, LatticeSignSchema.ETH_MSG);
+  assert.equal(record.displayHex, false);
+  assert.deepEqual(record.message, message);
+  assert.equal(sig.digest, hashMessage({ raw: message }));
+});
+
+test("personal_sign of non-ASCII bytes asks the device to show hex", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const message = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x00, 0xff]);
+  const sig = await signLatticePersonalMessage(client, { signerPath: PATH, message });
+  assert.equal(device.signRecords.at(-1)!.displayHex, true);
+  assert.equal(sig.signer, device.addressFor(PATH));
+});
+
+test("a 2,000-byte personal message travels in one extra frame and still recovers", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const message = new TextEncoder().encode("a".repeat(2000));
+  const sig = await signLatticePersonalMessage(client, { signerPath: PATH, message });
+  const record = device.signRecords.at(-1)!;
+  assert.equal(record.extraFrames, 1);
+  assert.deepEqual(record.message, message);
+  const signature = serializeSignature({ r: sig.r, s: sig.s, yParity: sig.yParity });
+  assert.equal(await recoverMessageAddress({ message: { raw: message }, signature }), device.addressFor(PATH));
+});
+
+test("a personal message above 2,968 bytes is prehashed: the device sees only the EIP-191 digest", async () => {
+  const { device, client } = setup();
+  await client.connect();
+  const message = new TextEncoder().encode("b".repeat(2969));
+  const sig = await signLatticePersonalMessage(client, { signerPath: PATH, message });
+  const record = device.signRecords.at(-1)!;
+  assert.equal(record.message, null);
+  assert.equal(record.extraFrames, 0);
+  assert.equal(sig.prehashed, true);
+  const signature = serializeSignature({ r: sig.r, s: sig.s, yParity: sig.yParity });
+  assert.equal(await recoverMessageAddress({ message: { raw: message }, signature }), device.addressFor(PATH));
+});
+
+test("a personal_sign reply whose signer the signature does not recover to is rejected", async () => {
+  const { client } = setup({ forgedSigner: hexToBytes(TO) });
+  await client.connect();
+  await assert.rejects(
+    signLatticePersonalMessage(client, { signerPath: PATH, message: new Uint8Array([0x68, 0x69]) }),
+    /does not match its signer/,
+  );
 });
 
 test("EIP-712 hash-only signing recovers as typed data", async () => {
@@ -227,7 +276,7 @@ test("a device digest that differs from the reviewed payload is rejected", async
   const { client } = setup({ forgedDigest: hexToBytes(keccak256("0x01")) });
   await client.connect();
   await assert.rejects(
-    signLatticePersonalMessage(client, { signerPath: PATH, message: new Uint8Array([1, 2, 3]) }),
+    signLatticeTypedDataHashes(client, { signerPath: PATH, domainSeparator: keccak256("0x02"), messageHash: keccak256("0x03") }),
     /different digest/,
   );
 });
@@ -235,7 +284,7 @@ test("a device digest that differs from the reviewed payload is rejected", async
 test("firmware that omits the digest still recovers against the local digest", async () => {
   const { device, client } = setup({ omitDigest: true });
   await client.connect();
-  const sig = await signLatticePersonalMessage(client, { signerPath: PATH, message: new Uint8Array([9]) });
+  const sig = await signLatticeTypedDataHashes(client, { signerPath: PATH, domainSeparator: keccak256("0x09") });
   assert.equal(sig.signer, device.addressFor(PATH));
 });
 
