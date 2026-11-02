@@ -157,8 +157,7 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
     customNonce: true,
     agentPasswordSigning: true,
   },
-  // Lattice phase 1: Ledger's row minus force inclusion and Privacy Pools,
-  // which are phase 2 parity items.
+  // Lattice: Ledger's row minus Privacy Pools single transactions (a parity item).
   lattice: {
     signingTransport: "lattice",
     customEvmChains: true,
@@ -171,7 +170,7 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
     erc7715: false,
     feeTokenExecution: false,
     sponsoredTransfer: false,
-    forceInclusion: false,
+    forceInclusion: true,
     directSwap: false,
     safeOwner: true,
     safeNativeExecution: true,

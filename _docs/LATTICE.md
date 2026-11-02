@@ -150,6 +150,13 @@ argument; with size 32 it refused the decoder. A decoder the device refuses is
 dropped and the same transaction is re-sent without it. The device shows
 amounts as raw integers; WalletChan's review screen formats them.
 
+Closed 2026-11-02: single force inclusion on OP Stack and Arbitrum. Lattice
+is `"raw"` in the core policy and `forceInclusion: true` in the capability row,
+with a factory in `RAW_FORCE_INCLUSION_SIGNERS` beside Ledger's, the same
+shape and authority checks (account, device and path re-checked around every
+device prompt; no wallet lock held while the device waits). Tests:
+`tests/lattice/forceInclusionSigner.test.ts`, the twin of Ledger's.
+
 Scope rule (2026-11-02): add Lattice support without changing how WalletChan
 works. New code lives in `src/chrome/lattice/`; shared files get Lattice
 branches only where Ledger has one. Dropped for that reason: device hashes in
@@ -157,7 +164,6 @@ the review UI (Ledger has no such UI).
 
 | Gap | Plan |
 | --- | --- |
-| Force inclusion | Add a Lattice factory to `RAW_FORCE_INCLUSION_SIGNERS` |
 | Privacy Pools single transactions | Add `lattice` to the Privacy Pools account validators and flip the capability |
 | Built-in staking direct path | Add a Lattice branch next to `swaps/ledgerDirect.ts` |
 | Onboarding step | Add Lattice to the first-account onboarding flow |
