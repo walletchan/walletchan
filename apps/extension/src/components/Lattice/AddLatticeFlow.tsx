@@ -27,6 +27,7 @@ export interface AddLatticeFlowProps {
   onComplete(): void;
   commitAccounts?(selection: HardwareWalletAccountSelection): Promise<void>;
   renderLayout?(parts: HardwareWalletFlowLayoutParts): ReactNode;
+  showDevicePanelHeading?: boolean;
 }
 
 type PairingPrompt = {
@@ -34,7 +35,7 @@ type PairingPrompt = {
   reject(error: Error): void;
 };
 
-export default function AddLatticeFlow({ onBack, onComplete, commitAccounts, renderLayout }: AddLatticeFlowProps) {
+export default function AddLatticeFlow({ onBack, onComplete, commitAccounts, renderLayout, showDevicePanelHeading }: AddLatticeFlowProps) {
   const [relayDeviceId, setRelayDeviceId] = useState("");
   const [endpoint, setEndpoint] = useState("");
   const [connected, setConnected] = useState(false);
@@ -156,6 +157,7 @@ export default function AddLatticeFlow({ onBack, onComplete, commitAccounts, ren
   return (
     <AddHardwareWalletFlow
       provider={provider}
+      showDevicePanelHeading={showDevicePanelHeading}
       onBack={onBack}
       onComplete={onComplete}
       commitAccounts={commitAccounts}

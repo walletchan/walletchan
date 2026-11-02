@@ -6,6 +6,7 @@ import { newPasswordPolicyError } from "@/constants/securityPolicy";
 import { startWorkerKeepaliveHeartbeat } from "@/app/uiKeepalive";
 import type { LedgerAccountSelection } from "@/components/Ledger/AddLedgerFlow";
 import type { TrezorAccountSelection } from "@/components/Trezor/AddTrezorFlow";
+import type { HardwareWalletAccountSelection } from "@/components/HardwareWallet/types";
 import {
   getOrCreateOnboardingOwnerId,
   isArcBrowser,
@@ -38,6 +39,7 @@ export function useOnboardingController() {
   const [ledgerSelection, setLedgerSelection] =
     useState<LedgerAccountSelection | null>(null);
   const [trezorSelection, setTrezorSelection] = useState<TrezorAccountSelection | null>(null);
+  const [latticeSelection, setLatticeSelection] = useState<HardwareWalletAccountSelection | null>(null);
   const [safeSelection, setSafeSelection] = useState<SafeOnboardingSelection | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -256,7 +258,7 @@ export function useOnboardingController() {
   const clearCollectedSecrets = () => {
     setPrivateKey(""); setDerivedAddress(null); setCollectedMnemonic("");
     setCollectedSeedIndices([0]); setSeedGroupName(""); setSeedAccountDisplayName("");
-    setApiKey(""); setLedgerSelection(null); setTrezorSelection(null); setSafeSelection(null); setPassword(""); setConfirmPassword("");
+    setApiKey(""); setLedgerSelection(null); setTrezorSelection(null); setLatticeSelection(null); setSafeSelection(null); setPassword(""); setConfirmPassword("");
   };
   const handleBack = () => {
     if (submittingRef.current) return;
@@ -298,7 +300,7 @@ export function useOnboardingController() {
         seedGroupName,
         seedAccountDisplayName,
         ledgerSelection,
-        trezorSelection, safeSelection,
+        trezorSelection, latticeSelection, safeSelection,
         resolveAddress,
       });
       setApiKey("");
@@ -306,6 +308,7 @@ export function useOnboardingController() {
       setViewOnlyAddress("");
       setLedgerSelection(null);
       setTrezorSelection(null);
+      setLatticeSelection(null);
       setPassword("");
       setConfirmPassword("");
       setCollectedMnemonic("");
@@ -334,7 +337,7 @@ export function useOnboardingController() {
     setPassword, confirmPassword, setConfirmPassword, showPassword,
     setShowPassword, isSubmitting, isResolvingAddress, setCollectedMnemonic,
     setCollectedSeedIndices, setSeedGroupName, setSeedAccountDisplayName,
-    ledgerSelection, setLedgerSelection, trezorSelection, setTrezorSelection, safeSelection, setSafeSelection,
+    ledgerSelection, setLedgerSelection, trezorSelection, setTrezorSelection, latticeSelection, setLatticeSelection, safeSelection, setSafeSelection,
     errors, setErrors, handleContinue, handleBack, handleProgressStepClick,
     setupRecoveryError,
   };

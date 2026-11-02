@@ -174,6 +174,15 @@ device and path re-checked before every broadcast), routed from
 Ledger; phase 1 had grouped it with Trezor (unavailable). The built-in swap
 shortcut stays off for Lattice, as for Ledger.
 
+Closed 2026-11-02: Lattice as a first account in onboarding. A Lattice tile
+sits under Connect after Ledger (no availability gate: it talks over HTTPS).
+`pages/onboarding/LatticeOnboardingStep.tsx` wraps `AddLatticeFlow` in the
+onboarding layout and only collects the selection; `onboardingSubmission.ts`
+creates the master credential first, then sends `addLatticeAccounts`, which
+encrypts the pairing key with the new vault key. The in-memory setup session
+survives the password step because onboarding's own `onboarding-keepalive`
+port keeps the background worker awake; it still expires after 15 minutes.
+
 Scope rule (2026-11-02): add Lattice support without changing how WalletChan
 works. New code lives in `src/chrome/lattice/`; shared files get Lattice
 branches only where Ledger has one. Dropped for that reason: device hashes in
@@ -181,7 +190,6 @@ the review UI (Ledger has no such UI).
 
 | Gap | Plan |
 | --- | --- |
-| Onboarding step | Add Lattice to the first-account onboarding flow |
 | Real-device QA | Phase 1 core, messages, EIP-712 fields and decoded calls passed 2026-11-02; run the full matrix below after the items above |
 
 ## Real-device test matrix

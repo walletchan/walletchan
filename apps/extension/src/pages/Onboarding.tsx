@@ -11,6 +11,7 @@ import {
 import { PasswordStep } from "./onboarding/PasswordStep";
 import { PrivateKeySetupStep } from "./onboarding/PrivateKeySetupStep";
 import { LedgerOnboardingStep } from "./onboarding/LedgerOnboardingStep";
+import { LatticeOnboardingStep } from "./onboarding/LatticeOnboardingStep";
 import { TrezorOnboardingStep } from "./onboarding/TrezorOnboardingStep";
 import { SeedPhraseOnboardingStep } from "./onboarding/SeedPhraseOnboardingStep";
 import { useOnboardingController } from "./onboarding/useOnboardingController";
@@ -58,7 +59,7 @@ function Onboarding() {
     setCollectedSeedIndices,
     setSeedGroupName,
     setSeedAccountDisplayName,
-    setLedgerSelection, safeSelection, setSafeSelection, setTrezorSelection,
+    setLedgerSelection, safeSelection, setSafeSelection, setTrezorSelection, setLatticeSelection,
     errors,
     setErrors,
     handleContinue,
@@ -142,6 +143,19 @@ function Onboarding() {
         onProgressStepClick={handleProgressStepClick}
         onCollect={async (selection) => {
           setLedgerSelection(selection);
+          setStep("password");
+        }}
+      />
+    );
+  }
+
+  if (step === "lattice") {
+    return (
+      <LatticeOnboardingStep
+        onBack={handleBack}
+        onProgressStepClick={handleProgressStepClick}
+        onCollect={async (selection) => {
+          setLatticeSelection(selection);
           setStep("password");
         }}
       />

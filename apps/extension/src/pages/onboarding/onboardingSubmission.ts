@@ -1,5 +1,6 @@
 import type { LedgerAccountSelection } from "@/components/Ledger/AddLedgerFlow";
 import type { TrezorAccountSelection } from "@/components/Trezor/AddTrezorFlow";
+import type { HardwareWalletAccountSelection } from "@/components/HardwareWallet/types";
 import { validateAndDeriveAddress } from "@/utils/privateKeyUtils";
 import { ONBOARDING_OWNER_SESSION_KEY } from "./onboardingEnvironment";
 import { CHAIN_REGISTRY } from "@/constants/chainRegistry";
@@ -24,6 +25,7 @@ interface OnboardingSubmissionInput {
   seedAccountDisplayName: string;
   ledgerSelection: LedgerAccountSelection | null;
   trezorSelection: TrezorAccountSelection | null;
+  latticeSelection?: HardwareWalletAccountSelection | null;
   safeSelection?: SafeOnboardingSelection | null;
   resolveAddress(input: string): Promise<string | null>;
 }
@@ -71,6 +73,8 @@ export async function submitOnboardingAccount(
       throw new Error("Connect your Ledger and select at least one account");
     } else if (input.accountType === "trezor" && !input.trezorSelection) {
       throw new Error("Connect your Trezor and select at least one account");
+    } else if (input.accountType === "lattice" && !input.latticeSelection?.addresses.length) {
+      throw new Error("Connect your Lattice and select at least one account");
     }
 
     const initialization = await requireSuccess<{
@@ -199,6 +203,27 @@ export async function submitOnboardingAccount(
       );
       if (!response.account?.address) {
         throw new Error("Ledger account was not committed safely");
+      }
+      finalAddress = response.account.address;
+      finalDisplayAddress = response.account.displayName || finalAddress;
+    } else if (input.accountType === "lattice") {
+      await initializeCredential("pk-only-mode");
+      const selection = input.latticeSelection!;
+      const response = await requireSuccess<{
+        success: boolean;
+        error?: string;
+        account?: { address?: string; displayName?: string };
+      }>(
+        {
+          type: "addLatticeAccounts",
+          deviceId: selection.deviceId,
+          deviceLabel: selection.deviceLabel,
+          addresses: selection.addresses.map(({ address }) => ({ address })),
+        },
+        "Failed to add Lattice account",
+      );
+      if (!response.account?.address) {
+        throw new Error("Lattice account was not committed safely");
       }
       finalAddress = response.account.address;
       finalDisplayAddress = response.account.displayName || finalAddress;
