@@ -73,6 +73,8 @@ export interface FakeLatticeOptions {
   forgedSigner?: Uint8Array;
   /** Answer ETH_MSG typedData requests with INVALID_MSG, like firmware that cannot parse them. */
   rejectTypedData?: boolean;
+  /** Answer generic signing requests that carry a calldata decoder with INVALID_MSG. */
+  rejectDecoder?: boolean;
   /** Encrypted wallet-info bytes in CONNECT; firmware 0.18.9 sends 144. */
   walletInfoSize?: number;
 }
@@ -101,6 +103,7 @@ export class FakeLattice implements LatticeTransport {
   private readonly omitDigest: boolean;
   private readonly forgedSigner?: Uint8Array;
   private readonly rejectTypedData: boolean;
+  private readonly rejectDecoder: boolean;
   private readonly walletInfoSize: number;
   private readonly queuedCodes: number[] = [];
   private pendingSign: {
@@ -120,6 +123,7 @@ export class FakeLattice implements LatticeTransport {
     this.omitDigest = options.omitDigest ?? false;
     this.forgedSigner = options.forgedSigner;
     this.rejectTypedData = options.rejectTypedData ?? false;
+    this.rejectDecoder = options.rejectDecoder ?? false;
     this.walletInfoSize = options.walletInfoSize ?? 144;
   }
 
@@ -403,7 +407,7 @@ export class FakeLattice implements LatticeTransport {
     return this.ethMsgReply(digest, signerPath);
   }
 
-  private sign(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array {
+  private sign(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
     const encoding = u32le(head, 0);
     const hashType = head[4];
     const depth = u32le(head, 6);
@@ -425,6 +429,7 @@ export class FakeLattice implements LatticeTransport {
         decoder = tail.slice(8, 8 + u32le(tail, 4));
       }
     }
+    if (decoder && this.rejectDecoder) return LatticeResponseCode.INVALID_MSG;
     this.signRecords.push({
       schema: LatticeSignSchema.GENERIC,
       displayHex: null,

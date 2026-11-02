@@ -112,18 +112,32 @@ export async function signLatticeEvmPayload(
   };
 }
 
-/** Signs a transaction and returns the broadcastable serialization. */
+/**
+ * Signs a transaction and returns the broadcastable serialization. A calldata
+ * decoder the device rejects (INVALID_MSG) never blocks signing: the same
+ * transaction is sent again without it, and the device shows raw data.
+ */
 export async function signLatticeTransaction(
   client: LatticeProtocolClient,
   input: { signerPath: readonly number[]; tx: TransactionSerializable; decoder?: Uint8Array; signal?: AbortSignal },
 ): Promise<LatticeEvmSignature & { serialized: Hex }> {
-  const signature = await signLatticeEvmPayload(client, {
-    signerPath: input.signerPath,
-    payload: evmTransactionPayload(input.tx),
-    encoding: LatticeSignEncoding.EVM,
-    decoder: input.decoder,
-    signal: input.signal,
-  });
+  const sign = (decoder?: Uint8Array) =>
+    signLatticeEvmPayload(client, {
+      signerPath: input.signerPath,
+      payload: evmTransactionPayload(input.tx),
+      encoding: LatticeSignEncoding.EVM,
+      decoder,
+      signal: input.signal,
+    });
+  let signature: LatticeEvmSignature | undefined;
+  if (input.decoder) {
+    try {
+      signature = await sign(input.decoder);
+    } catch (error) {
+      if (!(error instanceof LatticeProtocolError && error.responseCode === LatticeResponseCode.INVALID_MSG)) throw error;
+    }
+  }
+  signature ??= await sign();
   const legacy = input.tx.type === undefined || input.tx.type === "legacy";
   const chainId = input.tx.chainId;
   const v = legacy

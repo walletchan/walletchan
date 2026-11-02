@@ -131,16 +131,37 @@ signature must recover to that signer from the local EIP-191 digest. Phase 1
 had sent the prefixed bytes through generic signing, which the device showed
 as hex (`0x1945…`).
 
+Closed 2026-11-02: EIP-712 fields on the device (`ETH_MSG` `typedData`,
+byte-identical to gridplus-sdk on 7 cases, M3 and M4 showed their fields on
+the device). Data the device cannot show as fields (nested arrays, more than
+36 fields in a type, over 3,040 bytes, or an `INVALID_MSG` answer) signs as
+domain and message hashes, never after a user rejection.
+
+Closed 2026-11-02: contract calls decoded on the device. `calldataDecoder.ts`
+reuses WalletChan's own sources unchanged: `fetchContractAbi` (verified ABI,
+with Sourcify's proxy resolution; the device shows parameter names), then the
+Sourcify and 4byte.directory selector lookups the history view already makes
+(`#1`-style labels), then raw data. A function is used only when re-encoding
+its decoded arguments reproduces the calldata exactly. Decoders match
+gridplus-sdk byte for byte (14 canonical, 6 JSON-ABI, tuples included), with
+one exception: functions with fixed `bytesN` parameters get no decoder. With
+the SDK's size N / 8 the device showed only the last 4 bytes of a bytes32
+argument; with size 32 it refused the decoder. A decoder the device refuses is
+dropped and the same transaction is re-sent without it. The device shows
+amounts as raw integers; WalletChan's review screen formats them.
+
+Scope rule (2026-11-02): add Lattice support without changing how WalletChan
+works. New code lives in `src/chrome/lattice/`; shared files get Lattice
+branches only where Ledger has one. Dropped for that reason: device hashes in
+the review UI (Ledger has no such UI).
+
 | Gap | Plan |
 | --- | --- |
-| EIP-712 shows hashes on the device | Add the `ETH_MSG` `typedData` protocol (enum 1) on the same request path, with parity checks against gridplus-sdk `buildEIP712Request` |
-| Calldata shows raw on the device | Attach decoders from WalletChan's ABI resolution; add tuples to `calldata.ts` |
 | Force inclusion | Add a Lattice factory to `RAW_FORCE_INCLUSION_SIGNERS` |
 | Privacy Pools single transactions | Add `lattice` to the Privacy Pools account validators and flip the capability |
 | Built-in staking direct path | Add a Lattice branch next to `swaps/ledgerDirect.ts` |
 | Onboarding step | Add Lattice to the first-account onboarding flow |
-| Hash display in the review UI | Re-add a `detail` field to `latticeStatus` (digest, or EIP-712 domain and message hashes) together with the review UI that renders it |
-| Real-device QA | Phase 1 core passed 2026-11-02; run the full matrix below after phase 2 |
+| Real-device QA | Phase 1 core, messages, EIP-712 fields and decoded calls passed 2026-11-02; run the full matrix below after the items above |
 
 ## Real-device test matrix
 
@@ -212,7 +233,9 @@ Record once per session: date, build commit, firmware, active wallet
 | T3 | EIP-2930 request (`gasPrice` + `accessList`) | As T2 |
 | T4 | 2,000 bytes of calldata | Mined; the request used an extra frame. WalletChan may warn "likely to fail" although the chain estimates 53,000 gas; proceed |
 | T5 | 4,000 bytes of calldata | Mined; device shows a digest. Phase 2: the review screen shows the same digest |
-| T6 | ERC-20 `transfer(address,uint256)` calldata | Mined. Phase 2: device shows the decoded function and arguments |
+| T6 | ERC-20 `transfer(address,uint256)` calldata | Mined; device shows `transfer` with the recipient and amount |
+| T12 | `grantRole(bytes32,address)` calldata | Mined; device shows raw data (fixed `bytesN` functions get no decoder) |
+| T13 | Uniswap SwapRouter02 `exactInputSingle` (tuple) | Mined; device shows the function and the tuple's seven fields |
 | T7 | Reject T1 on the device | Dapp gets code 4001; nothing broadcast |
 | T8 | Send from the wallet's own Send screen | Mined |
 | T9 | Custom nonce on a send | Mined with that nonce |
@@ -265,4 +288,5 @@ Use a Safe on Sepolia or a mainnet fork with the Lattice account as an owner.
 | Date | Build | Firmware, wallet | Rows passed | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-11-02 | `982662e7` | 0.18.9, SafeCard | S1, M1, M3 (hash-only), T1 | Run with an earlier version of the QA page. M1 showed hex on the device. S2 stalled once on Standard, then loaded. Smoke script also passed: pairing, addresses, `personal_sign`, EIP-1559 |
+| 2026-11-02 | EIP-712 and calldata commits | 0.18.9, SafeCard | M3 and M4 (fields on device), T6 and T13 (decoded), T12 | M4 prompted twice once: a stuck request survived an extension reload and arrived late; both prompts showed the same fields. T12 first showed `0x1c89…`, the last 4 bytes of the bytes32 role (SDK size rule); with size 32 the device refused the decoder and the fallback signed raw data. Fixed `bytesN` functions now get no decoder |
 | 2026-11-02 | `ETH_MSG` commit | 0.18.9, SafeCard | M1 (text on device), M2, M3 and M4 (hash-only), T1 to T6 | `--verify` passed all ten rows. M1 first ran before the extension reload and showed `0x1945…`; after the reload the device showed the text. T2 and T3 went out as EIP-1559. T4 drew a false "likely to fail" warning. T4 and T5 were rejected once each (code 4001, nothing broadcast) before passing |

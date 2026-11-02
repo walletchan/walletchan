@@ -65,6 +65,8 @@ h2{font-size:16px;margin:18px 0 4px}pre{background:#f4f4f4;padding:10px;white-sp
 <button data-id="T4">T4 2,000-byte calldata (multi-frame)</button>
 <button data-id="T5">T5 4,000-byte calldata (prehashed above 3,019 bytes)</button>
 <button data-id="T6">T6 ERC-20 transfer(address,uint256) calldata</button>
+<button data-id="T12">T12 grantRole(bytes32,address): bytes32 argument</button>
+<button data-id="T13">T13 Uniswap exactInputSingle((...)): tuple argument</button>
 <pre id="out"></pre>
 <script>
 const CHAIN = { chainId: "0x7a69", chainName: "Lattice QA (anvil)", rpcUrls: ["RPC_URL"],
@@ -131,6 +133,17 @@ const ACTIONS = {
   T5: () => send({ value: "0x0", data: filler(4000) }),
   T6: () => send({ value: "0x0", data: "0xa9059cbb" + "000000000000000000000000" + "2222222222222222222222222222222222222222"
     + "00000000000000000000000000000000000000000000000000000000000f4240" }),
+  // grantRole(MINTER_ROLE, 0x2222...): the device should show the full 32-byte role.
+  T12: () => send({ value: "0x0", data: "0x2f2ff15d9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6"
+    + "0000000000000000000000002222222222222222222222222222222222222222" }),
+  // SwapRouter02 exactInputSingle: WETH -> USDC, fee 500, 1 WETH in, 3,000 USDC minimum.
+  T13: () => send({ value: "0x0", data: "0x04e45aaf000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+    + "000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+    + "00000000000000000000000000000000000000000000000000000000000001f4"
+    + "0000000000000000000000002222222222222222222222222222222222222222"
+    + "0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+    + "00000000000000000000000000000000000000000000000000000000b2d05e00"
+    + "0000000000000000000000000000000000000000000000000000000000000000" }),
 };
 for (const button of document.querySelectorAll("button[data-id]")) {
   button.onclick = async () => {
@@ -188,7 +201,7 @@ async function verify(): Promise<void> {
   const rows = readFileSync(values.out as string, "utf8").trim().split("\n").map((line) => JSON.parse(line) as QaRow);
   const client = createPublicClient({ transport: http(values.rpc as string) });
   const latest = new Map<string, QaRow>();
-  for (const row of rows) if (/^[MT]\d$/.test(row.id) && row.ok) latest.set(row.id, row);
+  for (const row of rows) if (/^[MT]\d+$/.test(row.id) && row.ok) latest.set(row.id, row);
   let failures = 0;
   for (const [id, row] of [...latest].sort(([a], [b]) => a.localeCompare(b))) {
     const expected = getAddress(row.account as string);
@@ -214,7 +227,7 @@ async function verify(): Promise<void> {
     if (!pass) failures += 1;
     console.log(`${pass ? "PASS" : "FAIL"} ${id}  ${detail}  (${row.at})`);
   }
-  for (const id of ["M1", "M2", "M3", "M4", "T1", "T2", "T3", "T4", "T5", "T6"]) {
+  for (const id of ["M1", "M2", "M3", "M4", "T1", "T2", "T3", "T4", "T5", "T6", "T12", "T13"]) {
     if (!latest.has(id)) console.log(`---- ${id}  no successful result logged`);
   }
   process.exitCode = failures > 0 ? 1 : 0;

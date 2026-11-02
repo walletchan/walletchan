@@ -22,6 +22,7 @@ import {
   signLatticeTypedData,
   type LatticeEvmSignature,
 } from "./protocol";
+import { latticeDecoderFor } from "./calldataDecoder";
 import { withLatticeAccount } from "./operations";
 
 interface GasOverrides {
@@ -53,9 +54,15 @@ export async function signPreparedLatticeTransaction(input: {
   if (transaction.type === "eip7702" || transaction.type === "eip4844") {
     throw new Error("Unsupported Lattice transaction type");
   }
+  // Looked up before the device session, so the Lattice never waits on the network.
+  const decoder = await latticeDecoderFor({
+    data: transaction.data,
+    to: transaction.to,
+    chainId: Number(transaction.chainId),
+  });
   const signed = await withLatticeAccount(
     { opId: input.opId, account: input.account },
-    ({ client, signerPath, signal }) => signLatticeTransaction(client, { signerPath, tx: transaction, signal }),
+    ({ client, signerPath, signal }) => signLatticeTransaction(client, { signerPath, tx: transaction, decoder, signal }),
   );
   assertSigner(signed.signer, input.account);
   assertSigner(await recoverTransactionAddress({ serializedTransaction: signed.serialized as never }), input.account);

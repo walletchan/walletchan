@@ -883,5 +883,317 @@
       "extras": [],
       "sdkError": null
     }
+  ],
+  "decoders": [
+    {
+      "signature": "transfer(address,uint256)",
+      "selector": "0xa9059cbb",
+      "def": "0xd7887472616e73666572c68223310180c0c68223320320c0"
+    },
+    {
+      "signature": "approve(address,uint256)",
+      "selector": "0x095ea7b3",
+      "def": "0xd687617070726f7665c68223310180c0c68223320320c0"
+    },
+    {
+      "signature": "transferFrom(address,address,uint256)",
+      "selector": "0x23b872dd",
+      "def": "0xe28c7472616e7366657246726f6dc68223310180c0c68223320180c0c68223330320c0"
+    },
+    {
+      "signature": "setApprovalForAll(address,bool)",
+      "selector": "0xa22cb465",
+      "def": "0xe091736574417070726f76616c466f72416c6cc68223310180c0c68223320280c0"
+    },
+    {
+      "signature": "deposit(uint256,address)",
+      "selector": "0x6e553f65",
+      "def": "0xd6876465706f736974c68223310320c0c68223320180c0"
+    },
+    {
+      "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+      "selector": "0x38ed1739",
+      "def": "0xf83d98737761704578616374546f6b656e73466f72546f6b656e73c68223310320c0c68223320320c0c78223330180c180c68223340180c0c68223350320c0"
+    },
+    {
+      "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+      "selector": "0x04e45aaf",
+      "def": "0xf85a906578616374496e70757453696e676c65f8478223310780c0f83fc88423312d310180c0c88423312d320180c0c88423312d330303c0c88423312d340180c0c88423312d350320c0c88423312d360320c0c88423312d370314c0"
+    },
+    {
+      "signature": "execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)",
+      "selector": "0x6a761202",
+      "def": "0xf8578f657865635472616e73616374696f6ec68223310180c0c68223320320c0c68223330580c0c68223340301c0c68223350320c0c68223360320c0c68223370320c0c68223380180c0c68223390180c0c7832331300580c0"
+    },
+    {
+      "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+      "selector": "0x2b67b570",
+      "def": "0xf85f867065726d6974c68223310180c0f8488223320780c0f840ed8423322d310780c0e4c88423312d310180c0c88423312d320314c0c88423312d330306c0c88423312d340306c0c88423322d320180c0c88423322d330320c0c68223330580c0"
+    },
+    {
+      "signature": "multicall(bytes[])",
+      "selector": "0xac9650d8",
+      "def": "0xd2896d756c746963616c6cc78223310580c180"
+    },
+    {
+      "signature": "submit(bytes32,uint256)",
+      "selector": "0x762ca848",
+      "def": "0xd5867375626d6974c68223310504c0c68223320320c0"
+    },
+    {
+      "signature": "foo(bytes32,bool,int128)",
+      "selector": "0x8367868f",
+      "def": "0xd983666f6fc68223310504c0c68223320280c0c68223330410c0"
+    },
+    {
+      "signature": "fill((address,uint256)[],bytes32[3])",
+      "selector": "0xca2043b4",
+      "def": "0xe88466696c6cda8223310780c180d2c88423312d310180c0c88423312d320320c0c78223320504c103"
+    },
+    {
+      "signature": "nested((uint256,(address,bytes32)),string)",
+      "selector": "0xb868ae0d",
+      "def": "0xf83b866e6573746564ec8223310780c0e5c88423312d310320c0db8423312d320780c0d2c88423322d310180c0c88423322d320504c0c68223320680c0"
+    }
+  ],
+  "abiDecoders": [
+    {
+      "signature": "transfer(address,uint256)",
+      "selector": "0xa9059cbb",
+      "abi": {
+        "type": "function",
+        "name": "transfer",
+        "inputs": [
+          {
+            "name": "recipient",
+            "type": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256"
+          }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "def": "0xe2887472616e73666572cd89726563697069656e740180c0ca86616d6f756e740320c0"
+    },
+    {
+      "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+      "selector": "0x04e45aaf",
+      "abi": {
+        "type": "function",
+        "name": "exactInputSingle",
+        "inputs": [
+          {
+            "name": "params",
+            "type": "tuple",
+            "components": [
+              {
+                "name": "tokenIn",
+                "type": "address"
+              },
+              {
+                "name": "tokenOut",
+                "type": "address"
+              },
+              {
+                "name": "fee",
+                "type": "uint24"
+              },
+              {
+                "name": "recipient",
+                "type": "address"
+              },
+              {
+                "name": "amountIn",
+                "type": "uint256"
+              },
+              {
+                "name": "amountOutMinimum",
+                "type": "uint256"
+              },
+              {
+                "name": "sqrtPriceLimitX96",
+                "type": "uint160"
+              }
+            ]
+          }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "def": "0xf886906578616374496e70757453696e676c65f87386706172616d730780c0f867cb87746f6b656e496e0180c0cc88746f6b656e4f75740180c0c7836665650303c0cd89726563697069656e740180c0cc88616d6f756e74496e0320c0d490616d6f756e744f75744d696e696d756d0320c0d5917371727450726963654c696d69745839360314c0"
+    },
+    {
+      "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+      "selector": "0x2b67b570",
+      "abi": {
+        "type": "function",
+        "name": "permit",
+        "inputs": [
+          {
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "name": "permitSingle",
+            "type": "tuple",
+            "components": [
+              {
+                "name": "details",
+                "type": "tuple",
+                "components": [
+                  {
+                    "name": "token",
+                    "type": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint160"
+                  },
+                  {
+                    "name": "expiration",
+                    "type": "uint48"
+                  },
+                  {
+                    "name": "nonce",
+                    "type": "uint48"
+                  }
+                ]
+              },
+              {
+                "name": "spender",
+                "type": "address"
+              },
+              {
+                "name": "sigDeadline",
+                "type": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "def": "0xf88b867065726d6974c9856f776e65720180c0f86a8c7065726d697453696e676c650780c0f858f83a8764657461696c730780c0eec985746f6b656e0180c0ca86616d6f756e740314c0ce8a65787069726174696f6e0306c0c9856e6f6e63650306c0cb877370656e6465720180c0cf8b736967446561646c696e650320c0cd897369676e61747572650580c0"
+    },
+    {
+      "signature": "execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)",
+      "selector": "0x6a761202",
+      "abi": {
+        "type": "function",
+        "name": "execTransaction",
+        "inputs": [
+          {
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "name": "operation",
+            "type": "uint8"
+          },
+          {
+            "name": "safeTxGas",
+            "type": "uint256"
+          },
+          {
+            "name": "baseGas",
+            "type": "uint256"
+          },
+          {
+            "name": "gasPrice",
+            "type": "uint256"
+          },
+          {
+            "name": "gasToken",
+            "type": "address"
+          },
+          {
+            "name": "refundReceiver",
+            "type": "address"
+          },
+          {
+            "name": "signatures",
+            "type": "bytes"
+          }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "def": "0xf88e8f657865635472616e73616374696f6ec682746f0180c0c98576616c75650320c0c884646174610580c0cd896f7065726174696f6e0301c0cd897361666554784761730320c0cb87626173654761730320c0cc8867617350726963650320c0cc88676173546f6b656e0180c0d28e726566756e6452656365697665720180c0ce8a7369676e6174757265730580c0"
+    },
+    {
+      "signature": "safeTransferFrom(address,address,uint256,bytes)",
+      "selector": "0xb88d4fde",
+      "abi": {
+        "type": "function",
+        "name": "safeTransferFrom",
+        "inputs": [
+          {
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "name": "id",
+            "type": "uint256"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "def": "0xf190736166655472616e7366657246726f6dc88466726f6d0180c0c682746f0180c0c68269640320c0c884646174610580c0"
+    },
+    {
+      "signature": "fillOrders((address,uint256)[],uint256[3])",
+      "selector": "0x3123ca6d",
+      "abi": {
+        "type": "function",
+        "name": "fillOrders",
+        "inputs": [
+          {
+            "name": "orders",
+            "type": "tuple[]",
+            "components": [
+              {
+                "name": "maker",
+                "type": "address"
+              },
+              {
+                "name": "amount",
+                "type": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "ids",
+            "type": "uint256[3]"
+          }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "def": "0xf68a66696c6c4f7264657273e1866f72646572730780c180d5c9856d616b65720180c0ca86616d6f756e740320c0c8836964730320c103"
+    }
   ]
 }

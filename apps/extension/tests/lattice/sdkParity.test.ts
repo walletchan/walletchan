@@ -9,7 +9,16 @@ import test from "node:test";
 
 import { bytesToHex, hexToBytes } from "viem";
 
-import { encodePersonalSignRequest, encodeSignEnvelope, encodeTypedDataRequest, LatticeSignSchema } from "./protocolImports";
+import {
+  encodeEvmDecoder,
+  encodeEvmDecoderForFunction,
+  encodePersonalSignRequest,
+  encodeSignEnvelope,
+  encodeTypedDataRequest,
+  functionSelector,
+  LatticeDecoderUnsupportedError,
+  LatticeSignSchema,
+} from "./protocolImports";
 
 interface SdkCase {
   name: string;
@@ -25,6 +34,8 @@ const fixtures = JSON.parse(readFileSync(new URL("./fixtures/gridplusSdkEthMsg.j
   signerPath: number[];
   walletUid: `0x${string}`;
   cases: SdkCase[];
+  decoders: Array<{ signature: string; selector: `0x${string}`; def: `0x${string}` }>;
+  abiDecoders: Array<{ signature: string; selector: `0x${string}`; abi: unknown; def: `0x${string}` }>;
 };
 
 function padded(hex: `0x${string}`, size: number): `0x${string}` {
@@ -47,6 +58,27 @@ for (const fixture of fixtures.cases.filter((item) => item.protocol === "signPer
     });
     assert.equal(bytesToHex(envelope), padded(fixture.envelope, fixture.envelopeSize));
     assert.deepEqual(request.extraPayloads.map((frame) => bytesToHex(frame)), fixture.extras);
+  });
+}
+
+for (const decoder of fixtures.decoders) {
+  // The SDK sizes bytes32 as 4 and the device then showed only its last 4
+  // bytes; size 32 was refused. Fixed bytesN functions therefore get no decoder.
+  const fixedBytes = /bytes\d/.test(decoder.signature);
+  test(`calldata decoder ${fixedBytes ? "is refused for fixed bytesN, unlike gridplus-sdk" : "matches gridplus-sdk byte for byte"}: ${decoder.signature}`, () => {
+    assert.equal(bytesToHex(functionSelector(decoder.signature)), decoder.selector);
+    if (fixedBytes) {
+      assert.throws(() => encodeEvmDecoder(decoder.signature), LatticeDecoderUnsupportedError);
+      return;
+    }
+    assert.equal(bytesToHex(encodeEvmDecoder(decoder.signature)), decoder.def);
+  });
+}
+
+for (const decoder of fixtures.abiDecoders) {
+  test(`named calldata decoder from a JSON ABI matches gridplus-sdk byte for byte: ${decoder.signature}`, () => {
+    assert.equal(bytesToHex(functionSelector(decoder.signature)), decoder.selector);
+    assert.equal(bytesToHex(encodeEvmDecoderForFunction(decoder.abi as never)), decoder.def);
   });
 }
 

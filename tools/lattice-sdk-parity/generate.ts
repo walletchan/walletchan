@@ -14,7 +14,9 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Client } from "gridplus-sdk";
+import { RLP } from "@ethereumjs/rlp";
+import { Calldata, Client } from "gridplus-sdk";
+import { keccak256 } from "viem";
 
 import { FakeLattice } from "../../apps/extension/tests/lattice/fakeLattice";
 
@@ -266,6 +268,79 @@ for (const item of TYPED) {
   cases.push({ name: item.name, protocol: "eip712", payload: item.payload, ...(await capture("eip712", item.payload, client)) });
 }
 
+// Calldata decoders ("defs") the device uses to show contract calls, from the SDK's
+// canonical-signature parser (its 4byte path) RLP-encoded as the SDK sends them.
+const DECODER_SIGNATURES = [
+  "transfer(address,uint256)",
+  "approve(address,uint256)",
+  "transferFrom(address,address,uint256)",
+  "setApprovalForAll(address,bool)",
+  "deposit(uint256,address)",
+  "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+  "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+  "execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)",
+  "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+  "multicall(bytes[])",
+  "submit(bytes32,uint256)",
+  "foo(bytes32,bool,int128)",
+  "fill((address,uint256)[],bytes32[3])",
+  "nested((uint256,(address,bytes32)),string)",
+];
+const decoders = DECODER_SIGNATURES.map((signature) => {
+  const selector = keccak256(new TextEncoder().encode(signature)).slice(0, 10);
+  const def = Calldata.EVM.parsers.parseCanonicalName(selector, signature);
+  return { signature, selector, def: hex(RLP.encode(def as never)) };
+});
+
+// Named decoders from JSON ABIs (the SDK's explorer-ABI path, parseSolidityJSONABI).
+const p = (name: string, type: string, components?: unknown[]) => ({ name, type, ...(components ? { components } : {}) });
+const fn = (name: string, inputs: unknown[]) => ({ type: "function", name, inputs, outputs: [], stateMutability: "nonpayable" });
+const ABI_FUNCTIONS = [
+  fn("transfer", [p("recipient", "address"), p("amount", "uint256")]),
+  fn("exactInputSingle", [
+    p("params", "tuple", [
+      p("tokenIn", "address"),
+      p("tokenOut", "address"),
+      p("fee", "uint24"),
+      p("recipient", "address"),
+      p("amountIn", "uint256"),
+      p("amountOutMinimum", "uint256"),
+      p("sqrtPriceLimitX96", "uint160"),
+    ]),
+  ]),
+  fn("permit", [
+    p("owner", "address"),
+    p("permitSingle", "tuple", [
+      p("details", "tuple", [p("token", "address"), p("amount", "uint160"), p("expiration", "uint48"), p("nonce", "uint48")]),
+      p("spender", "address"),
+      p("sigDeadline", "uint256"),
+    ]),
+    p("signature", "bytes"),
+  ]),
+  fn("execTransaction", [
+    p("to", "address"),
+    p("value", "uint256"),
+    p("data", "bytes"),
+    p("operation", "uint8"),
+    p("safeTxGas", "uint256"),
+    p("baseGas", "uint256"),
+    p("gasPrice", "uint256"),
+    p("gasToken", "address"),
+    p("refundReceiver", "address"),
+    p("signatures", "bytes"),
+  ]),
+  fn("safeTransferFrom", [p("from", "address"), p("to", "address"), p("id", "uint256"), p("data", "bytes")]),
+  fn("fillOrders", [p("orders", "tuple[]", [p("maker", "address"), p("amount", "uint256")]), p("ids", "uint256[3]")]),
+];
+const abiDecoders = ABI_FUNCTIONS.map((item) => {
+  const signature = `${item.name}(${item.inputs.map(function canon(input: any): string {
+    return input.type.startsWith("tuple") ? `(${input.components.map(canon).join(",")})${input.type.slice(5)}` : input.type;
+  }).join(",")})`;
+  const selector = keccak256(new TextEncoder().encode(signature)).slice(0, 10);
+  const { def } = Calldata.EVM.parsers.parseSolidityJSONABI(selector, [item] as never);
+  return { signature, selector, abi: item, def: hex(RLP.encode(def as never)) };
+});
+
 const pkg = JSON.parse((await import("node:fs")).readFileSync(path.resolve(HERE, "node_modules/gridplus-sdk/package.json"), "utf8"));
 writeFileSync(
   OUT,
@@ -275,6 +350,8 @@ writeFileSync(
       signerPath: SIGNER_PATH,
       walletUid: hex(device.internalUid),
       cases,
+      decoders,
+      abiDecoders,
     },
     null,
     2,
