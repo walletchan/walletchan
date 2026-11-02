@@ -91,9 +91,9 @@ export function StakingReviewScreen(props: {
             </VStack>
           </Box>
 
-          {props.accountType === "ledger" && props.plan.transactions.length > 1 && (
+          {(props.accountType === "ledger" || props.accountType === "lattice") && props.plan.transactions.length > 1 && (
             <Text fontSize="xs" color="fg.secondary">
-              Your Ledger will ask you to review each transaction in order.
+              Your {props.accountType === "lattice" ? "Lattice" : "Ledger"} will ask you to review each transaction in order.
             </Text>
           )}
 

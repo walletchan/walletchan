@@ -167,6 +167,13 @@ release policies, the one-per-transaction rule against a software-wallet
 control, and that no Privacy Pools or Shield file accepts Trezor without
 Lattice.
 
+Closed 2026-11-02: built-in staking. `lattice/directSwap.ts` is the twin of
+`transactions/swaps/ledgerDirect.ts` (one device approval per leg, account,
+device and path re-checked before every broadcast), routed from
+`swaps/direct.ts` beside Ledger. The staking screens now treat Lattice like
+Ledger; phase 1 had grouped it with Trezor (unavailable). The built-in swap
+shortcut stays off for Lattice, as for Ledger.
+
 Scope rule (2026-11-02): add Lattice support without changing how WalletChan
 works. New code lives in `src/chrome/lattice/`; shared files get Lattice
 branches only where Ledger has one. Dropped for that reason: device hashes in
@@ -174,7 +181,6 @@ the review UI (Ledger has no such UI).
 
 | Gap | Plan |
 | --- | --- |
-| Built-in staking direct path | Add a Lattice branch next to `swaps/ledgerDirect.ts` |
 | Onboarding step | Add Lattice to the first-account onboarding flow |
 | Real-device QA | Phase 1 core, messages, EIP-712 fields and decoded calls passed 2026-11-02; run the full matrix below after the items above |
 

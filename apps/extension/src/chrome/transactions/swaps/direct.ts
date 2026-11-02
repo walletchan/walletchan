@@ -26,6 +26,7 @@ import { processSwapTxBankr } from "./bankrLeg";
 import { broadcastSwapTxLocal } from "./localBroadcast";
 import { executeImpersonatedSwap } from "./impersonated";
 import { executeLedgerSwap } from "./ledgerDirect";
+import { executeLatticeSwap } from "../../lattice/directSwap";
 import type {
   SwapAccountLock,
   SwapExecutionResult,
@@ -92,6 +93,9 @@ export async function handleExecuteSwapDirect(
 
   if (account.type === "ledger") {
     return executeLedgerSwap(transactions, chainName, account, gasEstimates);
+  }
+  if (account.type === "lattice") {
+    return executeLatticeSwap(transactions, chainName, account, gasEstimates);
   }
   if (!getAccountTypeCapabilities(account.type).directSwap) {
     return {
