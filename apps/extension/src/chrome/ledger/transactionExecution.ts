@@ -148,7 +148,6 @@ async function handleConfirmHardwareTransaction(
   }
   if (forceInclusion) {
     if (provider === "trezor") return fail("Force inclusion is not supported for Trezor accounts");
-    if (provider === "lattice") return fail("Force inclusion is not supported for Lattice accounts");
     const { isForceInclusionSupportedForAccount } = await import("@/constants/chainRegistry");
     if (!isForceInclusionSupportedForAccount(pending.tx.chainId, pinned.account.type)) {
       return fail("Chain does not support force inclusion for this account");
@@ -209,6 +208,10 @@ async function handleConfirmHardwareTransaction(
   if (forceInclusion && pinned.account.type === "ledger") {
     const { processLedgerForceInclusion } = await import("./forceInclusion");
     return processLedgerForceInclusion({ txId, pending, account: pinned.account, gasOverrides, effectLease });
+  }
+  if (forceInclusion && pinned.account.type === "lattice") {
+    const { processLatticeForceInclusion } = await import("../lattice/forceInclusion");
+    return processLatticeForceInclusion({ txId, pending, account: pinned.account, gasOverrides, effectLease });
   }
 
   return processLedgerTransaction({
