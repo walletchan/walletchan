@@ -164,7 +164,8 @@ function parseOperation(value: unknown): ShieldPendingOperation | null {
       raw.accountType !== "privateKey" &&
       raw.accountType !== "seedPhrase" &&
       raw.accountType !== "ledger" &&
-      raw.accountType !== "trezor") ||
+      raw.accountType !== "trezor" &&
+      raw.accountType !== "lattice") ||
     typeof raw.destinationAddress !== "string" ||
     !EVM_ADDRESS.test(raw.destinationAddress) ||
     typeof raw.poolAddress !== "string" ||

@@ -157,6 +157,16 @@ shape and authority checks (account, device and path re-checked around every
 device prompt; no wallet lock held while the device waits). Tests:
 `tests/lattice/forceInclusionSigner.test.ts`, the twin of Ledger's.
 
+Closed 2026-11-02: Privacy Pools single transactions. The capability row now
+equals Ledger's apart from `signingTransport`. `lattice` sits beside `trezor`
+at every Privacy Pools and Shield type check (stored-record validators,
+operation summaries, ragequit preparation and submission, recovery and
+unshield models, source picker label). Public exits stay one deposit per
+transaction, as for Ledger. `tests/lattice/privacyPools.test.ts` checks the
+release policies, the one-per-transaction rule against a software-wallet
+control, and that no Privacy Pools or Shield file accepts Trezor without
+Lattice.
+
 Scope rule (2026-11-02): add Lattice support without changing how WalletChan
 works. New code lives in `src/chrome/lattice/`; shared files get Lattice
 branches only where Ledger has one. Dropped for that reason: device hashes in
@@ -164,7 +174,6 @@ the review UI (Ledger has no such UI).
 
 | Gap | Plan |
 | --- | --- |
-| Privacy Pools single transactions | Add `lattice` to the Privacy Pools account validators and flip the capability |
 | Built-in staking direct path | Add a Lattice branch next to `swaps/ledgerDirect.ts` |
 | Onboarding step | Add Lattice to the first-account onboarding flow |
 | Real-device QA | Phase 1 core, messages, EIP-712 fields and decoded calls passed 2026-11-02; run the full matrix below after the items above |

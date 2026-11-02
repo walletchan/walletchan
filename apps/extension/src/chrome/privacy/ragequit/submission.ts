@@ -155,6 +155,7 @@ async function loadBatchOperations(
   if (
     first.accountType === "ledger" ||
     first.accountType === "trezor" ||
+    first.accountType === "lattice" ||
     loaded.some(({ operation }) =>
     operation.summary.accountId !== first.accountId ||
     operation.summary.accountType !== first.accountType ||

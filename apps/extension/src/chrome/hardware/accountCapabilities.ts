@@ -157,7 +157,7 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
     customNonce: true,
     agentPasswordSigning: true,
   },
-  // Lattice: Ledger's row minus Privacy Pools single transactions (a parity item).
+  // Lattice: Ledger's row.
   lattice: {
     signingTransport: "lattice",
     customEvmChains: true,
@@ -174,7 +174,7 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
     directSwap: false,
     safeOwner: true,
     safeNativeExecution: true,
-    privacyPoolsSingleTransaction: false,
+    privacyPoolsSingleTransaction: true,
     privacyPoolsMultiExit: false,
     approvalCleanupMutation: false,
     transactionReplacement: true,
