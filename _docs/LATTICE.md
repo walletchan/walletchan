@@ -241,7 +241,7 @@ Record once per session: date, build commit, firmware, active wallet
 | S5 | Set a self-hosted Lattice Connect endpoint, then add and sign once | Works with no request to signing.gridpl.us |
 | S6 | Lock the Lattice, then request a signature | Clear "Unlock your Lattice." error; works after unlock |
 | S7 | Power off the Lattice, then request a signature | Relay timeout reported, no hang; works after power-on |
-| S8 | Remove WalletChan's pairing on the device, then sign | Clear "not paired" error. No re-pair button exists yet; record whether removing and re-adding the account recovers |
+| S8 | Remove WalletChan's pairing on the device, then sign | "Not paired" error pointing to Add Account, then Lattice. Pairing again there keeps the accounts and signing resumes (covered by the domain test; confirm on the device) |
 | S9 | Pair a second app key (another browser or ape_grid), then sign from both | Record whether both pairings survive (open question: one pairing per app name?) |
 
 ### M: messages (QA page)

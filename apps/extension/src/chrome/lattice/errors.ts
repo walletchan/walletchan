@@ -23,8 +23,13 @@ export const LatticeErrorCode = {
 } as const;
 export type LatticeErrorCode = (typeof LatticeErrorCode)[keyof typeof LatticeErrorCode];
 
-/** Shared by every path that finds the device or key unpaired. */
-export const NOT_PAIRED_MESSAGE = "Lattice not paired. Remove it and add it again.";
+/** The Lattice no longer trusts WalletChan's key; pairing again keeps the accounts. */
+export const NOT_PAIRED_MESSAGE =
+  "Your Lattice is not paired with WalletChan. Pair it again from Add Account, then Lattice. Your accounts stay.";
+
+/** WalletChan's own pairing key or device record is missing or unreadable. */
+export const PAIRING_DATA_MESSAGE =
+  "WalletChan can't read its Lattice pairing key. Remove every Lattice account in WalletChan first, then add your Lattice again.";
 
 export class LatticeError extends Error {
   constructor(

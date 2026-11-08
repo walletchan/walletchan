@@ -23,7 +23,7 @@ import {
   normalizeLatticeRelayUrl,
   type LatticeConnectResult,
 } from "./protocol";
-import { LatticeError, LatticeErrorCode, NOT_PAIRED_MESSAGE, normalizeLatticeError } from "./errors";
+import { LatticeError, LatticeErrorCode, NOT_PAIRED_MESSAGE, PAIRING_DATA_MESSAGE, normalizeLatticeError } from "./errors";
 import { loadLatticeAppKey, requireLatticeAppKey } from "./appKeyVault";
 import { getLatticeDevices } from "./storage";
 import {
@@ -291,7 +291,7 @@ export async function withLatticeAccount<T>(
     if (!device) {
       throw new LatticeError(
         LatticeErrorCode.NOT_CONFIGURED,
-        NOT_PAIRED_MESSAGE,
+        PAIRING_DATA_MESSAGE,
       );
     }
     const appKey = await requireLatticeAppKey();

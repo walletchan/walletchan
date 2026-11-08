@@ -131,11 +131,14 @@ test("Lattice background domain", async (t) => {
       success: false,
       error: "Lattice pairing key could not be recovered",
     });
+    // The fix is in WalletChan, not on the device, and the message says so.
+    await assert.rejects(m.keys.loadLatticeAppKey(), /Remove every Lattice account in WalletChan first/);
     delete harness.stores.local.latticeAppKeyVault;
     assert.deepEqual(await m.integrity.validateGeneralVaultMasterRecovery(vaultKeyBytes, "unused"), {
       success: false,
       error: "A Lattice account is missing its pairing key",
     });
+    await assert.rejects(m.keys.requireLatticeAppKey(), /Remove every Lattice account in WalletChan first/);
     harness.stores.local.latticeAppKeyVault = saved;
   });
 
@@ -187,7 +190,8 @@ test("Lattice background domain", async (t) => {
     devices.ABC123 = new FakeLattice({ paired: false });
     await assert.rejects(
       run("guard-2"),
-      (error: unknown) => error instanceof m.errors.LatticeError && error.code === "NOT_PAIRED",
+      (error: unknown) =>
+        error instanceof m.errors.LatticeError && error.code === "NOT_PAIRED" && /Pair it again from Add Account/.test(error.message),
     );
     devices.ABC123 = device;
 
@@ -203,6 +207,33 @@ test("Lattice background domain", async (t) => {
       run("guard-4"),
       (error: unknown) => error instanceof m.errors.LatticeError && error.code === "DEVICE_OFFLINE",
     );
+    devices.ABC123 = device;
+  });
+
+  await t.test("a Lattice that forgot the pairing pairs again from setup, and its accounts keep signing", async () => {
+    const [account] = (await m.repository.getAccounts()) as any[];
+    const accountsBefore = await m.repository.getAccounts();
+    const storedKeyBefore = harness.stores.local.latticeAppKeyVault;
+    const forgot = new FakeLattice({ paired: false, pairingCode: "R3PAIR00" });
+    devices.ABC123 = forgot;
+    const run = (opId: string) =>
+      m.signing.signLatticeSignatureRequest({ opId, account, method: "personal_sign", params: ["0x02"], chainId: 1 });
+    await assert.rejects(run("forgot-1"), /Pair it again from Add Account/);
+
+    assert.deepEqual(
+      await m.ops.connectLatticeForSetup({ opId: "repair-connect", relayDeviceId: "ABC123", endpoint: null }),
+      { needsPairing: true },
+    );
+    const paired = await m.ops.pairLatticeForSetup({ opId: "repair-pair", pairingCode: "R3PAIR00" });
+    assert.equal(paired.deviceId, deviceId);
+    assert.equal(m.ops.getLatticeSetupForCommit(deviceId).appKeyIsNew, false);
+    m.ops.clearLatticeSetup();
+
+    // Nothing was written: the same accounts and key, now trusted by the device again.
+    assert.deepEqual(await m.repository.getAccounts(), accountsBefore);
+    assert.deepEqual(harness.stores.local.latticeAppKeyVault, storedKeyBefore);
+    const signature = await run("forgot-2");
+    assert.equal(await recoverMessageAddress({ message: { raw: "0x02" }, signature }), account.address);
     devices.ABC123 = device;
   });
 

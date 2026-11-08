@@ -12,7 +12,7 @@ import {
   isStoredLatticeAppKey,
   type StoredLatticeAppKey,
 } from "./appKeyRecord";
-import { LatticeError, LatticeErrorCode, NOT_PAIRED_MESSAGE } from "./errors";
+import { LatticeError, LatticeErrorCode, PAIRING_DATA_MESSAGE } from "./errors";
 
 export {
   LATTICE_APP_KEY_STORAGE_KEY,
@@ -27,7 +27,7 @@ export async function readStoredLatticeAppKeyRecord(): Promise<StoredLatticeAppK
   const value = stored[LATTICE_APP_KEY_STORAGE_KEY];
   if (value === undefined || value === null) return null;
   if (!isStoredLatticeAppKey(value)) {
-    throw new LatticeError(LatticeErrorCode.NOT_CONFIGURED, NOT_PAIRED_MESSAGE);
+    throw new LatticeError(LatticeErrorCode.NOT_CONFIGURED, PAIRING_DATA_MESSAGE);
   }
   return value;
 }
@@ -42,7 +42,7 @@ export async function loadLatticeAppKey(): Promise<Uint8Array | null> {
   }
   const key = await decryptLatticeAppKey(vaultKey, record);
   if (!key) {
-    throw new LatticeError(LatticeErrorCode.NOT_CONFIGURED, NOT_PAIRED_MESSAGE);
+    throw new LatticeError(LatticeErrorCode.NOT_CONFIGURED, PAIRING_DATA_MESSAGE);
   }
   return key;
 }
@@ -50,7 +50,7 @@ export async function loadLatticeAppKey(): Promise<Uint8Array | null> {
 export async function requireLatticeAppKey(): Promise<Uint8Array> {
   const key = await loadLatticeAppKey();
   if (!key) {
-    throw new LatticeError(LatticeErrorCode.NOT_PAIRED, NOT_PAIRED_MESSAGE);
+    throw new LatticeError(LatticeErrorCode.NOT_CONFIGURED, PAIRING_DATA_MESSAGE);
   }
   return key;
 }
