@@ -156,7 +156,7 @@ export function isValidPrivacyRagequitSummary(value: unknown): value is PrivacyR
     address(value.accountAddress) &&
     (value.accountType === "bankr" || value.accountType === "privateKey" ||
       value.accountType === "seedPhrase" || value.accountType === "ledger" ||
-      value.accountType === "trezor") &&
+      value.accountType === "trezor" || value.accountType === "lattice") &&
     amount !== null && amount > 0n &&
     address(value.poolAddress) &&
     value.poolAddress.toLowerCase() ===

@@ -17,13 +17,14 @@ smaller explicitly flagged built-in subset.
 
 ## Critical: Test ALL Wallet Types
 
-**IMPORTANT**: WalletChan supports FIVE signing wallet types:
+**IMPORTANT**: WalletChan supports SIX signing wallet types:
 
 1. **Private Key accounts** (`type: "privateKey"`) - Local signing with imported private keys
 2. **Seed Phrase accounts** (`type: "seedPhrase"`) - Local signing with HD wallet derivation
 3. **Ledger accounts** (`type: "ledger"`) - Hardware signing over Chrome WebHID; private keys never leave the device
 4. **Trezor accounts** (`type: "trezor"`) - Hardware signing through the Chromium background Connect adapter and Trezor Suite; private keys never leave the device
-5. **Bankr API accounts** (`type: "bankr"`) - Optional remote signing and transactions via the Bankr API
+5. **Lattice accounts** (`type: "lattice"`) - Hardware signing on a GridPlus Lattice1 through the GridPlus relay or a self-hosted Lattice Connect endpoint; private keys never leave the device
+6. **Bankr API accounts** (`type: "bankr"`) - Optional remote signing and transactions via the Bankr API
 
 WalletChan also supports **view-only impersonator accounts**
 (`type: "impersonator"`). They may receive reject-only transaction/signature
@@ -35,9 +36,9 @@ linked eligible owner account and the owner path must be tested independently.
 
 **When implementing ANY feature that touches transactions, signatures, or authentication:**
 
-- **Test with ALL FIVE signing wallet types** before considering it done.
+- **Test with ALL SIX signing wallet types** before considering it done.
   Ledger and Trezor require real-device QA in addition to automated no-device
-  coverage.
+  coverage. Lattice needs it too (matrix in `_docs/LATTICE.md`).
 - Different wallet types use different code paths (e.g., `confirmTransactionAsync` vs `confirmTransactionAsyncPK`)
 - Agent password must work for signing transactions/messages for ALL types (not just Bankr API accounts)
 - Private key reveal is blocked for agent password regardless of wallet type
@@ -378,6 +379,7 @@ apps/extension/src/
 │   │   ├── transactionBroadcast.ts # Sign-once raw-RPC effect boundary
 │   │   └── client.ts       # Viem client and bounded RPC transport
 │   ├── ledger/              # Ledger public metadata, offscreen bridge, and guarded signing
+│   ├── lattice/             # Lattice1 protocol port, relay pairing, and guarded signing
 │   ├── ensBrowsing/        # Untrusted ENS/GNS browsing audit domain (see README.md)
 │   │   ├── recipientHistory.ts # Read-only Send ENS address-update history
 │   │   ├── handlers.ts     # Stable message-entry facade

@@ -282,7 +282,8 @@ export async function prepareFeePaymentQuote(
       !account ||
       account.type === "impersonator" ||
       account.type === "ledger" ||
-      account.type === "trezor"
+      account.type === "trezor" ||
+      account.type === "lattice"
     ) {
       throw new Error("Swap account cannot pay gas with a token");
     }

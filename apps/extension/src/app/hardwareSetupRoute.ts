@@ -4,7 +4,7 @@ import {
   type ExtensionViewKind,
 } from "@/app/extensionSurface";
 
-export type HardwareSetupProvider = "ledger" | "trezor";
+export type HardwareSetupProvider = "ledger" | "trezor" | "lattice";
 
 export interface HardwareSetupTabDependencies {
   getRuntimeUrl(path: string): string;
@@ -21,6 +21,7 @@ export function getHardwareSetupProvider(
 ): HardwareSetupProvider | null {
   const route = new URLSearchParams(search).get("route");
   if (route === "add-ledger") return "ledger";
+  if (route === "add-lattice") return "lattice";
   if (route === "add-trezor" && TREZOR_BUILD_ENABLED) return "trezor";
   return null;
 }

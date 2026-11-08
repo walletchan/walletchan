@@ -1611,6 +1611,8 @@ accessible resources.
 | `accounts`                 | No               | Account metadata (addresses, names, types)              |
 | `ledgerDevices`            | No               | Public Ledger label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport secret or private key |
 | `trezorDevices`            | No               | Public Trezor label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport/session identifier, PIN, passphrase, or private key |
+| `latticeDevices`           | No               | Public Lattice metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`: label/model, relay device ID, optional self-hosted connection endpoint, pinned wallet UID and wallet kind (internal or SafeCard); no secret |
+| `latticeAppKeyVault`       | Yes (encrypted)  | `{version: 1, ciphertext, iv, salt: ""}`: the one P-256 Lattice pairing key (32-byte scalar plus its 65-byte public key), AES-GCM encrypted with the general vault key. Never revealed; removed with the last Lattice account; covered by general-key integrity proofs |
 | `addressContacts`          | No               | Local-only user labels for public EVM addresses         |
 | `ensIdentityCache`         | No               | Six-hour public name/avatar cache keyed by `chainId:lowercaseAddress`; legacy address-only entries are ignored. `needsAvatar` hints require forward verification before display |
 | `networkRpcUrls`           | No               | Bounded Settings-only RPC history keyed by chain ID, including optional display names and an exact per-endpoint `allowImpersonatedTransactions` developer flag. It never changes runtime routing until the selected endpoint is validated and promoted to `networksInfo[*].rpcUrl` through the service worker. |
@@ -1837,6 +1839,23 @@ These must always hold true. Violations indicate a security bug.
    remain bounded bytes. Every result is recovered against the exact pinned
    account/payload, and account/device/path/origin/topic/reset/nonce authority
    is repeated before broadcast, Safe publication or signature release.
+
+3b. **Lattice signing keys never leave the device; the pairing key is a vault secret** -
+   Lattice requests are AES-256-CBC frames under a fresh per-message ECDH key,
+   posted by the service worker to the GridPlus relay or a user-set Lattice
+   Connect endpoint; the relay sees the device ID and timing, not payloads. The
+   P-256 pairing key lets WalletChan request signatures, and the Lattice still
+   requires on-screen approval. Setup generates it in worker memory; the
+   master-only `addLatticeAccounts` commit encrypts it with the general vault key
+   in the same write as the accounts. Agent and passkey sessions may use it to
+   sign; no route reveals it. Relay ID, endpoint, wallet UID and every committed
+   address/path come from the background setup session, and commits accept only
+   addresses the device returned during that setup. Every signing session
+   reconnects, requires a paired response and the pinned wallet UID (a swapped
+   SafeCard fails closed), and the worker recovers each signature to the pinned
+   account before broadcast or release. A device digest that differs from the
+   locally computed digest, or a high-s signature, is rejected. Firmware below
+   0.15.0 is rejected at connect.
 
 4. **Encryption uses fresh randomness** - Every encryption operation generates a new random salt and IV. Never reuse salt/IV pairs.
 
@@ -2514,6 +2533,18 @@ the exact device/path binding at signature release.
 - [ ] Are transaction, personal and EIP-712 signatures recovered against the exact reviewed account/payload before final authorization?
 - [ ] Do Chromium bundles pass CSP/dynamic-code guards, and does Firefox omit Suite transport, setup and assets?
 - [ ] Are emulator and representative physical-device results recorded before release?
+
+### If you modified Lattice support:
+
+- [ ] Is the P-256 pairing key still encrypted with the general vault key in `latticeAppKeyVault`, written only by the master-only `addLatticeAccounts` commit, and returned by no route?
+- [ ] Do Lattice requests still leave only from the service worker, to `GRIDPLUS_LATTICE_RELAY_URL` or the account's own Lattice Connect endpoint, as encrypted frames with no password, vault key, private key, seed phrase or API key?
+- [ ] Do setup commits still accept only the relay ID, endpoint, wallet UID and addresses from the background setup session?
+- [ ] Does every signing session still reconnect, require a paired reply and the pinned wallet UID, and fail closed on a swapped SafeCard?
+- [ ] Is the locally computed digest still the authority: a different device digest and a high-s signature rejected, and every signature recovered to the pinned account before broadcast or release?
+- [ ] Do the EIP-712 hash fallback and the calldata-decoder retry still run only on `INVALID_MSG` or data the firmware cannot show, never after a rejection on the device?
+- [ ] Does first-account onboarding still create the master credential before `addLatticeAccounts`?
+- [ ] Do `tests/lattice/` (including `sdkParity.test.ts`) still pass, and does `tools/lattice-sdk-parity/README.md` still list every deliberate difference from gridplus-sdk?
+- [ ] Are the affected rows of the real-device matrix in `_docs/LATTICE.md` run and logged before release?
 
 ### General checks:
 

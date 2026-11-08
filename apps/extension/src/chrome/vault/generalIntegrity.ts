@@ -13,6 +13,11 @@ import {
   isVaultKeyEncrypted,
 } from "./entryCrypto";
 import { loadVault } from "./repository";
+import {
+  LATTICE_APP_KEY_STORAGE_KEY,
+  decryptLatticeAppKey,
+  isStoredLatticeAppKey,
+} from "../lattice/appKeyRecord";
 
 export interface GeneralVaultIntegrityResult {
   success: boolean;
@@ -39,7 +44,7 @@ export async function validateGeneralVaultMasterRecovery(
   try {
     const [vaultKey, stored, vault, accounts] = await Promise.all([
       importVaultKey(vaultKeyBytes),
-      chrome.storage.local.get(["encryptedApiKeyVault", "encryptedApiKey"]),
+      chrome.storage.local.get(["encryptedApiKeyVault", "encryptedApiKey", LATTICE_APP_KEY_STORAGE_KEY]),
       loadVault(),
       getAccounts(),
     ]);
@@ -83,6 +88,18 @@ export async function validateGeneralVaultMasterRecovery(
       }
     } else if (accounts.some((account) => account.type === "bankr")) {
       return { success: false, error: "A Bankr account is missing its credential" };
+    }
+
+    const latticeRecord = stored[LATTICE_APP_KEY_STORAGE_KEY];
+    if (latticeRecord !== undefined && latticeRecord !== null) {
+      if (
+        !isStoredLatticeAppKey(latticeRecord) ||
+        !(await decryptLatticeAppKey(vaultKey, latticeRecord))
+      ) {
+        return { success: false, error: "Lattice pairing key could not be recovered" };
+      }
+    } else if (accounts.some((account) => account.type === "lattice")) {
+      return { success: false, error: "A Lattice account is missing its pairing key" };
     }
 
     const localAccounts = accounts.filter(

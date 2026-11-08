@@ -25,6 +25,8 @@ test("wallet reset local and sync manifests retain their exact released keys", (
     "accounts",
     "ledgerDevices",
     "trezorDevices",
+    "latticeDevices",
+    "latticeAppKeyVault",
     "safeAccounts",
     "safeProposals",
     "safeSyncState",

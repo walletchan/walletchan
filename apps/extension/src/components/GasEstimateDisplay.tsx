@@ -35,7 +35,7 @@ import type { NativeFeePaymentSummary } from "@/components/feePaymentUi";
 
 interface GasEstimateDisplayProps {
   txRequest: PendingTxRequest;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "lattice" | "impersonator";
   onGasOverrides?: (overrides: GasOverrides | null) => void;
   /**
    * Reports whether the current gas params are valid for broadcast. Bubbled
@@ -158,7 +158,7 @@ function GasEstimateDisplay({
   }, [isReadOnly]);
 
   const isLocalAccount =
-    accountType === "privateKey" || accountType === "seedPhrase" || accountType === "ledger" || accountType === "trezor";
+    accountType === "privateKey" || accountType === "seedPhrase" || accountType === "ledger" || accountType === "trezor" || accountType === "lattice";
   // Picker is hidden only when we have no tier data (force inclusion /
   // non-1559 chain) or when the account type doesn't allow overrides. We
   // intentionally still show it when the dapp suggested gas — the user

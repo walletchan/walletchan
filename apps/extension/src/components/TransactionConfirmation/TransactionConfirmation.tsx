@@ -123,7 +123,7 @@ function TransactionConfirmation({
       transactionNonce.retry(); setFeePaymentQuote(null);
     },
   });
-  const isLedgerWaiting = (accountType === "ledger" || accountType === "trezor") && actions.state === "submitting";
+  const isLedgerWaiting = (accountType === "ledger" || accountType === "trezor" || accountType === "lattice") && actions.state === "submitting";
   const replacementGasError = replacementGasSelectionError(
     replacement,
     review.gasOverrides,

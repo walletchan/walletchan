@@ -96,6 +96,8 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
               ? "Ledger swap not available"
             : options.accountType === "trezor"
               ? "Trezor swap not available"
+            : options.accountType === "lattice"
+              ? "Lattice swap not available"
             : "View-only account",
         description:
           options.accountType === "safe"
@@ -104,13 +106,15 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
               ? "Use a swap dapp; WalletChan will show the normal Ledger confirmation."
             : options.accountType === "trezor"
               ? "Use a swap dapp; WalletChan will show the normal Trezor confirmation."
+            : options.accountType === "lattice"
+              ? "Use a swap dapp; WalletChan will show the normal Lattice confirmation."
             : "Impersonator accounts cannot send transactions",
         status:
-          options.accountType === "ledger" || options.accountType === "trezor"
+          options.accountType === "ledger" || options.accountType === "trezor" || options.accountType === "lattice"
             ? "info"
             : "error",
         duration:
-          options.accountType === "ledger" || options.accountType === "trezor"
+          options.accountType === "ledger" || options.accountType === "trezor" || options.accountType === "lattice"
             ? 4000
             : 3000,
       });

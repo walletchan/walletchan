@@ -5,7 +5,7 @@ import { getAccountTypeCapabilities } from "../../hardware/accountCapabilities";
 
 export type PrivacyPoolsMutationAccountType = Extract<
   AccountType,
-  "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor"
+  "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "lattice"
 >;
 
 export type PrivacyPoolsMutationAccount = Extract<

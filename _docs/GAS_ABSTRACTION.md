@@ -100,8 +100,8 @@ Provider discovery must not add niche or newly listed assets automatically.
 
 ## Account eligibility
 
-WalletChan has five signing account types and the fee path must be tested with
-all five. Ledger and Trezor remain deliberately ineligible because the
+WalletChan has six signing account types and the fee path must be tested with
+all six. Ledger, Trezor and Lattice remain deliberately ineligible because the
 ERC-4337 path has no hardware-signing implementation:
 
 | Account type | Existing official delegation | First-use delegation |
@@ -111,12 +111,13 @@ ERC-4337 path has no hardware-signing implementation:
 | Bankr API | Supported | Not supported until its signing API can create the required first-use authorization |
 | Ledger | Not supported | Not supported |
 | Trezor | Not supported | Not supported |
+| Lattice | Not supported | Not supported |
 
 View-only impersonator accounts are never eligible.
 
 Safe proposals retain their existing executor boundary: private-key and seed-
-phrase accounts can execute, while Bankr and Ledger are not offered as Safe gas
-payers. For those local executors, the normal delegation row above applies.
+phrase accounts can execute, while Bankr, Ledger and Lattice are not offered
+as Safe gas payers. For those local executors, the normal delegation row above applies.
 
 Eligibility also requires:
 

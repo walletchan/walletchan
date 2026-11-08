@@ -4,6 +4,7 @@ import { ListSurface, ListItem, ListItemContent, ListItemTitle, ListItemMedia, L
 import { TREZOR_BUILD_ENABLED } from "@/app/buildFeatures";
 import { TrezorLogo } from "@/components/Trezor/TrezorLogo";
 import { LedgerLogo } from "@/components/Ledger/LedgerLogo";
+import { LatticeLogo } from "@/components/Lattice/LatticeLogo";
 import { EyeIcon, KeyIcon, SeedIcon, SafeIcon } from "@/components/shared/AccountTypeIcons";
 import { OnboardingCanvas, OnboardingHeader } from "./OnboardingShell";
 import type { AccountTypeChoice } from "./onboardingTypes";
@@ -19,6 +20,7 @@ export function AccountTypeStep({ onChoose, onBack }: {
   const options = [
     { title: "Trezor", type: "trezor", group: "Connect", icon: <TrezorLogo variant="lettermark" h="22px" /> },
     { title: "Ledger", type: "ledger", group: "Connect", icon: <LedgerLogo variant="lettermark" w="20px" /> },
+    { title: "Lattice", type: "lattice", group: "Connect", icon: <LatticeLogo variant="lettermark" w="18px" /> },
     { title: "Safe", type: "safe", group: "Connect", icon: <SafeIcon boxSize="24px" color="status.success.emphasis" /> },
     { title: "Bankr API", type: "bankr", group: "Connect", icon: <Image src="/bankr-icon.png" alt="" boxSize="32px" /> },
     { title: "Seed Phrase", type: "seedPhrase", group: "Import", icon: <SeedIcon boxSize="20px" /> },

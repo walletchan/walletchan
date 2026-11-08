@@ -134,6 +134,8 @@ export function useTransactionActions({
         ? "confirmTransactionAsyncLedger"
         : accountType === "trezor"
         ? "confirmTransactionAsyncTrezor"
+        : accountType === "lattice"
+        ? "confirmTransactionAsyncLattice"
         : accountType === "privateKey" || accountType === "seedPhrase"
           ? "confirmTransactionAsyncPK"
           : "confirmTransactionAsync";

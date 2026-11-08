@@ -17,7 +17,7 @@ test("direct-signer classification is shared by pending requests and WalletConne
   assert.equal(isRequestSigningAccount, isDirectSigningAccount);
   assert.equal(isSigningAccount, isDirectSigningAccount);
   const expected = {
-    bankr: true, privateKey: true, seedPhrase: true, ledger: true, trezor: true,
+    bankr: true, privateKey: true, seedPhrase: true, ledger: true, trezor: true, lattice: true,
     impersonator: false, safe: false,
   } satisfies Record<AccountType, boolean>;
   assert.deepEqual(Object.keys(ACCOUNT_TYPE_CAPABILITIES).sort(), Object.keys(expected).sort());

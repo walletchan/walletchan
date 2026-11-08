@@ -225,7 +225,8 @@ export function isValidPrivacyShieldOperationSummary(
       summary.accountType !== "privateKey" &&
       summary.accountType !== "seedPhrase" &&
       summary.accountType !== "ledger" &&
-      summary.accountType !== "trezor") ||
+      summary.accountType !== "trezor" &&
+      summary.accountType !== "lattice") ||
     !isAddress(summary.destinationAddress) ||
     summary.destinationAddress.toLowerCase() !==
       PRIVACY_POOLS_DEPLOYMENT.contracts.entrypointProxy.address.toLowerCase() ||

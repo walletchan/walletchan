@@ -57,7 +57,7 @@ export function usePublicRecovery(
       !account ||
       !selectedPreview ||
       selectedPreviews.length > 8 ||
-      ((account.type === "ledger" || account.type === "trezor") &&
+      ((account.type === "ledger" || account.type === "trezor" || account.type === "lattice") &&
         selectedPreviews.length > 1) ||
       !isPrivacyPoolsMutationAccountType(account.type) ||
       selectedPreviews.some((preview) =>

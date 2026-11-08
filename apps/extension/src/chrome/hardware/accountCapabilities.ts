@@ -5,6 +5,7 @@ export type AccountSigningTransport =
   | "local"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "none";
 
 export interface AccountTypeCapabilities {
@@ -156,6 +157,30 @@ export const ACCOUNT_TYPE_CAPABILITIES = {
     customNonce: true,
     agentPasswordSigning: true,
   },
+  // Lattice: Ledger's row.
+  lattice: {
+    signingTransport: "lattice",
+    customEvmChains: true,
+    personalSign: true,
+    typedDataSign: true,
+    rawEthSign: false,
+    erc5792Batch: false,
+    crossDappBatch: false,
+    eip7702: false,
+    erc7715: false,
+    feeTokenExecution: false,
+    sponsoredTransfer: false,
+    forceInclusion: true,
+    directSwap: false,
+    safeOwner: true,
+    safeNativeExecution: true,
+    privacyPoolsSingleTransaction: true,
+    privacyPoolsMultiExit: false,
+    approvalCleanupMutation: false,
+    transactionReplacement: true,
+    customNonce: true,
+    agentPasswordSigning: true,
+  },
   impersonator: {
     signingTransport: "none",
     customEvmChains: true,
@@ -229,7 +254,7 @@ export function hasAccountTypeCapability(
 
 export function isHardwareAccountType(
   accountType: AccountType,
-): accountType is "ledger" | "trezor" {
+): accountType is "ledger" | "trezor" | "lattice" {
   const transport = ACCOUNT_TYPE_CAPABILITIES[accountType].signingTransport;
-  return transport === "ledger" || transport === "trezor";
+  return transport === "ledger" || transport === "trezor" || transport === "lattice";
 }

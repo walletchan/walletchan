@@ -24,7 +24,7 @@ interface BatchDecisionSummaryProps {
   fromAddress: string;
   chainId: number;
   chainName: string;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "lattice" | "impersonator";
   decodedFunctionNames: Record<number, string>;
   isNonAtomic: boolean;
   isLocalSigningAccount: boolean;

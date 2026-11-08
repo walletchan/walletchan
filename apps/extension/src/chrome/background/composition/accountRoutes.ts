@@ -86,6 +86,7 @@ import {
   handleLedgerScan,
 } from "../../ledger/accountHandlers";
 import { createBackgroundLedgerMessageRouter } from "../ledgerRouter";
+import { createBackgroundLatticeMessageRouter } from "../latticeRouter";
 import {
   handleAddTrezorAccounts,
   handleGetTrezorDevices,
@@ -94,7 +95,7 @@ import {
   handleTrezorScan,
 } from "../../trezor/accountHandlers";
 import { createBackgroundTrezorMessageRouter } from "../trezorRouter";
-import { handleConfirmLedgerSignatureRequest } from "../../ledger/signatureConfirmation";
+import { handleConfirmLatticeSignatureRequest, handleConfirmLedgerSignatureRequest } from "../../ledger/signatureConfirmation";
 import { handleConfirmTrezorSignatureRequest } from "../../trezor/signatureConfirmation";
 import { clearTxHistoryForAddresses } from "../../txHistoryStorage";
 import { assertPrivacyAccountRemovalSafe } from "../../privacy/accountSafety";
@@ -197,7 +198,7 @@ export function composeAccountRoutes(pending: PendingResolutionComposition) {
       getAccountById,
       handleConfirmSignatureRequestBankr,
       handleConfirmSignatureRequest,
-      handleConfirmLedgerSignatureRequest,
+      handleConfirmLedgerSignatureRequest, handleConfirmLatticeSignatureRequest,
       handleConfirmTrezorSignatureRequest,
       readLocalStorage: (key) => chrome.storage.local.get(key),
       writeResultToStorage,
@@ -211,7 +212,7 @@ export function composeAccountRoutes(pending: PendingResolutionComposition) {
     routeBackgroundDappPermissionMessage,
     routeBackgroundWalletConnectSessionMessage,
     routeBackgroundAccountManagementMessage,
-    routeBackgroundLedgerMessage,
+    routeBackgroundLedgerMessage, routeBackgroundLatticeMessage: createBackgroundLatticeMessageRouter(),
     routeBackgroundTrezorMessage,
     routeBackgroundSecretManagementMessage,
   };

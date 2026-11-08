@@ -20,6 +20,7 @@ export function getWalletTypeLabel(
   }
   if (account.type === "ledger") return `Ledger · Account ${account.hdIndex + 1}`;
   if (account.type === "trezor") return `Trezor · Account ${account.hdIndex + 1}`;
+  if (account.type === "lattice") return `Lattice · Account ${account.hdIndex + 1}`;
   if (account.type === "safe") return "Safe multisig";
   return "View only";
 }
@@ -36,6 +37,8 @@ export function getAccountSettingsTypeLabel(account: Account): string {
       return "Ledger";
     case "trezor":
       return "Trezor";
+    case "lattice":
+      return "Lattice";
     case "impersonator":
       return "View-Only";
     case "safe":

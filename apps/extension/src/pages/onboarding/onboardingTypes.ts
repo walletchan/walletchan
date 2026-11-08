@@ -8,6 +8,7 @@ export type OnboardingStep =
   | "safe"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "password"
   | "success";
 
@@ -18,6 +19,7 @@ export type AccountTypeChoice =
   | "safe"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "bankr";
 
 export type OnboardingErrors = {
@@ -31,5 +33,5 @@ export type OnboardingErrors = {
 
 export const ACCOUNT_SETUP_STEPS = {
   bankr: "bankrSetup", privateKey: "privateKey", seedPhrase: "seedPhrase",
-  viewOnly: "viewOnly", ledger: "ledger", trezor: "trezor", safe: "safe",
+  viewOnly: "viewOnly", ledger: "ledger", trezor: "trezor", lattice: "lattice", safe: "safe",
 } as const satisfies Record<AccountTypeChoice, OnboardingStep>;

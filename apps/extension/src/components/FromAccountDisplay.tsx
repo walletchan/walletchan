@@ -8,6 +8,7 @@ import { truncateAddress } from "@/lib/addressUtils";
 import { useAddressContact } from "@/hooks/useAddressContacts";
 import { LedgerAvatar } from "@/components/Ledger/LedgerAvatar";
 import { TrezorAvatar } from "@/components/Trezor/TrezorAvatar";
+import { LatticeAvatar } from "@/components/Lattice/LatticeAvatar";
 
 interface FromAccountDisplayProps {
   address: string;
@@ -69,6 +70,8 @@ export function FromAccountDisplay({ address, chainId: _chainId = 1 }: FromAccou
         <LedgerAvatar size={20} />
       ) : fromAccount?.type === "trezor" ? (
         <TrezorAvatar size={20} />
+      ) : fromAccount?.type === "lattice" ? (
+        <LatticeAvatar size={20} />
       ) : (
         <Image
           src={blo(address as `0x${string}`)}

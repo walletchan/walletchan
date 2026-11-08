@@ -89,6 +89,10 @@ export const SAFE_TRANSACTION_SERVICE_HOST = "api.safe.global";
 // Trezor Connect application identity; keep distinct from the API gateway.
 export const WALLETCHAN_TREZOR_MANIFEST_URL = "https://walletchan.com";
 
+// GridPlus Lattice1 relay. Default route to a Lattice; a per-device connection
+// endpoint (self-hosted Lattice Connect) may replace it.
+export const GRIDPLUS_LATTICE_RELAY_URL = "https://signing.gridpl.us";
+
 // Bankr API — optional remote-signing/chat accounts; website links are below
 export const BANKR_API_BASE = "https://api.bankr.bot";
 

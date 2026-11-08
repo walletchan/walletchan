@@ -12,6 +12,7 @@ export function getAccountTypeLabel(account: Account): string {
   if (account.type === "seedPhrase") return "Seed Phrase";
   if (account.type === "ledger") return "Ledger";
   if (account.type === "trezor") return "Trezor";
+  if (account.type === "lattice") return "Lattice";
   if (account.type === "safe") return "Safe";
   return "View Only";
 }

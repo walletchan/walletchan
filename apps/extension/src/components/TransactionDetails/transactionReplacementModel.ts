@@ -10,7 +10,8 @@ export function canPrepareTransactionReplacement(
       (tx.accountType === "privateKey" ||
         tx.accountType === "seedPhrase" ||
         tx.accountType === "ledger" ||
-        tx.accountType === "trezor") &&
+        tx.accountType === "trezor" ||
+        tx.accountType === "lattice") &&
       !tx.forceInclusionMeta &&
       !tx.userOperationHash &&
       !tx.feePaymentToken &&

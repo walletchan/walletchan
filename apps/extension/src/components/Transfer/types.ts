@@ -7,6 +7,7 @@ export type TransferAccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator"
   | "safe";
 

@@ -17,6 +17,7 @@ export type ChainAccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator"
   | "safe";
 

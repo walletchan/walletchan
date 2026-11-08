@@ -10,6 +10,8 @@ import { signAndBroadcastLedgerTransaction } from "../ledger/signing";
 import { ensureTrezorSigningSession } from "../trezor/session";
 import { createTrezorOperationId } from "../trezor/operationId";
 import { signAndBroadcastTrezorTransaction } from "../trezor/signing";
+import { ensureLatticeSigningSession } from "../lattice/session";
+import { signAndBroadcastLatticeTransaction } from "../lattice/signing";
 import { getStoredRpcUrl } from "@/lib/chains";
 import { secureHttpTransport } from "../network/rpcClient";
 import { getPasswordType } from "../sessionCache";
@@ -85,7 +87,7 @@ export async function executionContext(proposalId: string, executorAccountId: st
   }
   if (proposal.state !== "readyToExecute") throw new Error("Safe proposal is not ready to execute");
   if (!account || !isSafeExecutorAccount(account)) {
-    throw new Error("Choose a private-key, seed-phrase, Ledger, or Trezor executor");
+    throw new Error("Choose a private-key, seed-phrase, Ledger, Trezor, or Lattice executor");
   }
   return { proposal, account };
 }
@@ -142,13 +144,15 @@ export async function executeSafeProposal(input: {
   const claimId = claim.effectClaim!.claimId;
   let hardwareNonceReserved = false;
   try {
-    const key = account.type === "ledger" || account.type === "trezor"
+    const key = account.type === "ledger" || account.type === "trezor" || account.type === "lattice"
       ? null
       : await getLocalPrivateKeyForAccount(account.id, "");
     if (account.type === "ledger") {
       await ensureLedgerSigningSession("");
     } else if (account.type === "trezor") {
       await ensureTrezorSigningSession("");
+    } else if (account.type === "lattice") {
+      await ensureLatticeSigningSession("");
     } else if (!key || !getPasswordType()) {
       throw new Error("Wallet is locked; unlock it and try again");
     }
@@ -178,7 +182,7 @@ export async function executeSafeProposal(input: {
         !currentAccount ||
         currentAccount.type !== account.type ||
         currentAccount.address.toLowerCase() !== account.address.toLowerCase() ||
-        ((account.type === "ledger" || account.type === "trezor") &&
+        ((account.type === "ledger" || account.type === "trezor" || account.type === "lattice") &&
           (currentAccount.type !== account.type ||
             currentAccount.deviceId !== account.deviceId ||
             currentAccount.hdPath !== account.hdPath))
@@ -215,13 +219,12 @@ export async function executeSafeProposal(input: {
       }));
       await ensureSafeExecutorHistory(prepared, true);
     };
-    const result = account.type === "ledger"
+    const result = account.type === "ledger" || account.type === "lattice"
       ? await (async () => {
           const nonce = await getNextNonce(account.address, proposal.chainId);
           hardwareNonceReserved = true;
-          return signAndBroadcastLedgerTransaction({
+          const hardwareInput = {
             opId: `safe-execution:${proposal.id}`,
-            account,
             tx: {
               ...transaction,
               nonce,
@@ -234,7 +237,10 @@ export async function executeSafeProposal(input: {
                 }
               : undefined,
             beforeBroadcast,
-          });
+          };
+          return account.type === "ledger"
+            ? signAndBroadcastLedgerTransaction({ ...hardwareInput, account })
+            : signAndBroadcastLatticeTransaction({ ...hardwareInput, account });
         })()
       : account.type === "trezor"
         ? await (async () => {

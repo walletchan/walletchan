@@ -7,6 +7,7 @@ export type ApprovalCleanupAccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator";
 
 export function getApprovalCleanupDisabledReason(input: {
@@ -28,7 +29,7 @@ export function getApprovalCleanupDisabledReason(input: {
       input.accountType,
       "approvalCleanupMutation",
     ) &&
-    (input.accountType === "ledger" || input.accountType === "trezor")
+    (input.accountType === "ledger" || input.accountType === "trezor" || input.accountType === "lattice")
   ) {
     return "Hardware-wallet requests cannot add an atomic cleanup call yet.";
   }

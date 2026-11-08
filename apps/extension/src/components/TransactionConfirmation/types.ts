@@ -7,6 +7,7 @@ export type TransactionAccountType =
   | "seedPhrase"
   | "ledger"
   | "trezor"
+  | "lattice"
   | "impersonator";
 
 export interface TransactionConfirmationProps {

@@ -43,7 +43,7 @@ import { createBackgroundTransactionExecutionMessageRouter } from "../transactio
 import { createBackgroundTransactionStatusMessageRouter } from "../transactionStatusRouter";
 import type { PendingResolutionComposition } from "./pendingResolution";
 import { getArbitrumForceInclusionStatus, submitArbitrumForceInclusion } from "../../arbitrumForceInclusion/status";
-import { handleConfirmTransactionAsyncLedger } from "../../ledger/transactionExecution";
+import { handleConfirmTransactionAsyncLattice, handleConfirmTransactionAsyncLedger } from "../../ledger/transactionExecution";
 import { handleConfirmTransactionAsyncTrezor } from "../../trezor/transactionExecution";
 import { getTransactionNonceForReview } from "../../transactions/nonceReview";
 import { prepareTransactionReplacement } from "../../transactions/replacementPreparation";
@@ -56,7 +56,7 @@ export function composeExecutionRoutes(pending: PendingResolutionComposition) {
       handleConfirmTransaction,
       handleConfirmTransactionAsync,
       handleConfirmTransactionAsyncPK,
-      handleConfirmTransactionAsyncLedger,
+      handleConfirmTransactionAsyncLedger, handleConfirmTransactionAsyncLattice,
       handleConfirmTransactionAsyncTrezor,
       handleConfirmImpersonatedTransaction,
       handleInitiateTransfer,

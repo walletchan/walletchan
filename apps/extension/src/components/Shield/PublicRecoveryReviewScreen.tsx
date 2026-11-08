@@ -71,7 +71,8 @@ export default function PublicRecoveryReviewScreen({
   const hasHardwareOptions = options.some(
     (option) =>
       option.preview.accountType === "ledger" ||
-      option.preview.accountType === "trezor",
+      option.preview.accountType === "trezor" ||
+      option.preview.accountType === "lattice",
   );
   const activeGroupKey = groups.find((group) =>
     group.options.some((option) => selectedIds.has(option.preview.commitmentId))
@@ -89,7 +90,8 @@ export default function PublicRecoveryReviewScreen({
     const group = groups.find((candidate) => candidate.key === groupKey);
     const selectionLimit =
       group?.options[0]?.preview.accountType === "ledger" ||
-      group?.options[0]?.preview.accountType === "trezor"
+      group?.options[0]?.preview.accountType === "trezor" ||
+      group?.options[0]?.preview.accountType === "lattice"
         ? 1
         : 8;
     setSelectedIds((current) => {
@@ -112,7 +114,8 @@ export default function PublicRecoveryReviewScreen({
     if (activeGroupKey && activeGroupKey !== group.key) return;
     if (
       group.options[0]?.preview.accountType === "ledger" ||
-      group.options[0]?.preview.accountType === "trezor"
+      group.options[0]?.preview.accountType === "trezor" ||
+      group.options[0]?.preview.accountType === "lattice"
     ) return;
     setSelectedIds(checked
       ? new Set(group.options.slice(0, 8).map((option) => option.preview.commitmentId))
@@ -150,7 +153,8 @@ export default function PublicRecoveryReviewScreen({
               const groupDisabled = activeGroupKey !== null && activeGroupKey !== group.key;
               const isHardwareGroup =
                 first.preview.accountType === "ledger" ||
-                first.preview.accountType === "trezor";
+                first.preview.accountType === "trezor" ||
+                first.preview.accountType === "lattice";
               const selectionLimit = isHardwareGroup ? 1 : 8;
               const allSelected =
                 groupSelectedCount === Math.min(group.options.length, selectionLimit);
@@ -194,7 +198,9 @@ export default function PublicRecoveryReviewScreen({
                         ? ` · One per ${
                             first.preview.accountType === "trezor"
                               ? "Trezor"
-                              : "Ledger"
+                              : first.preview.accountType === "lattice"
+                                ? "Lattice"
+                                : "Ledger"
                           } transaction`
                         : group.options.length > 8
                           ? " · Up to 8 per transaction"

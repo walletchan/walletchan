@@ -31,6 +31,7 @@ function createDependencies(
     handleConfirmSignatureRequest: async () => ({ success: true }),
     handleConfirmLedgerSignatureRequest: async () => ({ success: true }),
     handleConfirmTrezorSignatureRequest: async () => ({ success: true }),
+    handleConfirmLatticeSignatureRequest: async () => ({ success: true }),
     readLocalStorage: async () => ({}),
     writeResultToStorage: async () => {},
     handleConfirmErc7715PermissionRequest: async () => ({ success: true }),
@@ -133,6 +134,7 @@ test("signature confirmation routes only by the pinned account type", async () =
     ["seedPhrase", "local"],
     ["ledger", "ledger"],
     ["trezor", "trezor"],
+    ["lattice", "lattice"],
     ["impersonator", "none"],
   ] as const) {
     const calls: string[] = [];
@@ -153,6 +155,10 @@ test("signature confirmation routes only by the pinned account type", async () =
       },
       handleConfirmTrezorSignatureRequest: async () => {
         calls.push("trezor");
+        return { success: true };
+      },
+      handleConfirmLatticeSignatureRequest: async () => {
+        calls.push("lattice");
         return { success: true };
       },
     });

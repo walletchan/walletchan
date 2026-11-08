@@ -732,12 +732,13 @@ from an SDK; decode and compare the resulting call to the approved intent.
 
 Shield deposits and direct emergency exits are public EVM transactions. Route
 them through WalletChan's existing pending transaction and confirmation system
-so all five signing wallet types retain their normal signing path:
+so all six signing wallet types retain their normal signing path:
 
 - imported private key;
 - seed phrase / derived local account;
 - Ledger hardware account;
-- Trezor hardware account; and
+- Trezor hardware account;
+- Lattice hardware account; and
 - optional Bankr API account.
 
 The adapter prepares intent-bound calls. The existing transaction handler

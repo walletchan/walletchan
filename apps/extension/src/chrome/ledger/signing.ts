@@ -89,6 +89,26 @@ export async function signAndBroadcastLedgerTransaction(input: {
     transactionHash: `0x${string}`;
   }) => Promise<void>;
 }): Promise<SignedTransaction> {
+  return prepareSignAndBroadcastHardwareTransaction({
+    ...input,
+    address: input.account.address,
+    sign: (transaction) => signPreparedLedgerTransaction({
+      opId: input.opId, account: input.account, transaction,
+    }),
+  });
+}
+
+/** Shared hardware path: prepare with viem, sign exact bytes on the device, then broadcast. */
+export async function prepareSignAndBroadcastHardwareTransaction(input: {
+  address: string;
+  tx: TransactionParams & { nonce: number };
+  gasOverrides?: GasOverrides;
+  beforeBroadcast?: (prepared: {
+    serializedTransaction: `0x${string}`;
+    transactionHash: `0x${string}`;
+  }) => Promise<void>;
+  sign(transaction: TransactionSerializable): Promise<`0x${string}`>;
+}): Promise<SignedTransaction> {
   const { chain, rpcUrl } = await resolveChain(input.tx.chainId);
   const client = createWalletClient({ chain, transport: http(rpcUrl, { timeout: 30_000 }) });
   const tx = input.gasOverrides
@@ -101,7 +121,7 @@ export async function signAndBroadcastLedgerTransaction(input: {
       }
     : input.tx;
   const prepared = await client.prepareTransactionRequest({
-    account: getAddress(input.account.address),
+    account: getAddress(input.address),
     chain,
     to: tx.to ? getAddress(tx.to) : undefined,
     data: (tx.data || "0x") as `0x${string}`,
@@ -113,9 +133,7 @@ export async function signAndBroadcastLedgerTransaction(input: {
     ...(tx.maxPriorityFeePerGas ? { maxPriorityFeePerGas: BigInt(tx.maxPriorityFeePerGas) } : {}),
   } as never);
   const serializable = stripPreparedContext(prepared as Record<string, unknown>);
-  const signedRaw = await signPreparedLedgerTransaction({
-    opId: input.opId, account: input.account, transaction: serializable,
-  });
+  const signedRaw = await input.sign(serializable);
   await input.beforeBroadcast?.({
     serializedTransaction: signedRaw,
     transactionHash: keccak256(signedRaw),

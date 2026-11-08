@@ -39,7 +39,7 @@ interface SignatureRequestConfirmationProps {
   currentIndex: number;
   totalCount: number;
   isInSidePanel: boolean;
-  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "impersonator" | "safe";
+  accountType?: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor" | "lattice" | "impersonator" | "safe";
   onBack: () => void;
   onCancelled: () => void;
   onRejectAll: () => void;
@@ -135,9 +135,9 @@ function SignatureRequestConfirmation({
     accountType === "privateKey" ||
     accountType === "seedPhrase" ||
     accountType === "ledger" ||
-    accountType === "trezor" ||
+    accountType === "trezor" || accountType === "lattice" ||
     accountType === "bankr";
-  const isLedgerWaiting = (accountType === "ledger" || accountType === "trezor") && isSubmitting;
+  const isLedgerWaiting = (accountType === "ledger" || accountType === "trezor" || accountType === "lattice") && isSubmitting;
 
   const handleCancel = () => {
     if (isRejecting) return;

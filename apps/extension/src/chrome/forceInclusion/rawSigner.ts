@@ -7,6 +7,8 @@ import { getAuthCeremonyEpoch, isCurrentAuthCeremonyEpoch } from "../authTransit
 import { getPasswordType } from "../sessionCache";
 import { signPreparedLedgerTransaction } from "../ledger/signing";
 import { ensureLedgerSigningSession } from "../ledger/session";
+import { signPreparedLatticeTransaction } from "../lattice/signing";
+import { ensureLatticeSigningSession } from "../lattice/session";
 import { broadcastSerializedTransaction, prepareSignAndBroadcastTransaction } from "../localSigner";
 import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLock";
 
@@ -83,6 +85,40 @@ export const RAW_FORCE_INCLUSION_SIGNERS = {
       },
     };
   },
+  // Same shape as Ledger: the device signs each prepared transaction.
+  lattice: async (input: FactoryInput<"lattice">): Promise<RawForceInclusionSigner> => {
+    await ensureLatticeSigningSession("");
+    const assertAvailable = bindAuthority(input.account, input.signal);
+    const account = toAccount({
+      address: input.account.address as Hex,
+      signMessage: async () => { throw new Error("Transaction-only signing capability"); },
+      signTypedData: async () => { throw new Error("Transaction-only signing capability"); },
+      signTransaction: async (transaction) => {
+        await assertAvailable();
+        const signed = await signPreparedLatticeTransaction({
+          account: input.account, opId: input.opId, transaction,
+        });
+        await assertAvailable();
+        return signed;
+      },
+    });
+    return {
+      account,
+      assertAvailable,
+      signChild: (request) => account.signTransaction(request),
+      broadcast: async (client, request, options) => {
+        // Do not hold the wallet lock across device interaction.
+        const prepared = await client.prepareTransactionRequest(request as never);
+        const serializedTransaction = await client.signTransaction(prepared as never);
+        return withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
+          await assertAvailable();
+          await options.beforeBroadcast?.({ serializedTransaction, transactionHash: keccak256(serializedTransaction) });
+          const result = await broadcastSerializedTransaction(client, serializedTransaction, options);
+          return { ...result, signedGasLimit: prepared.gas };
+        });
+      },
+    };
+  },
 } satisfies SignerFactories;
 
 export function createRawForceInclusionSigner<Type extends RawForceInclusionAccountType>(
@@ -101,7 +137,8 @@ function bindAuthority(expected: RawForceInclusionAccount, signal?: AbortSignal)
       throw new Error("Wallet authorization changed during signing");
     }
     if (!current || current.type !== expected.type || current.address.toLowerCase() !== expected.address.toLowerCase() ||
-      (expected.type === "ledger" && (current.type !== "ledger" || current.deviceId !== expected.deviceId || current.hdPath !== expected.hdPath))) {
+      (expected.type === "ledger" && (current.type !== "ledger" || current.deviceId !== expected.deviceId || current.hdPath !== expected.hdPath)) ||
+      (expected.type === "lattice" && (current.type !== "lattice" || current.deviceId !== expected.deviceId || current.hdPath !== expected.hdPath))) {
       throw new Error("Signing account is no longer available");
     }
   };

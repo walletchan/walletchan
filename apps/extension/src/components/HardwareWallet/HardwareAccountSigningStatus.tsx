@@ -1,5 +1,6 @@
 import { LedgerSigningStatus } from "@/components/Ledger/LedgerSigningStatus";
 import { TrezorSigningStatus } from "@/components/Trezor/TrezorSigningStatus";
+import { LatticeSigningStatus } from "@/components/Lattice/LatticeSigningStatus";
 
 export function HardwareAccountSigningStatus({
   accountType,
@@ -10,6 +11,9 @@ export function HardwareAccountSigningStatus({
 }) {
   if (accountType === "ledger") {
     return <LedgerSigningStatus active={active} />;
+  }
+  if (accountType === "lattice") {
+    return <LatticeSigningStatus active={active} />;
   }
   if (accountType !== "trezor") return null;
   return <TrezorSigningStatus active={active} />;
