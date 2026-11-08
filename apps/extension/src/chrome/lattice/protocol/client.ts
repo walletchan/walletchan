@@ -27,11 +27,13 @@ import {
   encodePersonalSignRequest,
   encodeSignEnvelope,
   newLatticeMsgId,
+  parseLatticeResponse,
+} from "./encoding";
+import {
   parseEthMsgSignResponse,
   parseGenericSigningResponseSecp256k1,
-  parseLatticeResponse,
   type LatticeSecpSignResponse,
-} from "./encoding";
+} from "./signatures";
 import { encodeTypedDataRequest } from "./eip712";
 import { LatticeProtocolError } from "./errors";
 import {

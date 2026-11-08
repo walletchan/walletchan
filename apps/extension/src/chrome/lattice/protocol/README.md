@@ -12,6 +12,7 @@ byte-parity port of GridPlus's MIT-licensed
 | `firmware.ts` | `protocol/firmware.py` | `constants.ts` (fw >= 0.15.0) |
 | `secureChannel.ts` | `protocol/secure_channel.py` | `util.ts` |
 | `encoding.ts` | `protocol/encoding.py` | `protocol/secureMessages.ts`, `genericSigning.ts`, `functions/sign.ts` |
+| `signatures.ts` | `protocol/encoding.py` | `util.ts` (`parseDER`), `genericSigning.ts` |
 | `pairing.ts` | `protocol/pairing.py` | `functions/connect.ts`, `functions/pair.ts` |
 | `transport.ts` | `protocol/transport.py` | `api/rest.ts` |
 | `client.ts` | `protocol/client.py` | `client.ts` |

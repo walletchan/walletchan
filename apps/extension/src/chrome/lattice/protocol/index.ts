@@ -3,6 +3,7 @@ export * from "./errors";
 export * from "./firmware";
 export * from "./secureChannel";
 export * from "./encoding";
+export * from "./signatures";
 export * from "./eip712";
 export * from "./pairing";
 export * from "./transport";

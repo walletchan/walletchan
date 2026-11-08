@@ -25,7 +25,7 @@ import { isValidBip32Path } from "../../../lib/bip32Path";
 import { bytesToBigInt, equalBytes } from "./bytes";
 import type { LatticeProtocolClient } from "./client";
 import { LATTICE_HARDENED_OFFSET, LatticeResponseCode, LatticeSignEncoding, LatticeSignHash } from "./constants";
-import { recoverLatticeSigner } from "./encoding";
+import { recoverLatticeSigner } from "./signatures";
 import { LatticeProtocolError } from "./errors";
 
 /** "m/44'/60'/0'/0/3" -> hardened-index array; Lattice accepts 2 to 5 levels. */
