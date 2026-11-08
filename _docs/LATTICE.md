@@ -50,7 +50,17 @@ and the simulator sends 144 like the device.
 
 Bundle budget: WalletChan pins the background bundle at 4,194,304 bytes
 (`privacy-prover.budgets.json`, `tests/privacy/protocolManifest.test.ts`). With
-phase 1 the bundle is 4,194,124 bytes, 180 under. Getting there took: WebCrypto
+phase 1 the bundle was 4,194,124 bytes, 180 under.
+
+Whitespace compaction (2026-11-02): upstream's syntax-only Terser pass ran in
+`renderChunk`, and Vite 5's esbuild transpile pass runs after every plugin
+`renderChunk` with `minifyWhitespace: false`, so it re-indented the output.
+`compactGeneratedBackground` now runs in `generateBundle`, after that pass,
+with the same options (`compress: false`, `mangle: false`, no comments). The
+Chrome background drops to 3,635,230 bytes on one line, 559,074 under the
+unchanged budget. It is byte-identical to the previous build put through the
+same Terser options, so only whitespace changed. This is an upstream bug fix
+worth its own pull request. Getting there took: WebCrypto
 instead of `@noble/ciphers`, sharing Ledger's prepare-sign-broadcast, session
 and argument helpers, a shared Safe hardware branch, and shorter messages.
 Phase 2 adds code, so it needs an upstream decision on the budget.
