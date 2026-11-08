@@ -106,19 +106,24 @@ const privacySdkServiceWorkerBoundary = (): Plugin => ({
   },
 });
 
+// Vite's esbuild transpile pass runs after every plugin renderChunk hook and
+// reprints with minifyWhitespace: false, re-indenting the compacted output.
+// generateBundle runs after it, so compaction here reaches the written file.
 const compactGeneratedBackground = (): Plugin => ({
   name: "compact-generated-background",
   enforce: "post",
-  async renderChunk(code, chunk) {
-    if (chunk.fileName !== "background.js") return null;
-    const result = await minifyJavaScript(code, {
+  async generateBundle(_options, bundle) {
+    const background = bundle["background.js"];
+    if (!background || background.type !== "chunk") return;
+    const result = await minifyJavaScript(background.code, {
       compress: false,
       mangle: false,
       module: !isFirefox,
       format: { comments: false },
     });
     if (!result.code) this.error("Background syntax compaction produced no code");
-    return { code: result.code, map: null };
+    background.code = result.code;
+    background.map = null;
   },
 });
 
