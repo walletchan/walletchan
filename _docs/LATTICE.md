@@ -1,14 +1,16 @@
-# GridPlus Lattice1 integration (private fork)
+# GridPlus Lattice1 integration
 
-Status (2026-11-02): phase 0 (protocol port) and phase 1 (account type)
-committed on branch `lattice`. Real-device QA passed on 2026-11-02 for the
-protocol layer and for the built extension's setup and signing flows (below).
+Status (2026-11-08): Lattice1 accounts match Ledger's capabilities in code
+(phases 0 to 2 below). Real-device QA passed for setup, messages, EIP-712
+fields, transactions, decoded calls, WalletConnect, a service-worker restart
+and onboarding (results log at the end). Not yet run on a device: Safe
+approval and execution (F1, F2), force inclusion (P1, P2), Privacy Pools (P3)
+and staking (P4). Those flows have automated tests only.
 
 Templates:
 
 - **WalletChan integration:** the Ledger account type. Each Ledger file gets a
-  Lattice counterpart; see the file map in the assessment
-  (`Live_Sim_Mix/docs/walletchan_lattice_assessment.md`).
+  Lattice counterpart (listed under phase 1).
 - **Lattice protocol:** ape-grid-lattice, ported to TypeScript in
   `apps/extension/src/chrome/lattice/protocol/` (module README maps each file).
 
@@ -19,7 +21,9 @@ Templates:
   sha256, RLP and secp256k1 signature recovery. No gridplus-sdk dependency.
   The SDK stays a pinned, dev-only reference in `tools/lattice-sdk-parity/`,
   outside the pnpm workspace: it captures the SDK's real request bytes as test
-  fixtures, which the normal suite reads without installing the SDK.
+  fixtures, which the normal suite reads without installing the SDK. Its
+  README lists every place WalletChan deliberately differs from the SDK, and
+  why.
 - Relay default `GRIDPLUS_LATTICE_RELAY_URL` in `constants/externalUrls.ts`.
   The transport also accepts a self-hosted Lattice Connect endpoint
   (`http://<host>:8080`).
@@ -52,7 +56,7 @@ required exactly 160. gridplus-sdk 4.0.0 and ape_grid both slice "up to 160",
 so they never noticed. The decoder now accepts 144 to 160 block-aligned bytes,
 and the simulator sends 144 like the device.
 
-Built extension (2026-11-02, Chrome, unpacked `build/` from `982662e7`): Add
+Built extension (2026-11-02, Chrome, unpacked phase 1 build): Add
 Account, Lattice tile, device ID, pairing code, then the account at
 `m/44'/60'/0'/0/0`. A localhost test page drove dapp requests against a local
 anvil chain (31337) so no real network was touched. Each result was checked
@@ -80,27 +84,27 @@ Observations from the run:
 - The account list on the setup screen stalled once on "Standard" paths; the
   cause is not known yet.
 
-Bundle budget: WalletChan pins the background bundle at 4,194,304 bytes
-(`privacy-prover.budgets.json`, `tests/privacy/protocolManifest.test.ts`). With
-phase 1 the bundle was 4,194,124 bytes, 180 under.
-
-Whitespace compaction (2026-11-02): upstream's syntax-only Terser pass ran in
-`renderChunk`, and Vite 5's esbuild transpile pass runs after every plugin
-`renderChunk` with `minifyWhitespace: false`, so it re-indented the output.
+Bundle budget: WalletChan pins the Chrome background bundle at 4,194,304
+bytes (`privacy-prover.budgets.json`, `tests/privacy/protocolManifest.test.ts`).
+The Lattice work relies on one build fix, kept as its own commit
+(`fix(build): compact the background bundle after Vite's esbuild pass`).
+The syntax-only Terser pass ran in `renderChunk`, and Vite 5's esbuild
+transpile pass runs after every plugin `renderChunk` with
+`minifyWhitespace: false`, so it re-indented the output.
 `compactGeneratedBackground` now runs in `generateBundle`, after that pass,
-with the same options (`compress: false`, `mangle: false`, no comments). The
-Chrome background drops to 3,635,230 bytes on one line, 559,074 under the
-unchanged budget. It is byte-identical to the previous build put through the
-same Terser options, so only whitespace changed. This is an upstream bug fix
-worth its own pull request. Getting there took: WebCrypto
-instead of `@noble/ciphers`, sharing Ledger's prepare-sign-broadcast, session
-and argument helpers, a shared Safe hardware branch, and shorter messages.
-Phase 2 adds code, so it needs an upstream decision on the budget.
+with the same options (`compress: false`, `mangle: false`, no comments).
 
-Tooling notes: pnpm comes from corepack (`corepack pnpm`); nested package
-scripts need a `pnpm` shim on PATH. Do not run `pnpm add` or a non-frozen
-`pnpm install`: pnpm 9.0.0 re-resolves unrelated peers. Add lockfile importer
-entries by hand and validate with `pnpm install --frozen-lockfile`.
+| Build (master `b54334a7`) | Chrome `background.js` |
+| --- | --- |
+| master | 4,130,295 bytes (77,611 lines) |
+| master plus the fix | 3,578,717 bytes, byte-identical to master's build put through the same Terser options |
+| master plus Lattice, without the fix | 4,225,395 bytes, 31,091 over the budget |
+| master plus Lattice, with the fix | 3,662,155 bytes, 532,149 under the budget |
+
+The budget itself is unchanged. The Lattice code is kept small by using
+WebCrypto instead of a cipher or curve library, sharing Ledger's
+prepare-sign-broadcast, session and argument helpers, a shared Safe hardware
+branch, and short messages.
 
 ## Phase 1: account type (built)
 
@@ -122,9 +126,12 @@ Follows the Ledger integration file for file; see `IMPLEMENTATION.md`
   domain with the relay fetch stub, router, UI wiring) plus Lattice cases in the
   existing account, Safe, router, reset-manifest and message-policy tests.
 
-## Not yet at Ledger parity
+## Phase 2: Ledger parity (built)
 
-Closed 2026-11-02: `personal_sign` now goes over the `ETH_MSG` request
+Where the port deliberately differs from gridplus-sdk, and why:
+`tools/lattice-sdk-parity/README.md`.
+
+`personal_sign` goes over the `ETH_MSG` request
 (schema 3, protocol `signPersonal`), ported from gridplus-sdk 4.0.0
 `buildPersonalSignRequest`. The device adds the EIP-191 prefix and shows ASCII
 messages as text; other bytes show as hex. Messages above 2,968 bytes are
@@ -133,13 +140,13 @@ signature must recover to that signer from the local EIP-191 digest. Phase 1
 had sent the prefixed bytes through generic signing, which the device showed
 as hex (`0x1945…`).
 
-Closed 2026-11-02: EIP-712 fields on the device (`ETH_MSG` `typedData`,
+EIP-712 fields on the device (`ETH_MSG` `typedData`,
 byte-identical to gridplus-sdk on 7 cases, M3 and M4 showed their fields on
 the device). Data the device cannot show as fields (nested arrays, more than
 36 fields in a type, over 3,040 bytes, or an `INVALID_MSG` answer) signs as
 domain and message hashes, never after a user rejection.
 
-Closed 2026-11-02: contract calls decoded on the device. `calldataDecoder.ts`
+Contract calls decoded on the device. `calldataDecoder.ts`
 reuses WalletChan's own sources unchanged: `fetchContractAbi` (verified ABI,
 with Sourcify's proxy resolution; the device shows parameter names), then the
 Sourcify and 4byte.directory selector lookups the history view already makes
@@ -152,31 +159,29 @@ argument; with size 32 it refused the decoder. A decoder the device refuses is
 dropped and the same transaction is re-sent without it. The device shows
 amounts as raw integers; WalletChan's review screen formats them.
 
-Closed 2026-11-02: single force inclusion on OP Stack and Arbitrum. Lattice
+Single force inclusion on OP Stack and Arbitrum. Lattice
 is `"raw"` in the core policy and `forceInclusion: true` in the capability row,
 with a factory in `RAW_FORCE_INCLUSION_SIGNERS` beside Ledger's, the same
 shape and authority checks (account, device and path re-checked around every
 device prompt; no wallet lock held while the device waits). Tests:
 `tests/lattice/forceInclusionSigner.test.ts`, the twin of Ledger's.
 
-Closed 2026-11-02: Privacy Pools single transactions. The capability row now
-equals Ledger's apart from `signingTransport`. `lattice` sits beside `trezor`
-at every Privacy Pools and Shield type check (stored-record validators,
-operation summaries, ragequit preparation and submission, recovery and
-unshield models, source picker label). Public exits stay one deposit per
-transaction, as for Ledger. `tests/lattice/privacyPools.test.ts` checks the
-release policies, the one-per-transaction rule against a software-wallet
-control, and that no Privacy Pools or Shield file accepts Trezor without
-Lattice.
+Privacy Pools single transactions. The capability row equals Ledger's apart
+from `signingTransport`. Lattice is accepted at every Privacy Pools and Shield
+hardware-account check (stored-record validators, operation summaries,
+ragequit preparation and submission, recovery and unshield models, source
+picker label). Public exits stay one deposit per transaction, as for Ledger.
+`tests/lattice/privacyPools.test.ts` checks the release policies, the
+one-per-transaction rule against a software-wallet control, and that every
+Privacy Pools and Shield hardware-account check accepts Lattice.
 
-Closed 2026-11-02: built-in staking. `lattice/directSwap.ts` is the twin of
+Built-in staking. `lattice/directSwap.ts` is the twin of
 `transactions/swaps/ledgerDirect.ts` (one device approval per leg, account,
 device and path re-checked before every broadcast), routed from
-`swaps/direct.ts` beside Ledger. The staking screens now treat Lattice like
-Ledger; phase 1 had grouped it with Trezor (unavailable). The built-in swap
-shortcut stays off for Lattice, as for Ledger.
+`swaps/direct.ts` beside Ledger. The staking screens treat Lattice like
+Ledger. The built-in swap shortcut stays off for Lattice, as for Ledger.
 
-Closed 2026-11-02: Lattice as a first account in onboarding. A Lattice tile
+Lattice as a first account in onboarding. A Lattice tile
 sits under Connect after Ledger (no availability gate: it talks over HTTPS).
 `pages/onboarding/LatticeOnboardingStep.tsx` wraps `AddLatticeFlow` in the
 onboarding layout and only collects the selection; `onboardingSubmission.ts`
@@ -192,7 +197,7 @@ the review UI (Ledger has no such UI).
 
 | Gap | Plan |
 | --- | --- |
-| Real-device QA | Phase 1 core, messages, EIP-712 fields and decoded calls passed 2026-11-02; run the full matrix below after the items above |
+| Real-device QA | Passed except F1, F2 and P1 to P4, which need a funded testnet account; S8 on the device; B1 (Firefox) optional |
 
 ## Real-device test matrix
 
@@ -204,7 +209,7 @@ build.
 
 ### Setup for a session
 
-1. Build the extension stage by stage (see Tooling notes above) and load
+1. Build the extension (`pnpm build:extension`) and load
    `apps/extension/build` unpacked in Chrome. Turn off any store copy of
    WalletChan in the same profile. After every rebuild, click the extension's
    reload arrow at `chrome://extensions` and refresh the QA page: Chrome keeps
@@ -263,7 +268,7 @@ Record once per session: date, build commit, firmware, active wallet
 | T2 | Legacy request (`gasPrice`) | Mined; record the type WalletChan chose. On chain 31337 it sent EIP-1559, so the device's legacy path needs a chain without EIP-1559 |
 | T3 | EIP-2930 request (`gasPrice` + `accessList`) | As T2 |
 | T4 | 2,000 bytes of calldata | Mined; the request used an extra frame. WalletChan may warn "likely to fail" although the chain estimates 53,000 gas; proceed |
-| T5 | 4,000 bytes of calldata | Mined; device shows a digest. Phase 2: the review screen shows the same digest |
+| T5 | 4,000 bytes of calldata | Mined; device shows a digest |
 | T6 | ERC-20 `transfer(address,uint256)` calldata | Mined; device shows `transfer` with the recipient and amount |
 | T12 | `grantRole(bytes32,address)` calldata | Mined; device shows raw data (fixed `bytesN` functions get no decoder) |
 | T13 | Uniswap SwapRouter02 `exactInputSingle` (tuple) | Mined; device shows the function and the tuple's seven fields |
@@ -318,7 +323,8 @@ Use a Safe on Sepolia or a mainnet fork with the Lattice account as an owner.
 
 | Date | Build | Firmware, wallet | Rows passed | Notes |
 | --- | --- | --- | --- | --- |
-| 2026-11-02 | `7e309cde` | 0.18.9, SafeCard | T8, T9, T7, C3, C1 (messages), P5 | T8 Send screen and T9 custom nonce mined at nonces 0 and 1 (T9's typed nonce equalled the next nonce). T7: declining on the device showed "Rejected on your Lattice." with resubmit or cancel, like Ledger; cancel gave the dapp 4001 and nothing was broadcast. C3: M1 signed after stopping the service worker. C1: personal_sign and typed data through a WalletConnect demo dapp. T10 and T11 skipped by decision: a replacement is a normal signature with a reused nonce (T9) and the replacement flow is shared with Ledger and unit-tested. P5: reset WalletChan, onboarded with the Lattice as the first account (new pairing), then signed; confirmed by the tester, no signature logged after the reset |
-| 2026-11-02 | `982662e7` | 0.18.9, SafeCard | S1, M1, M3 (hash-only), T1 | Run with an earlier version of the QA page. M1 showed hex on the device. S2 stalled once on Standard, then loaded. Smoke script also passed: pairing, addresses, `personal_sign`, EIP-1559 |
+| 2026-11-02 | onboarding commit | 0.18.9, SafeCard | T8, T9, T7, C3, C1 (messages), P5 | T8 Send screen and T9 custom nonce mined at nonces 0 and 1 (T9's typed nonce equalled the next nonce). T7: declining on the device showed "Rejected on your Lattice." with resubmit or cancel, like Ledger; cancel gave the dapp 4001 and nothing was broadcast. C3: M1 signed after stopping the service worker. C1: personal_sign and typed data through a WalletConnect demo dapp. T10 and T11 skipped by decision: a replacement is a normal signature with a reused nonce (T9) and the replacement flow is shared with Ledger and unit-tested. P5: reset WalletChan, onboarded with the Lattice as the first account (new pairing), then signed; confirmed by the tester, no signature logged after the reset |
+| 2026-11-02 | phase 1 build | 0.18.9, SafeCard | S1, M1, M3 (hash-only), T1 | Run with an earlier version of the QA page. M1 showed hex on the device. S2 stalled once on Standard, then loaded. Smoke script also passed: pairing, addresses, `personal_sign`, EIP-1559 |
 | 2026-11-02 | EIP-712 and calldata commits | 0.18.9, SafeCard | M3 and M4 (fields on device), T6 and T13 (decoded), T12 | M4 prompted twice once: a stuck request survived an extension reload and arrived late; both prompts showed the same fields. T12 first showed `0x1c89…`, the last 4 bytes of the bytes32 role (SDK size rule); with size 32 the device refused the decoder and the fallback signed raw data. Fixed `bytesN` functions now get no decoder |
 | 2026-11-02 | `ETH_MSG` commit | 0.18.9, SafeCard | M1 (text on device), M2, M3 and M4 (hash-only), T1 to T6 | `--verify` passed all ten rows. M1 first ran before the extension reload and showed `0x1945…`; after the reload the device showed the text. T2 and T3 went out as EIP-1559. T4 drew a false "likely to fail" warning. T4 and T5 were rejected once each (code 4001, nothing broadcast) before passing |
+| 2026-11-08 | WebCrypto app key and pairing-message commits | same device as 2026-11-02 | S1 (new 97-byte app key paired), M1 (text on device) | A 32-byte app key stored by an earlier build is refused with the message to remove the Lattice accounts first, and nothing signs with it. After removing the accounts and adding the Lattice again, the new key paired and M1 recovered to the account |

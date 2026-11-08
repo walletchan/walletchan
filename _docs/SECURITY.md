@@ -2534,6 +2534,18 @@ the exact device/path binding at signature release.
 - [ ] Do Chromium bundles pass CSP/dynamic-code guards, and does Firefox omit Suite transport, setup and assets?
 - [ ] Are emulator and representative physical-device results recorded before release?
 
+### If you modified Lattice support:
+
+- [ ] Is the P-256 pairing key still encrypted with the general vault key in `latticeAppKeyVault`, written only by the master-only `addLatticeAccounts` commit, and returned by no route?
+- [ ] Do Lattice requests still leave only from the service worker, to `GRIDPLUS_LATTICE_RELAY_URL` or the account's own Lattice Connect endpoint, as encrypted frames with no password, vault key, private key, seed phrase or API key?
+- [ ] Do setup commits still accept only the relay ID, endpoint, wallet UID and addresses from the background setup session?
+- [ ] Does every signing session still reconnect, require a paired reply and the pinned wallet UID, and fail closed on a swapped SafeCard?
+- [ ] Is the locally computed digest still the authority: a different device digest and a high-s signature rejected, and every signature recovered to the pinned account before broadcast or release?
+- [ ] Do the EIP-712 hash fallback and the calldata-decoder retry still run only on `INVALID_MSG` or data the firmware cannot show, never after a rejection on the device?
+- [ ] Does first-account onboarding still create the master credential before `addLatticeAccounts`?
+- [ ] Do `tests/lattice/` (including `sdkParity.test.ts`) still pass, and does `tools/lattice-sdk-parity/README.md` still list every deliberate difference from gridplus-sdk?
+- [ ] Are the affected rows of the real-device matrix in `_docs/LATTICE.md` run and logged before release?
+
 ### General checks:
 
 - [ ] New service-worker logic lives in its owning `src/chrome/<domain>/`
