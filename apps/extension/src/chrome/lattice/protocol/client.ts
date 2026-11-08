@@ -42,13 +42,14 @@ import {
   type LatticeFirmwareConstants,
 } from "./firmware";
 import { decodeConnectResponse, encodePairRequest, type LatticeConnectResult } from "./pairing";
-import { assertLatticeAppPrivateKey, assertUncompressedP256, latticeAppPublicKey, latticeSharedSecret } from "./secureChannel";
+import { assertLatticeAppKey, assertUncompressedP256, latticeAppPublicKey, latticeSharedSecret } from "./secureChannel";
 import type { LatticeTransport } from "./transport";
 
 const DEVICE_BUSY_RETRY_MS = 3_000;
 
 export interface LatticeClientOptions {
-  appPrivateKey: Uint8Array;
+  /** P-256 private scalar followed by its public key; see `LATTICE_APP_KEY_SIZE`. */
+  appKey: Uint8Array;
   transport: LatticeTransport;
   appName?: string;
   firmware?: LatticeFirmwareConstants;
@@ -80,7 +81,7 @@ export interface LatticePersonalSignResult {
 }
 
 export class LatticeProtocolClient {
-  private readonly appPrivateKey: Uint8Array;
+  private readonly appKey: Uint8Array;
   private readonly transport: LatticeTransport;
   private readonly appName: string;
   private readonly fw: LatticeFirmwareConstants;
@@ -90,8 +91,8 @@ export class LatticeProtocolClient {
   private connectResult: LatticeConnectResult | null = null;
 
   constructor(options: LatticeClientOptions) {
-    assertLatticeAppPrivateKey(options.appPrivateKey);
-    this.appPrivateKey = options.appPrivateKey;
+    assertLatticeAppKey(options.appKey);
+    this.appKey = options.appKey;
     this.transport = options.transport;
     this.appName = options.appName ?? LATTICE_DEFAULT_APP_NAME;
     this.fw = options.firmware ?? LATTICE_FW_DEFAULT;
@@ -100,7 +101,7 @@ export class LatticeProtocolClient {
   }
 
   get appPublicKey(): Uint8Array {
-    return latticeAppPublicKey(this.appPrivateKey);
+    return latticeAppPublicKey(this.appKey);
   }
 
   /**
@@ -113,7 +114,7 @@ export class LatticeProtocolClient {
     if (parsed.responseCode !== LatticeResponseCode.SUCCESS) {
       throw LatticeProtocolError.fromResponseCode(parsed.responseCode);
     }
-    const result = await decodeConnectResponse(parsed.data, this.appPrivateKey);
+    const result = await decodeConnectResponse(parsed.data, this.appKey);
     if (!isSupportedLatticeFirmware(result.firmware)) {
       throw new LatticeProtocolError(
         `Lattice firmware ${formatLatticeFirmware(result.firmware)} is older than the supported minimum ${formatLatticeFirmware(LATTICE_MIN_FIRMWARE)}.`,
@@ -126,7 +127,7 @@ export class LatticeProtocolClient {
 
   /** Completes pairing, then reconnects to load the active wallet. */
   async pair(pairingCode: string, signal?: AbortSignal): Promise<LatticeConnectResult> {
-    const payload = encodePairRequest(this.appPrivateKey, this.appName, pairingCode);
+    const payload = await encodePairRequest(this.appKey, this.appName, pairingCode);
     await this.encryptedRequest(LatticeEncryptedRequestType.FINALIZE_PAIRING, payload, signal);
     const result = await this.connect(signal);
     if (!result.isPaired) throw new LatticeProtocolError("Lattice did not confirm pairing.");
@@ -242,12 +243,12 @@ export class LatticeProtocolClient {
     for (let attempt = 0; attempt <= this.retries; attempt += 1) {
       if (signal?.aborted) throw new LatticeProtocolError("Lattice request was cancelled.");
       if (!this.ephemeralPub) throw new LatticeProtocolError("Not connected to the Lattice.");
-      const secret = latticeSharedSecret(this.appPrivateKey, this.ephemeralPub);
+      const secret = await latticeSharedSecret(this.appKey, this.ephemeralPub);
       const frame = await buildEncryptedRequest(requestType, requestData, secret, newLatticeMsgId());
       const parsed = parseLatticeResponse(await this.transport.send(frame, signal));
       if (parsed.responseCode === LatticeResponseCode.SUCCESS) {
         const decrypted = await decryptLatticeResponse(parsed.data, requestType, secret);
-        assertUncompressedP256(decrypted.newEphemeralPub);
+        await assertUncompressedP256(decrypted.newEphemeralPub);
         this.ephemeralPub = decrypted.newEphemeralPub;
         return decrypted.data;
       }

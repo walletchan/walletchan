@@ -17,7 +17,7 @@ import {
   LatticeProtocolClient,
   createLatticeRelayTransport,
   formatLatticeFirmware,
-  generateLatticeAppPrivateKey,
+  generateLatticeAppKey,
   isValidLatticeDeviceId,
   latticeSignerPath,
   normalizeLatticeRelayUrl,
@@ -132,9 +132,9 @@ export async function connectLatticeForSetup(input: {
   return runLatticeOperation(input.opId, async (signal) => {
     setup = null;
     const stored = await loadLatticeAppKey();
-    const appKey = stored ?? generateLatticeAppPrivateKey();
+    const appKey = stored ?? (await generateLatticeAppKey());
     const client = new LatticeProtocolClient({
-      appPrivateKey: appKey,
+      appKey,
       transport: relayTransport(relayDeviceId, endpoint, SETUP_REQUEST_TIMEOUT_MS),
     });
     emitLatticeStatus(input.opId, "connecting");
@@ -296,7 +296,7 @@ export async function withLatticeAccount<T>(
     }
     const appKey = await requireLatticeAppKey();
     const client = new LatticeProtocolClient({
-      appPrivateKey: appKey,
+      appKey,
       transport: relayTransport(device.relayDeviceId, device.endpoint, SIGNING_REQUEST_TIMEOUT_MS),
     });
     emitLatticeStatus(input.opId, "connecting");

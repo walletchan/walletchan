@@ -14,16 +14,18 @@ Templates:
 
 ## Phase 0: protocol port
 
-- Pure TypeScript. Crypto from `@noble/curves` 1.9.1 (exact pin, the same copy
-  viem already uses), WebCrypto AES-CBC and viem. No gridplus-sdk dependency.
+- Pure TypeScript with no new dependency. WebCrypto does P-256 (key
+  generation, ECDH, the pairing signature) and AES-CBC; viem does keccak,
+  sha256, RLP and secp256k1 signature recovery. No gridplus-sdk dependency.
   The SDK stays a pinned, dev-only reference in `tools/lattice-sdk-parity/`,
   outside the pnpm workspace: it captures the SDK's real request bytes as test
   fixtures, which the normal suite reads without installing the SDK.
 - Relay default `GRIDPLUS_LATTICE_RELAY_URL` in `constants/externalUrls.ts`.
   The transport also accepts a self-hosted Lattice Connect endpoint
   (`http://<host>:8080`).
-- Stateless: callers supply the P-256 app key; the ephemeral key stays in
-  memory and each operation starts with `connect()`.
+- Stateless: callers supply the P-256 app key (the 32-byte scalar followed by
+  its 65-byte public key, since WebCrypto cannot derive one from the other);
+  the ephemeral key stays in memory and each operation starts with `connect()`.
 - Fail-closed signing helpers in `protocol/evm.ts`: the local keccak digest is
   the authority, a different device digest is rejected, high-s is rejected,
   and y-parity is recovered against the device public key.

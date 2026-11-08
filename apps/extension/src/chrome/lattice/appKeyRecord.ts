@@ -5,9 +5,11 @@
  */
 import { bytesToHex, hexToBytes } from "viem";
 import { decryptWithVaultKey, encryptWithVaultKey } from "../crypto";
-import { assertLatticeAppPrivateKey } from "./protocol/secureChannel";
+import { LATTICE_APP_KEY_SIZE, checkLatticeAppKey } from "./protocol/secureChannel";
 
 export const LATTICE_APP_KEY_STORAGE_KEY = "latticeAppKeyVault";
+
+const APP_KEY_PLAINTEXT = new RegExp(`^0x[0-9a-f]{${LATTICE_APP_KEY_SIZE * 2}}$`);
 
 export interface StoredLatticeAppKey {
   version: 1;
@@ -37,10 +39,10 @@ export async function decryptLatticeAppKey(
   record: StoredLatticeAppKey,
 ): Promise<Uint8Array | null> {
   const plaintext = await decryptWithVaultKey(vaultKey, record);
-  if (!plaintext || !/^0x[0-9a-f]{64}$/.test(plaintext)) return null;
+  if (!plaintext || !APP_KEY_PLAINTEXT.test(plaintext)) return null;
   const key = hexToBytes(plaintext as `0x${string}`);
   try {
-    assertLatticeAppPrivateKey(key);
+    await checkLatticeAppKey(key);
   } catch {
     return null;
   }
@@ -51,7 +53,7 @@ export async function encryptLatticeAppKey(
   vaultKey: CryptoKey,
   appKey: Uint8Array,
 ): Promise<StoredLatticeAppKey> {
-  assertLatticeAppPrivateKey(appKey);
+  await checkLatticeAppKey(appKey);
   const encrypted = await encryptWithVaultKey(vaultKey, bytesToHex(appKey));
   return { version: 1, ciphertext: encrypted.ciphertext, iv: encrypted.iv, salt: "" };
 }

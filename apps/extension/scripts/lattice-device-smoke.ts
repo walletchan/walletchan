@@ -27,7 +27,7 @@ import {
   LatticeProtocolClient,
   createLatticeRelayTransport,
   formatLatticeFirmware,
-  generateLatticeAppPrivateKey,
+  generateLatticeAppKey,
   latticeSignerPath,
   signLatticePersonalMessage,
   signLatticeTransaction,
@@ -52,13 +52,17 @@ function apeGridDir(): string {
   return process.env.APE_GRID_DATA_DIR ?? path.join(os.homedir(), ".ape", "grid");
 }
 
-/** ape_grid stores the P-256 app key as PKCS8 DER; extract the raw 32-byte scalar. */
+/** ape_grid stores the P-256 app key as PKCS8 DER; extract the scalar and its public key. */
 function loadApeGridAppKey(dir: string): Uint8Array {
   const jwk = createPrivateKey({ key: readFileSync(path.join(dir, "app_key")), format: "der", type: "pkcs8" }).export({
     format: "jwk",
   });
-  if (jwk.crv !== "P-256" || typeof jwk.d !== "string") throw new Error("ape_grid app_key is not a P-256 key");
-  return new Uint8Array(Buffer.from(jwk.d, "base64url"));
+  if (jwk.crv !== "P-256" || typeof jwk.d !== "string" || typeof jwk.x !== "string" || typeof jwk.y !== "string") {
+    throw new Error("ape_grid app_key is not a P-256 key");
+  }
+  return new Uint8Array(
+    Buffer.concat([Buffer.from(jwk.d, "base64url"), Buffer.of(0x04), Buffer.from(jwk.x, "base64url"), Buffer.from(jwk.y, "base64url")]),
+  );
 }
 
 function apeGridAccounts(dir: string): Array<{ alias: string; address: string; hdpath: string }> {
@@ -78,13 +82,13 @@ async function main(): Promise<void> {
   }
   if (!deviceId) throw new Error("Pass --device-id or --ape-grid");
   if (!appKey) {
-    appKey = generateLatticeAppPrivateKey();
+    appKey = await generateLatticeAppKey();
     console.log("Generated a new app key. Keep it to reuse this pairing:");
     console.log(`  --app-key-hex ${bytesToHex(appKey)}`);
   }
 
   const client = new LatticeProtocolClient({
-    appPrivateKey: appKey,
+    appKey,
     transport: createLatticeRelayTransport({ deviceId, baseUrl: values.endpoint as string, timeoutMs: 120_000 }),
   });
 

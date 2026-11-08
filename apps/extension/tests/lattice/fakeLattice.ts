@@ -4,12 +4,12 @@
  * It speaks the real wire protocol: CRC-checked frames, ECDH + AES-256-CBC,
  * ephemeral-key rotation, P-256 pairing-signature verification, EXTRA_DATA
  * reassembly, prehash detection and secp256k1 signing with per-path keys, for
- * both generic signing and ETH_MSG personal_sign.
+ * both generic signing and ETH_MSG personal_sign. Its P-256 side uses Node's
+ * OpenSSL crypto, independent of the WebCrypto code under test.
  */
-import { p256 } from "@noble/curves/p256";
-import { secp256k1 } from "@noble/curves/secp256k1";
+import { createECDH, createPublicKey, generateKeyPairSync, verify as verifySignature, type ECDH } from "node:crypto";
 import { bytesToHex, concat, hashMessage, hashTypedData, hexToBytes, keccak256, sha256, toBytes } from "viem";
-import { publicKeyToAddress } from "viem/accounts";
+import { privateKeyToAccount, privateKeyToAddress, publicKeyToAddress, sign as signDigest } from "viem/accounts";
 
 import { decodeCbor } from "./cbor";
 import {
@@ -22,8 +22,8 @@ import {
   gsMaxExpandedSize,
   latticeAesDecrypt,
   latticeAesEncrypt,
+  encodeDerSignature,
   latticeEphemeralId,
-  latticeSharedSecret,
   type LatticeTransport,
 } from "./protocolImports";
 
@@ -41,6 +41,30 @@ function u16le(buf: Uint8Array, off: number): number {
 }
 function writeU32BE(buf: Uint8Array, off: number, v: number): void {
   new DataView(buf.buffer, buf.byteOffset, buf.byteLength).setUint32(off, v >>> 0, false);
+}
+
+function newEphemeralKey(): ECDH {
+  const key = createECDH("prime256v1");
+  key.generateKeys();
+  return key;
+}
+
+/** A P-256 app key (scalar, then uncompressed point) from Node's crypto, synchronously. */
+export function testLatticeAppKey(): Uint8Array {
+  const jwk = generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey.export({ format: "jwk" });
+  return new Uint8Array(
+    Buffer.concat([Buffer.from(jwk.d!, "base64url"), Buffer.of(0x04), Buffer.from(jwk.x!, "base64url"), Buffer.from(jwk.y!, "base64url")]),
+  );
+}
+
+/** secp256k1 signature over a digest, DER encoded, plus the signer's uncompressed public key. */
+async function secp256k1Sign(digest: Uint8Array, key: Uint8Array): Promise<{ der: Uint8Array; publicKey: Uint8Array }> {
+  const privateKey = bytesToHex(key);
+  const sig = await signDigest({ hash: bytesToHex(digest), privateKey });
+  return {
+    der: encodeDerSignature(hexToBytes(sig.r), hexToBytes(sig.s)),
+    publicKey: hexToBytes(privateKeyToAccount(privateKey).publicKey),
+  };
 }
 
 export interface FakeSignRecord {
@@ -94,7 +118,7 @@ export class FakeLattice implements LatticeTransport {
   pairedAppName: string | null = null;
 
   private appPub: Uint8Array | null = null;
-  private ephPriv = p256.utils.randomPrivateKey();
+  private eph = newEphemeralKey();
   private paired: boolean;
   private readonly pairingCode: string;
   private readonly firmware: [number, number, number];
@@ -142,7 +166,7 @@ export class FakeLattice implements LatticeTransport {
 
   /** Device forgets the session key, as after a reboot. */
   desync(): void {
-    this.ephPriv = p256.utils.randomPrivateKey();
+    this.eph = newEphemeralKey();
   }
 
   /** Deterministic secp256k1 key per (wallet, path). */
@@ -153,7 +177,7 @@ export class FakeLattice implements LatticeTransport {
   }
 
   addressFor(path: readonly number[]): `0x${string}` {
-    return publicKeyToAddress(bytesToHex(secp256k1.getPublicKey(this.keyFor(path), false)));
+    return privateKeyToAddress(bytesToHex(this.keyFor(path)));
   }
 
   async send(frame: Uint8Array): Promise<Uint8Array> {
@@ -190,21 +214,25 @@ export class FakeLattice implements LatticeTransport {
   private async handleConnect(data: Uint8Array): Promise<Uint8Array> {
     this.connectCount += 1;
     this.appPub = data.slice(0, 65);
-    this.ephPriv = p256.utils.randomPrivateKey();
-    const ephPub = p256.getPublicKey(this.ephPriv, false);
+    this.eph = newEphemeralKey();
+    const ephPub = new Uint8Array(this.eph.getPublicKey());
     const fw = Uint8Array.from([this.firmware[2], this.firmware[1], this.firmware[0], 0]);
     const head = concat([Uint8Array.from([0, this.paired ? 1 : 0]), ephPub, fw]);
     if (!this.paired) return head;
     const wallets = new Uint8Array(this.walletInfoSize);
     wallets.set(this.internalUid, 0);
     if (this.safeCardInserted) wallets.set(this.externalUid, 71);
-    const secret = latticeSharedSecret(this.ephPriv, this.appPub);
-    return concat([head, await latticeAesEncrypt(wallets, secret)]);
+    return concat([head, await latticeAesEncrypt(wallets, this.sharedSecret())]);
+  }
+
+  /** ECDH x-coordinate with the app key, as the firmware derives it. */
+  private sharedSecret(): Uint8Array {
+    return new Uint8Array(this.eph.computeSecret(this.appPub as Uint8Array));
   }
 
   private async handleEncrypted(data: Uint8Array): Promise<Uint8Array> {
     if (!this.appPub) return this.errorPayload(LatticeResponseCode.INVALID_EPHEM_ID);
-    const secret = latticeSharedSecret(this.ephPriv, this.appPub);
+    const secret = this.sharedSecret();
     if (u32le(data, 0) !== latticeEphemeralId(secret)) {
       return this.errorPayload(LatticeResponseCode.INVALID_EPHEM_ID);
     }
@@ -224,18 +252,18 @@ export class FakeLattice implements LatticeTransport {
     if (requestType === LatticeEncryptedRequestType.FINALIZE_PAIRING) result = this.handlePair(request);
     else if (!this.paired) result = LatticeResponseCode.PERMISSION_DISABLED;
     else if (requestType === LatticeEncryptedRequestType.GET_ADDRESSES) result = this.handleGetAddresses(request);
-    else result = this.handleSign(request);
+    else result = await this.handleSign(request);
     if (typeof result === "number") return this.errorPayload(result);
 
     // Encrypt [newEphPub][data][crc BE] with the request's secret, then rotate.
-    const nextPriv = p256.utils.randomPrivateKey();
+    const next = newEphemeralKey();
     const out = new Uint8Array(1728);
-    out.set(p256.getPublicKey(nextPriv, false), 0);
+    out.set(next.getPublicKey(), 0);
     out.set(result.subarray(0, RESPONSE_SIZES[requestType]), 65);
     const checksumOff = 65 + RESPONSE_SIZES[requestType];
     writeU32BE(out, checksumOff, crc32Lattice(out.subarray(0, checksumOff)));
     const cipher = await latticeAesEncrypt(out, secret);
-    this.ephPriv = nextPriv;
+    this.eph = next;
     return concat([Uint8Array.from([0]), cipher, new Uint8Array(1728)]);
   }
 
@@ -243,8 +271,18 @@ export class FakeLattice implements LatticeTransport {
     const nameBuf = request.subarray(0, 25);
     const der = request.subarray(25, 99);
     const trimmed = der.subarray(0, 2 + der[1]);
-    const digest = sha256(concat([this.appPub as Uint8Array, nameBuf, toBytes(this.pairingCode)]), "bytes");
-    const ok = p256.verify(trimmed, digest, this.appPub as Uint8Array, { prehash: false, lowS: false });
+    const appPub = this.appPub as Uint8Array;
+    const appKey = createPublicKey({
+      key: {
+        kty: "EC",
+        crv: "P-256",
+        x: Buffer.from(appPub.subarray(1, 33)).toString("base64url"),
+        y: Buffer.from(appPub.subarray(33, 65)).toString("base64url"),
+      },
+      format: "jwk",
+    });
+    const preimage = concat([appPub, nameBuf, toBytes(this.pairingCode)]);
+    const ok = verifySignature("sha256", preimage, { key: appKey, dsaEncoding: "der" }, trimmed);
     if (!ok) return LatticeResponseCode.PAIR_FAILED;
     this.paired = true;
     this.pairedAppName = new TextDecoder().decode(nameBuf.subarray(0, nameBuf.indexOf(0) < 0 ? 25 : nameBuf.indexOf(0)));
@@ -266,7 +304,7 @@ export class FakeLattice implements LatticeTransport {
     return out;
   }
 
-  private handleSign(request: Uint8Array): Uint8Array | number {
+  private async handleSign(request: Uint8Array): Promise<Uint8Array | number> {
     const hasExtra = request[0] === 1;
     const schema = request[1];
     const uid = request.subarray(2, 34);
@@ -305,7 +343,7 @@ export class FakeLattice implements LatticeTransport {
     return LatticeResponseCode.INVALID_MSG;
   }
 
-  private complete(schema: number, head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+  private async complete(schema: number, head: Uint8Array, extras: Uint8Array[], extraFrames: number): Promise<Uint8Array | number> {
     if (schema !== LatticeSignSchema.ETH_MSG) return this.sign(head, extras, extraFrames);
     if (head[0] === 0) return this.signPersonal(head, extras, extraFrames);
     if (head[0] === 1 && !this.rejectTypedData) return this.signTypedData(head, extras, extraFrames);
@@ -317,15 +355,15 @@ export class FakeLattice implements LatticeTransport {
    * EIP-712 digest when too large. Decodes the CBOR the way the firmware must:
    * bignums back to integers, byte strings to hex, 1/0 to booleans.
    */
-  private signTypedData(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+  private async signTypedData(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Promise<Uint8Array | number> {
     try {
-      return this.signTypedDataUnchecked(head, extras, extraFrames);
+      return await this.signTypedDataUnchecked(head, extras, extraFrames);
     } catch {
       return LatticeResponseCode.INVALID_MSG;
     }
   }
 
-  private signTypedDataUnchecked(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array {
+  private async signTypedDataUnchecked(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Promise<Uint8Array> {
     const fw = LATTICE_FW_DEFAULT;
     const depth = u32le(head, 1);
     const signerPath = Array.from({ length: depth }, (_, i) => u32le(head, 5 + 4 * i));
@@ -369,16 +407,16 @@ export class FakeLattice implements LatticeTransport {
     return this.ethMsgReply(digest, signerPath);
   }
 
-  private ethMsgReply(digest: Uint8Array, signerPath: number[]): Uint8Array {
-    const key = this.keyFor(signerPath);
+  private async ethMsgReply(digest: Uint8Array, signerPath: number[]): Promise<Uint8Array> {
+    const { der, publicKey } = await secp256k1Sign(digest, this.keyFor(signerPath));
     const resp = new Uint8Array(1090);
-    resp.set(secp256k1.sign(digest, key).toDERRawBytes(), 0);
-    resp.set(this.forgedSigner ?? hexToBytes(publicKeyToAddress(bytesToHex(secp256k1.getPublicKey(key, false)))), 74);
+    resp.set(der, 0);
+    resp.set(this.forgedSigner ?? hexToBytes(publicKeyToAddress(bytesToHex(publicKey))), 74);
     return resp;
   }
 
   /** ETH_MSG: protocol(1) | signerPath(24) | displayHex(1) | msgLen(2 LE) | message or EIP-191 digest. */
-  private signPersonal(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+  private async signPersonal(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Promise<Uint8Array | number> {
     const fw = LATTICE_FW_DEFAULT;
     const depth = u32le(head, 1);
     const signerPath = Array.from({ length: depth }, (_, i) => u32le(head, 5 + 4 * i));
@@ -407,7 +445,7 @@ export class FakeLattice implements LatticeTransport {
     return this.ethMsgReply(digest, signerPath);
   }
 
-  private sign(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Uint8Array | number {
+  private async sign(head: Uint8Array, extras: Uint8Array[], extraFrames: number): Promise<Uint8Array | number> {
     const encoding = u32le(head, 0);
     const hashType = head[4];
     const depth = u32le(head, 6);
@@ -443,11 +481,10 @@ export class FakeLattice implements LatticeTransport {
       extraFrames,
     });
 
-    const key = this.keyFor(signerPath);
-    const sig = secp256k1.sign(digest, key);
+    const { der, publicKey } = await secp256k1Sign(digest, this.keyFor(signerPath));
     const resp = new Uint8Array(1090);
-    resp.set(secp256k1.getPublicKey(key, false), 0);
-    resp.set(sig.toDERRawBytes(), 65);
+    resp.set(publicKey, 0);
+    resp.set(der, 65);
     if (!this.omitDigest) resp.set(this.forgedDigest ?? digest, 65 + 74);
     return resp;
   }

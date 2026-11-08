@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { parseTransaction, keccak256 } from "viem";
 import { createServer } from "vite";
 
-import { FakeLattice } from "./fakeLattice";
-import { LatticeProtocolClient, generateLatticeAppPrivateKey, latticeSignerPath } from "./protocolImports";
+import { FakeLattice, testLatticeAppKey } from "./fakeLattice";
+import { LatticeProtocolClient, latticeSignerPath } from "./protocolImports";
 
 // Twin of tests/ledger/forceInclusionSigner.test.ts. Only the device session
 // (`withLatticeAccount`) is faked, and it signs through the Lattice simulator:
@@ -15,7 +15,7 @@ import { LatticeProtocolClient, generateLatticeAppPrivateKey, latticeSignerPath 
 test("Lattice force-inclusion raw signing preserves device and session authority", async (t) => {
   const HD_PATH = "m/44'/60'/0'/0/0";
   const device = new FakeLattice();
-  const client = new LatticeProtocolClient({ appPrivateKey: generateLatticeAppPrivateKey(), transport: device, sleep: async () => {} });
+  const client = new LatticeProtocolClient({ appKey: testLatticeAppKey(), transport: device, sleep: async () => {} });
   await client.connect();
   const signerPath = latticeSignerPath(HD_PATH);
   const account = { id: "lattice", type: "lattice", address: device.addressFor(signerPath), deviceId: "device", hdPath: HD_PATH, hdIndex: 0 };

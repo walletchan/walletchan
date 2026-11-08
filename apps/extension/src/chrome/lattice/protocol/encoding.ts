@@ -6,11 +6,9 @@
  * `functions/getAddresses.ts`, `functions/sign.ts` and `genericSigning.ts`.
  * The ETH_MSG personal-sign request follows gridplus-sdk 4.0.0 `ethereum.ts`.
  */
-import { secp256k1 } from "@noble/curves/secp256k1";
-import { hashMessage, keccak256, sha256 } from "viem";
+import { bytesToHex, hashMessage, hexToBytes, keccak256, recoverPublicKey, sha256, type Hex } from "viem";
 
 import {
-  bytesToBigInt,
   concatBytes,
   equalBytes,
   fixLength,
@@ -419,16 +417,31 @@ export function parseGenericSigningResponseSecp256k1(data: Uint8Array, omitPubke
   return { pubkey, r: fixLength(r, 32), s: fixLength(s, 32), digest };
 }
 
-/** Recovery id (0 or 1) whose public key matches the device-returned key. */
-export function recoverYParity(msgHash: Uint8Array, r: Uint8Array, s: Uint8Array, expectedPubkey: Uint8Array): 0 | 1 {
-  const expected = secp256k1.ProjectivePoint.fromHex(expectedPubkey).toRawBytes(false);
-  const signature = new secp256k1.Signature(bytesToBigInt(r), bytesToBigInt(s));
-  for (const v of [0, 1] as const) {
+/** SEC1 compressed form (0x02/0x03 || X) of a 65-byte uncompressed public key. */
+function compressPublicKey(uncompressed: Uint8Array): Uint8Array {
+  return concatBytes(Uint8Array.of(uncompressed[64] & 1 ? 0x03 : 0x02), uncompressed.subarray(1, 33));
+}
+
+/**
+ * Recovery id (0 or 1) whose public key matches the device-returned key (33 or
+ * 65 bytes), with that key uncompressed.
+ */
+export async function recoverLatticeSigner(
+  msgHash: Uint8Array,
+  r: Uint8Array,
+  s: Uint8Array,
+  expectedPubkey: Uint8Array,
+): Promise<{ yParity: 0 | 1; publicKey: Hex }> {
+  for (const yParity of [0, 1] as const) {
+    let publicKey: Hex;
     try {
-      const recovered = signature.addRecoveryBit(v).recoverPublicKey(msgHash).toRawBytes(false);
-      if (equalBytes(recovered, expected)) return v;
+      publicKey = await recoverPublicKey({ hash: msgHash, signature: { r: bytesToHex(r), s: bytesToHex(s), yParity } });
     } catch {
-      // try the other recovery id
+      continue; // try the other recovery id
+    }
+    const recovered = hexToBytes(publicKey);
+    if (equalBytes(expectedPubkey.length === 33 ? compressPublicKey(recovered) : recovered, expectedPubkey)) {
+      return { yParity, publicKey };
     }
   }
   throw new Error("Failed to recover Lattice signature y-parity");

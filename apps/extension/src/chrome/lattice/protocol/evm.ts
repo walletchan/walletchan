@@ -6,13 +6,13 @@
  * the device shows the text. The local keccak digest is the authority: a
  * device-reported digest must match it, and y-parity is recovered against it.
  */
-import { secp256k1 } from "@noble/curves/secp256k1";
 import {
   bytesToHex,
   concat,
   getAddress,
   hexToBytes,
   keccak256,
+  recoverAddress,
   serializeTransaction,
   toBytes,
   type Address,
@@ -25,7 +25,7 @@ import { isValidBip32Path } from "../../../lib/bip32Path";
 import { bytesToBigInt, equalBytes } from "./bytes";
 import type { LatticeProtocolClient } from "./client";
 import { LATTICE_HARDENED_OFFSET, LatticeResponseCode, LatticeSignEncoding, LatticeSignHash } from "./constants";
-import { recoverYParity } from "./encoding";
+import { recoverLatticeSigner } from "./encoding";
 import { LatticeProtocolError } from "./errors";
 
 /** "m/44'/60'/0'/0/3" -> hardened-index array; Lattice accepts 2 to 5 levels. */
@@ -73,7 +73,8 @@ export interface LatticeEvmSignature {
   decoderAttached: boolean;
 }
 
-const HALF_N = secp256k1.CURVE.n / 2n;
+/** Half the secp256k1 group order; Ethereum rejects signatures with s above it. */
+const HALF_N = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0n;
 
 export async function signLatticeEvmPayload(
   client: LatticeProtocolClient,
@@ -99,14 +100,13 @@ export async function signLatticeEvmPayload(
   }
   if (result.pubkey.length === 0) throw new LatticeProtocolError("Lattice omitted the signing public key.");
   if (bytesToBigInt(result.s) > HALF_N) throw new LatticeProtocolError("Lattice returned a high-s signature.");
-  const yParity = recoverYParity(digest, result.r, result.s, result.pubkey);
-  const uncompressed = secp256k1.ProjectivePoint.fromHex(result.pubkey).toRawBytes(false);
+  const { yParity, publicKey } = await recoverLatticeSigner(digest, result.r, result.s, result.pubkey);
   return {
     r: bytesToHex(result.r),
     s: bytesToHex(result.s),
     yParity,
     digest: bytesToHex(digest),
-    signer: publicKeyToAddress(bytesToHex(uncompressed)),
+    signer: publicKeyToAddress(publicKey),
     prehashed: result.prehashed,
     decoderAttached: result.decoderAttached,
   };
@@ -168,19 +168,20 @@ export async function signLatticePersonalMessage(
 }
 
 /** ETH_MSG replies name their signer: the signature must recover to it from the local digest. */
-function finishEthMsgSignature(
+async function finishEthMsgSignature(
   result: { r: Uint8Array; s: Uint8Array; signer: Uint8Array },
   digest: Uint8Array,
   prehashed: boolean,
-): LatticeEvmSignature {
+): Promise<LatticeEvmSignature> {
   if (bytesToBigInt(result.s) > HALF_N) throw new LatticeProtocolError("Lattice returned a high-s signature.");
   const signer = getAddress(bytesToHex(result.signer));
-  const signature = new secp256k1.Signature(bytesToBigInt(result.r), bytesToBigInt(result.s));
   for (const yParity of [0, 1] as const) {
     let recovered: Address | null = null;
     try {
-      const pubkey = signature.addRecoveryBit(yParity).recoverPublicKey(digest).toRawBytes(false);
-      recovered = publicKeyToAddress(bytesToHex(pubkey));
+      recovered = await recoverAddress({
+        hash: digest,
+        signature: { r: bytesToHex(result.r), s: bytesToHex(result.s), yParity },
+      });
     } catch {
       // try the other recovery id
     }
@@ -224,7 +225,7 @@ export async function signLatticeTypedData(
   }
   if (result) {
     const digest = keccak256(typedDataHashPayload(input.domainSeparator, input.messageHash), "bytes");
-    return { ...finishEthMsgSignature(result, digest, false), fieldsShown: true };
+    return { ...(await finishEthMsgSignature(result, digest, false)), fieldsShown: true };
   }
   return { ...(await signLatticeTypedDataHashes(client, input)), fieldsShown: false };
 }

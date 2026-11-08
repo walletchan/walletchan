@@ -3,29 +3,36 @@
  * the same npm libraries gridplus-sdk uses (crc-32, aes-js, elliptic, rlp).
  */
 import assert from "node:assert/strict";
+import { createECDH, createPublicKey, verify as verifySignature } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { bytesToHex, hexToBytes, sha256 } from "viem";
 
 import {
+  LATTICE_APP_KEY_SIZE,
   LatticeEncryptedRequestType,
+  assertUncompressedP256,
   buildConnectRequest,
   buildEncryptedRequest,
   buildSignerPathBuf,
+  checkLatticeAppKey,
   concatBytes,
   crc32Lattice,
+  encodeDerSignature,
   encodeGenericSigningRequest,
   encodeGetAddressesRequest,
+  encodePairRequest,
   encodeSignEnvelope,
+  generateLatticeAppKey,
   latticeAesDecrypt,
   latticeAesEncrypt,
   latticeAppPublicKey,
   latticeEphemeralId,
   latticeSharedSecret,
   latticeSignerPath,
-  pairingDigest,
   pairingNameBuffer,
+  pairingPreimage,
   parseDerSignature,
   parseLatticeResponse,
 } from "./protocolImports";
@@ -38,15 +45,56 @@ test("CRC-32 matches crc-32", () => {
   assert.equal(crc32Lattice(b(fx.crc_sample_hex)), fx.crc_sample_value);
 });
 
-test("P-256 public key matches elliptic", () => {
-  assert.equal(h(latticeAppPublicKey(b(fx.app_priv_hex))), fx.app_pub_uncompressed_hex);
+const appKey = concatBytes(b(fx.app_priv_hex), b(fx.app_pub_uncompressed_hex));
+const devKey = concatBytes(b(fx.dev_priv_hex), b(fx.dev_pub_uncompressed_hex));
+
+/** OpenSSL ECDSA P-256 verification over sha256(message), for a DER signature. */
+function opensslVerifies(pub: Uint8Array, message: Uint8Array, der: Uint8Array): boolean {
+  const key = createPublicKey({
+    key: {
+      kty: "EC",
+      crv: "P-256",
+      x: Buffer.from(pub.subarray(1, 33)).toString("base64url"),
+      y: Buffer.from(pub.subarray(33, 65)).toString("base64url"),
+    },
+    format: "jwk",
+  });
+  return verifySignature("sha256", message, { key, dsaEncoding: "der" }, der);
+}
+
+test("the app key carries the elliptic public key, and WebCrypto accepts the pair", async () => {
+  assert.equal(h(latticeAppPublicKey(appKey)), fx.app_pub_uncompressed_hex);
+  await checkLatticeAppKey(appKey);
+  await checkLatticeAppKey(devKey);
+  // A scalar stored with someone else's public key is refused.
+  const mismatched = concatBytes(b(fx.app_priv_hex), b(fx.dev_pub_uncompressed_hex));
+  await assert.rejects(checkLatticeAppKey(mismatched), /not a valid P-256 key pair/);
+  assert.throws(() => latticeAppPublicKey(b(fx.app_priv_hex)), /65-byte public key/);
 });
 
-test("ECDH shared secret matches elliptic derive", () => {
-  const secret = latticeSharedSecret(b(fx.app_priv_hex), b(fx.dev_pub_uncompressed_hex));
-  assert.equal(h(secret), fx.shared_secret_hex);
+test("ECDH shared secret matches elliptic derive", async () => {
+  assert.equal(h(await latticeSharedSecret(appKey, b(fx.dev_pub_uncompressed_hex))), fx.shared_secret_hex);
   // Symmetric from the device side too.
-  assert.equal(h(latticeSharedSecret(b(fx.dev_priv_hex), b(fx.app_pub_uncompressed_hex))), fx.shared_secret_hex);
+  assert.equal(h(await latticeSharedSecret(devKey, b(fx.app_pub_uncompressed_hex))), fx.shared_secret_hex);
+});
+
+test("device points off the curve are refused", async () => {
+  await assertUncompressedP256(b(fx.dev_pub_uncompressed_hex));
+  const offCurve = b(fx.dev_pub_uncompressed_hex);
+  offCurve[64] ^= 1;
+  await assert.rejects(assertUncompressedP256(offCurve), /uncompressed P-256 point/);
+  await assert.rejects(latticeSharedSecret(appKey, offCurve), /uncompressed P-256 point/);
+  await assert.rejects(assertUncompressedP256(b(fx.dev_pub_uncompressed_hex).slice(0, 64)), /uncompressed P-256 point/);
+});
+
+test("a generated app key agrees on ECDH with OpenSSL", async () => {
+  const generated = await generateLatticeAppKey();
+  assert.equal(generated.length, LATTICE_APP_KEY_SIZE);
+  await checkLatticeAppKey(generated);
+  const peer = createECDH("prime256v1");
+  peer.generateKeys();
+  const ours = await latticeSharedSecret(generated, new Uint8Array(peer.getPublicKey()));
+  assert.equal(h(ours), peer.computeSecret(latticeAppPublicKey(generated)).toString("hex"));
 });
 
 test("AES-256-CBC with static IV matches aes-js, including PKCS7 for unaligned input", async () => {
@@ -68,9 +116,23 @@ test("pairing name buffer and digest match generateAppSecret", () => {
   const appName = new TextDecoder().decode(nameBuf.subarray(0, end < 0 ? 25 : end));
   assert.equal(h(pairingNameBuffer(appName, fx.pair_secret)), fx.pair_name_buf_hex);
   assert.equal(h(pairingNameBuffer(appName, "")), "00".repeat(25));
-  assert.equal(h(pairingDigest(b(fx.app_pub_uncompressed_hex), nameBuf, fx.pair_secret)), fx.pair_digest_hex);
+  assert.equal(h(sha256(pairingPreimage(b(fx.app_pub_uncompressed_hex), nameBuf, fx.pair_secret), "bytes")), fx.pair_digest_hex);
   const manual = sha256(concatBytes(b(fx.app_pub_uncompressed_hex), nameBuf, new TextEncoder().encode(fx.pair_secret)), "bytes");
   assert.equal(h(manual), fx.pair_digest_hex);
+});
+
+test("the pairing signature verifies under the app key with OpenSSL", async () => {
+  const nameBuf = b(fx.pair_name_buf_hex);
+  const end = nameBuf.indexOf(0);
+  const appName = new TextDecoder().decode(nameBuf.subarray(0, end < 0 ? 25 : end));
+  const payload = await encodePairRequest(appKey, appName, fx.pair_secret);
+  assert.equal(payload.length, 99);
+  assert.equal(h(payload.subarray(0, 25)), fx.pair_name_buf_hex);
+  const der = payload.subarray(25, 25 + 2 + payload[26]);
+  assert.ok(payload.subarray(25 + der.length).every((byte) => byte === 0));
+  const preimage = pairingPreimage(b(fx.app_pub_uncompressed_hex), nameBuf, fx.pair_secret);
+  assert.ok(opensslVerifies(b(fx.app_pub_uncompressed_hex), preimage, der));
+  assert.ok(!opensslVerifies(b(fx.dev_pub_uncompressed_hex), preimage, der));
 });
 
 test("connect frame matches serializeSecureRequestMsg", () => {
@@ -131,6 +193,12 @@ test("2200-byte payload splits into base + one extra frame, matching JS", () => 
 test("sign envelope matches", () => {
   const env = encodeSignEnvelope({ schema: 5, walletUid: b(fx.wallet_uid_hex), reqPayload: b(fx.generic_signing_req_hex) });
   assert.equal(h(env), fx.sign_envelope_hex);
+});
+
+test("DER encoding matches elliptic toDER, including the sign-bit pad", () => {
+  assert.equal(h(encodeDerSignature(b(fx.der_sample_r_hex), b(fx.der_sample_s_hex))), fx.der_sample_hex);
+  // Leading zero bytes are dropped; a value of zero stays one byte.
+  assert.equal(h(encodeDerSignature(Uint8Array.of(0, 0, 0x7f), Uint8Array.of(0, 0))), "300602017f020100");
 });
 
 test("DER parsing matches parseDER", () => {

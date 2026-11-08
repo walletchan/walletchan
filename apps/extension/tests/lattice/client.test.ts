@@ -17,8 +17,9 @@ import {
   serializeSignature,
   type Address,
 } from "viem";
+import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
 
-import { FakeLattice } from "./fakeLattice";
+import { FakeLattice, testLatticeAppKey } from "./fakeLattice";
 import {
   LatticeProtocolClient,
   LatticeProtocolError,
@@ -26,8 +27,8 @@ import {
   LatticeSignSchema,
   encodeEvmDecoder,
   evmTransactionPayload,
-  generateLatticeAppPrivateKey,
   latticeSignerPath,
+  recoverLatticeSigner,
   signLatticePersonalMessage,
   signLatticeTransaction,
   signLatticeTypedData,
@@ -41,7 +42,7 @@ function setup(options: ConstructorParameters<typeof FakeLattice>[0] = {}) {
   const device = new FakeLattice(options);
   const sleeps: number[] = [];
   const client = new LatticeProtocolClient({
-    appPrivateKey: generateLatticeAppPrivateKey(),
+    appKey: testLatticeAppKey(),
     transport: device,
     sleep: async (ms) => {
       sleeps.push(ms);
@@ -505,4 +506,20 @@ test("an aborted signal stops before sending", async () => {
   const before = device.requestCount;
   await assert.rejects(client.getAddresses({ startPath: PATH, n: 1, signal: controller.signal }), /cancelled/);
   assert.equal(device.requestCount, before);
+});
+
+test("signer recovery matches the device key in compressed or uncompressed form", async () => {
+  const privateKey = generatePrivateKey();
+  const digest = hexToBytes(keccak256("0x1234"));
+  const sig = await sign({ hash: keccak256("0x1234"), privateKey });
+  const uncompressed = hexToBytes(privateKeyToAccount(privateKey).publicKey);
+  const compressed = Uint8Array.of(uncompressed[64] & 1 ? 0x03 : 0x02, ...uncompressed.subarray(1, 33));
+  const [r, s] = [hexToBytes(sig.r), hexToBytes(sig.s)];
+  for (const reported of [uncompressed, compressed]) {
+    const recovered = await recoverLatticeSigner(digest, r, s, reported);
+    assert.equal(recovered.yParity, sig.yParity);
+    assert.equal(recovered.publicKey, privateKeyToAccount(privateKey).publicKey);
+  }
+  const other = hexToBytes(privateKeyToAccount(generatePrivateKey()).publicKey);
+  await assert.rejects(recoverLatticeSigner(digest, r, s, other), /y-parity/);
 });

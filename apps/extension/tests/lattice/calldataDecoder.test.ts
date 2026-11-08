@@ -5,14 +5,13 @@ import test from "node:test";
 import { encodeFunctionData, erc20Abi, parseAbi, recoverTransactionAddress, type Address, type Hex } from "viem";
 
 import { clearLatticeDecoderCache, latticeDecoderFor } from "../../src/chrome/lattice/calldataDecoder";
-import { FakeLattice } from "./fakeLattice";
+import { FakeLattice, testLatticeAppKey } from "./fakeLattice";
 import {
   LatticeProtocolClient,
   LatticeProtocolError,
   LatticeResponseCode,
   encodeEvmDecoder,
   encodeEvmDecoderForFunction,
-  generateLatticeAppPrivateKey,
   latticeSignerPath,
   signLatticeTransaction,
 } from "./protocolImports";
@@ -204,7 +203,7 @@ test("plain sends make no lookup, and lookups are cached per selector", async ()
 
 async function connected(options: ConstructorParameters<typeof FakeLattice>[0] = {}) {
   const device = new FakeLattice(options);
-  const client = new LatticeProtocolClient({ appPrivateKey: generateLatticeAppPrivateKey(), transport: device, sleep: async () => {} });
+  const client = new LatticeProtocolClient({ appKey: testLatticeAppKey(), transport: device, sleep: async () => {} });
   await client.connect();
   return { device, client };
 }

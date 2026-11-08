@@ -7,10 +7,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { secp256k1 } from "@noble/curves/secp256k1";
-import { hashMessage, hexToBytes } from "viem";
+import { bytesToHex, hashMessage, hexToBytes } from "viem";
+import { generatePrivateKey, sign } from "viem/accounts";
 
-import { encodePersonalSignRequest, latticeSignerPath, parseEthMsgSignResponse } from "./protocolImports";
+import { encodeDerSignature, encodePersonalSignRequest, latticeSignerPath, parseEthMsgSignResponse } from "./protocolImports";
 
 const PATH = latticeSignerPath("m/44'/60'/0'/0/7");
 
@@ -63,16 +63,14 @@ test("messages longer than a u16 length are refused", () => {
   assert.throws(() => encodePersonalSignRequest({ signerPath: PATH, message: new Uint8Array(0x10000) }), /too large/);
 });
 
-test("the reply parser reads the DER signature slot and the 20-byte signer", () => {
-  const key = secp256k1.utils.randomPrivateKey();
-  const digest = hexToBytes(hashMessage("reply"));
-  const sig = secp256k1.sign(digest, key);
+test("the reply parser reads the DER signature slot and the 20-byte signer", async () => {
+  const sig = await sign({ hash: hashMessage("reply"), privateKey: generatePrivateKey() });
   const signer = Uint8Array.from({ length: 20 }, (_, i) => i + 1);
   const reply = new Uint8Array(1090);
-  reply.set(sig.toDERRawBytes(), 0);
+  reply.set(encodeDerSignature(hexToBytes(sig.r), hexToBytes(sig.s)), 0);
   reply.set(signer, 74);
   const parsed = parseEthMsgSignResponse(reply);
-  assert.equal(BigInt(`0x${Buffer.from(parsed.r).toString("hex")}`), sig.r);
-  assert.equal(BigInt(`0x${Buffer.from(parsed.s).toString("hex")}`), sig.s);
+  assert.equal(bytesToHex(parsed.r), sig.r);
+  assert.equal(bytesToHex(parsed.s), sig.s);
   assert.deepEqual(parsed.signer, signer);
 });

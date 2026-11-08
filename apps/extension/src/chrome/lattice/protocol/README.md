@@ -18,12 +18,13 @@ byte-parity port of GridPlus's MIT-licensed
 | `calldata.ts` | `calldata.py` | `calldata/evm.ts` |
 | `evm.ts` | `client.py` | n/a |
 
-Crypto comes from `@noble/curves` (P-256 ECDH/ECDSA, secp256k1 recovery),
-WebCrypto (AES-256-CBC; padding handled as documented in `secureChannel.ts`) and
-viem (keccak, sha256, RLP, transaction serialization). There is no gridplus-sdk runtime dependency.
+Crypto comes from WebCrypto (P-256 key generation, ECDH and ECDSA; AES-256-CBC
+with padding handled as documented in `secureChannel.ts`) and viem (keccak,
+sha256, RLP, secp256k1 signature recovery, transaction serialization). There is
+no gridplus-sdk runtime dependency and no curve library of its own.
 
 The module holds no persistent state. The caller supplies the P-256 app key
-and a transport. The ephemeral key lives in memory, so each operation starts
+(the 32-byte scalar followed by its 65-byte public key) and a transport. The ephemeral key lives in memory, so each operation starts
 with `connect()`.
 
 Tests: `tests/lattice/`. Parity fixtures come from ape-grid-lattice
