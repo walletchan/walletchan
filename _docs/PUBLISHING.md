@@ -460,3 +460,18 @@ empty map, is the migration commit marker; the old sync copy is read-only for on
 release cycle. Test reload and update, repeated migration, copy failure (legacy
 source preserved), subsequent local edits, and reset/onboarding removal of both
 areas. No credential or vault migration is involved.
+
+### Base default RPC compatibility
+
+Base uses the official `https://mainnet.base.org` public endpoint. Exact saved
+copies of `https://base.drpc.org` (including trailing slashes) use the existing
+shared default normalization and idempotent `ensureNetworksInfo` persistence.
+Distinct custom endpoints and visibility settings remain intact; no key or
+record shape changes. Verify fresh settings, saved defaults and custom RPCs.
+
+### Tempo mainnet RPC compatibility
+
+Tempo mainnet (4217) uses `https://rpc.tempo.xyz`. Exact saved Presto URLs
+(`https://rpc.presto.tempo.xyz`, including trailing slashes) upgrade through the
+shared default normalizer and existing idempotent persistence. Custom RPCs
+and Tempo Moderato testnet (42431) remain unchanged. No storage shape changes.
