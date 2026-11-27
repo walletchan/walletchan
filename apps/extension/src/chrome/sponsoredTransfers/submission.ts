@@ -1,3 +1,8 @@
+import { prepareSponsoredSignatureHistory } from "./signatureHistory";
+import {
+  commitSignatureHistory,
+  discardSignatureHistory,
+} from "../signatureHistory/repository";
 import { getAccountById } from "../accountStorage";
 import { fetchTextBounded } from "../network/boundedHttp";
 import { startReceiptPolling } from "../forceInclusion/receiptPoller";
@@ -36,6 +41,7 @@ export async function submitSponsoredTransfer(
     return { success: false, error: "Transfer account is no longer available" };
   }
 
+  const history = await prepareSponsoredSignatureHistory(account, record, payload);
   await ensureSponsoredTransferHistory(record);
   let request: Promise<{ response: Response; text: string }> | undefined;
   await withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
@@ -47,10 +53,16 @@ export async function submitSponsoredTransfer(
     ) {
       throw new Error("Transfer account is no longer available");
     }
-    await updateSponsoredTransferIntent(record.id, {
-      state: "submitting",
-      attempts: record.attempts + 1,
-    });
+    await commitSignatureHistory(history);
+    try {
+      await updateSponsoredTransferIntent(record.id, {
+        state: "submitting",
+        attempts: record.attempts + 1,
+      });
+    } catch (error) {
+      await discardSignatureHistory(history.id).catch(() => {});
+      throw error;
+    }
     request = fetchTextBounded(
       SPONSORED_TRANSFER_API,
       {
@@ -63,7 +75,8 @@ export async function submitSponsoredTransfer(
   });
 
   try {
-    if (!request) throw new Error("Sponsored transfer submission did not start");
+    if (!request)
+      throw new Error("Sponsored transfer submission did not start");
     const { response, text } = await request;
     const txHash = parseSponsoredTransferResponse(text, response.ok);
     await updateSponsoredTransferIntent(record.id, {

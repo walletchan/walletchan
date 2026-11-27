@@ -1,4 +1,5 @@
-/** Global and per-tab account selection mirrors stored in sync storage. */
+import { readTabAccountsUnderLock, writeTabAccountsUnderLock, TAB_ACCOUNTS_LOCK_KEY } from "./tabSelectionRepository";
+/** Synced global selection and device-local per-tab account selections. */
 
 import type { Account } from "../types";
 import { withStorageLock } from "../storageLock";
@@ -9,9 +10,7 @@ import {
 import { assertAccountStorageAuthorized } from "./authorization";
 
 const ACTIVE_ACCOUNT_ID_KEY = "activeAccountId";
-const TAB_ACCOUNTS_KEY = "tabAccounts";
 const ACTIVE_ACCOUNT_LOCK_KEY = `sync:${ACTIVE_ACCOUNT_ID_KEY}`;
-const TAB_ACCOUNTS_LOCK_KEY = `sync:${TAB_ACCOUNTS_KEY}`;
 
 export async function getActiveAccountId(): Promise<string | null> {
   const result = await chrome.storage.sync.get(ACTIVE_ACCOUNT_ID_KEY);
@@ -59,8 +58,7 @@ export async function getActiveAccount(): Promise<Account | null> {
 }
 
 export async function getTabAccounts(): Promise<Record<number, string>> {
-  const result = await chrome.storage.sync.get(TAB_ACCOUNTS_KEY);
-  return result[TAB_ACCOUNTS_KEY] || {};
+  return withStorageLock(TAB_ACCOUNTS_LOCK_KEY, readTabAccountsUnderLock);
 }
 
 /**
@@ -69,7 +67,7 @@ export async function getTabAccounts(): Promise<Record<number, string>> {
  */
 export async function getTabAccount(tabId: number): Promise<Account | null> {
   return withStorageLock(TAB_ACCOUNTS_LOCK_KEY, async () => {
-    const tabAccounts = await getTabAccounts();
+    const tabAccounts = await readTabAccountsUnderLock();
     const accountId = tabAccounts[tabId];
 
     if (accountId) {
@@ -81,9 +79,9 @@ export async function getTabAccount(tabId: number): Promise<Account | null> {
     const fallback = await getActiveAccount();
     if (fallback) {
       tabAccounts[tabId] = fallback.id;
-      await chrome.storage.sync.set({ [TAB_ACCOUNTS_KEY]: tabAccounts });
+      await writeTabAccountsUnderLock(tabAccounts);
     } else if (accountId) {
-      await chrome.storage.sync.set({ [TAB_ACCOUNTS_KEY]: tabAccounts });
+      await writeTabAccountsUnderLock(tabAccounts);
     }
     return fallback;
   });
@@ -97,29 +95,32 @@ export async function setTabAccount(
   if (!account) throw new Error("Account not found");
 
   await withStorageLock(TAB_ACCOUNTS_LOCK_KEY, async () => {
-    const tabAccounts = await getTabAccounts();
+    const tabAccounts = await readTabAccountsUnderLock();
     tabAccounts[tabId] = accountId;
-    await chrome.storage.sync.set({ [TAB_ACCOUNTS_KEY]: tabAccounts });
+    await writeTabAccountsUnderLock(tabAccounts);
   });
 }
 
 export async function clearTabAccount(tabId: number): Promise<void> {
   await withStorageLock(TAB_ACCOUNTS_LOCK_KEY, async () => {
-    const tabAccounts = await getTabAccounts();
+    const tabAccounts = await readTabAccountsUnderLock();
+    if (!(tabId in tabAccounts)) return;
     delete tabAccounts[tabId];
-    await chrome.storage.sync.set({ [TAB_ACCOUNTS_KEY]: tabAccounts });
+    await writeTabAccountsUnderLock(tabAccounts);
   });
 }
 
 export async function clearAllTabAccounts(): Promise<void> {
   await withStorageLock(TAB_ACCOUNTS_LOCK_KEY, async () => {
-    await chrome.storage.sync.remove(TAB_ACCOUNTS_KEY);
+    await writeTabAccountsUnderLock({});
+    await chrome.storage.sync.remove("tabAccounts").catch(() => {});
   });
 }
 
 export async function clearAccountSelection(): Promise<void> {
   await withStorageLock(TAB_ACCOUNTS_LOCK_KEY, async () => {
-    await chrome.storage.sync.remove([ACTIVE_ACCOUNT_ID_KEY, TAB_ACCOUNTS_KEY]);
+    await writeTabAccountsUnderLock({});
+    await chrome.storage.sync.remove([ACTIVE_ACCOUNT_ID_KEY, "tabAccounts"]);
   });
 }
 
@@ -137,7 +138,7 @@ export async function repairSelectionAfterRemoval(
   }
 
   await withStorageLock(TAB_ACCOUNTS_LOCK_KEY, async () => {
-    const tabAccounts = await getTabAccounts();
+    const tabAccounts = await readTabAccountsUnderLock();
     let changed = false;
     for (const tabId in tabAccounts) {
       if (tabAccounts[tabId] === accountId) {
@@ -146,7 +147,7 @@ export async function repairSelectionAfterRemoval(
       }
     }
     if (changed) {
-      await chrome.storage.sync.set({ [TAB_ACCOUNTS_KEY]: tabAccounts });
+      await writeTabAccountsUnderLock(tabAccounts);
     }
   });
 }

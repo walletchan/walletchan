@@ -72,7 +72,9 @@ export function createBackgroundDappPermissionMessageRouter(
   return (message, sender, sendResponse) => {
     switch (message?.type) {
       case "getDappAccounts": {
-        dependencies.handleGetDappAccounts(message, sender).then(sendResponse);
+        dependencies.handleGetDappAccounts(message, sender).then(sendResponse).catch(() =>
+          sendResponse({ success: false, accounts: [], code: -32603, error: "Could not read wallet account selection" }),
+        );
         return HANDLED_ASYNC;
       }
 

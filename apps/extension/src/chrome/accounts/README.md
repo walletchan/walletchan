@@ -18,7 +18,8 @@ Review in dependency order:
 1. `authorization.ts` — optional master-epoch assertion at commit boundaries.
 2. `repository.ts` — the `accounts` record, address normalization, queries,
    ordering, and display names.
-3. `selectionStorage.ts` — global/per-tab selection mirrors and stale-ID repair.
+3. `selectionStorage.ts` — synced global selection, device-local tab selection and stale-ID repair.
+   `tabSelectionRepository.ts` owns the locked local map and idempotent legacy-sync migration.
 4. `bankrStorage.ts` — atomic Bankr account + prepared encrypted credential
    metadata commits.
 5. `localStorage.ts` — private-key/view-only metadata add/remove/reset.

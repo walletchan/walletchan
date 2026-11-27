@@ -1,3 +1,4 @@
+import { migrateTabAccountStorage } from "../../accounts/tabSelectionRepository";
 /** Chrome listener registration and immediate startup composition. */
 
 import { sanitizeCustomExplorerUrl } from "@/lib/externalNavigation";
@@ -79,6 +80,9 @@ export type BackgroundMessageListener = (
 export function registerBackgroundLifecycle(
   onMessage: BackgroundMessageListener,
 ): void {
+  void migrateTabAccountStorage().catch((error) =>
+    console.warn("[WalletChan] Tab selection migration deferred", error),
+  );
   startSafeSync();
   registerStorageAuthLockLifecycle({
     storageOnChanged: chrome.storage.onChanged as any,
@@ -133,6 +137,7 @@ export function registerBackgroundLifecycle(
     freshInstallThemeId: FRESH_INSTALL_THEME_ID,
     isThemeId,
     migrateFromLegacyStorage,
+    migrateTabAccountStorage,
     getSyncStorage: (keys) => chrome.storage.sync.get(keys),
     setSyncStorage: (values) => chrome.storage.sync.set(values),
     getRuntimeUrl: (path) => chrome.runtime.getURL(path),

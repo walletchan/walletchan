@@ -121,6 +121,7 @@ export const PREVIEW_ROUTE_REGISTRY: Record<
       "biometric",
       "clear-signing",
       "transaction-history",
+      "activity-history",
       "ens-browsing",
     ],
     wallets: ALL_WALLETS,

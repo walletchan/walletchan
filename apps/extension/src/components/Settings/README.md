@@ -59,3 +59,9 @@ own the chooser, concealed backup, balance-at-risk, two-confirmation, and
 phrase-import layouts. The background owns password proof and vault mutation.
 `PrivacyRecoverySettingsRow.tsx` keeps its agent-disabled
 navigation presentation out of the Settings registry composition file.
+
+`dataSettingsRegistry.tsx` owns the Data group metadata and row presentation.
+`types.ts` owns the settings destination union, re-exported by the existing root.
+Activity History routes to the SignatureHistory feature for account/date-filtered
+JSON export. Clear Transaction History and Clear Signature History share the account
+selection screen and require confirmation before deleting local records.

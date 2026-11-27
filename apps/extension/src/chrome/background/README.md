@@ -104,3 +104,7 @@ enforce one-way entrypoint → bootstrap → composition/pipeline → router/dom
 dependencies. `composition/lifecycle.ts` owns the single `onMessage`
 registration and released listener order; focused callbacks and startup effects
 live under `lifecycle/`.
+
+`activityMessageTypes.ts` owns the effect-free Activity/history/receipt message
+audience list used by `messageAccessPolicy.ts`; it grants only trusted wallet UI
+access and adds no provider messages.

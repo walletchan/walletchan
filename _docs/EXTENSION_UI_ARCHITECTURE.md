@@ -270,3 +270,15 @@ types rather than introducing another account-type allowlist.
 8. Lower the source-size ratchet and update the domain audit map.
 9. Update `_docs/IMPLEMENTATION.md` only when runtime UI architecture or flow
    changed; do not duplicate styling rules here.
+
+`components/SignatureHistory/` composes the public Activity filter, signature
+ledger/detail presentation, trusted-message loading hook and Settings export
+destination. `presentation.ts` is pure; the hook owns Chrome subscriptions and
+stale-response suppression. The Settings screen owns filter/download/clear UI
+effects; encryption, authorization, retention and export projection stay in
+`chrome/signatureHistory/`. Private Activity keeps its existing isolated scope.
+
+Portfolio owns the Activity view through `SignatureHistory/useActivityView.ts`.
+It places `ActivityViewMenu` beside the existing network filter and passes the
+chosen view into `ActivityHistory`. Leaving Activity resets the view to
+transactions; transaction-ledger state stays mounted behind signature browsing.

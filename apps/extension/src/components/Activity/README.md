@@ -71,3 +71,8 @@ the same `lib/privacyTransactionIdentity.ts` labels so internal storage origins
 never leak into either presentation. Keep implementation modules below roughly
 400 lines and place pure formatting/grouping coverage in
 `tests/ui/activityModel.test.ts`.
+
+Public Portfolio Activity is wrapped by `SignatureHistory/ActivityHistory.tsx`.
+The wrapper keeps transaction state mounted while switching to Signatures and
+places supplemental Safe activity only in the Transactions view. Private Activity
+continues to use the transaction ledger directly.

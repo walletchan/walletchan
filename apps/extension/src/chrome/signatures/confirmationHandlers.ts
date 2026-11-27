@@ -1,3 +1,5 @@
+import { assertSignatureHistorySession, prepareSignatureHistory, commitSignatureHistory, discardSignatureHistory } from "../signatureHistory/repository";
+import { pendingSignatureHistoryEntry } from "../signatureHistory/model";
 import {
   hasEncryptedApiKey,
   loadDecryptedApiKey,
@@ -128,16 +130,20 @@ async function executeLocalSignature(
         effectGuard.settleEffect();
         throw error;
       }
+      const history = await prepareSignatureHistory(pendingSignatureHistoryEntry(pending, account));
       const finalAuthorization =
-        await revalidatePendingSignatureBeforeRelease(pending, account.type);
+        await revalidatePendingSignatureBeforeRelease(pending, account.type, undefined, () => commitSignatureHistory(history));
       if (!finalAuthorization.authorized) {
+        await discardSignatureHistory(history.id);
         return { success: false, error: finalAuthorization.error };
       }
+      assertSignatureHistorySession(history);
       return { success: true, signature };
     } finally {
       effectGuard.releaseIfSafe();
     }
   } catch (error) {
+    await discardSignatureHistory(`request:${sigId}`).catch(() => {});
     return {
       success: false,
       error: error instanceof Error ? error.message : "Signing failed",
@@ -202,16 +208,20 @@ export async function handleConfirmSignatureRequestBankr(
         pending.signature.params,
       );
       effectGuard.settleEffect();
+      const history = await prepareSignatureHistory(pendingSignatureHistoryEntry(pending, account));
       const finalAuthorization =
-        await revalidatePendingSignatureBeforeRelease(pending, "bankr");
+        await revalidatePendingSignatureBeforeRelease(pending, "bankr", undefined, () => commitSignatureHistory(history));
       if (!finalAuthorization.authorized) {
+        await discardSignatureHistory(history.id);
         return { success: false, error: finalAuthorization.error };
       }
+      assertSignatureHistorySession(history);
       return { success: true, signature: result.signature };
     } finally {
       effectGuard.releaseIfSafe();
     }
   } catch (error) {
+    await discardSignatureHistory(`request:${sigId}`).catch(() => {});
     return {
       success: false,
       error: error instanceof Error ? error.message : "Signing failed",

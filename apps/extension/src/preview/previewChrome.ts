@@ -1,3 +1,4 @@
+import { previewSignatureHistory } from "./signatureHistoryFixtures";
 import { previewSeedGroups, previewCreateSeedAccount, previewConfirmSeedBackup } from "./previewSeedBackup";
 import { DEFAULT_NETWORKS } from "@/constants/networks";
 import type { CompletedTransaction } from "@/chrome/txHistoryStorage";
@@ -297,6 +298,10 @@ export function responseForPreviewMessage(
       };
     case "syncSafeRequests":
       return { success: true, result: structuredClone(previewSafeProposals) };
+    case "getSignatureHistory":
+    case "clearSignatureHistory":
+    case "exportActivity":
+      return previewSignatureHistory(environment, message);
     case "getTxHistory":
       return environment.txHistory;
     case "getTxHistoryPage":

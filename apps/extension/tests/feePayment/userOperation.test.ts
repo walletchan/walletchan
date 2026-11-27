@@ -5,7 +5,7 @@ import { privateKeyToAccount } from "viem/accounts";
 
 import {
   encodeMetaMaskDeleGatorCalls,
-  getMetaMaskUserOperationTypedData,
+  getUserOperationTypedData,
   METAMASK_EOA_STUB_SIGNATURE,
   signMetaMaskUserOperation,
 } from "../../src/chrome/feePayment/userOperation";
@@ -69,7 +69,7 @@ function createUserOperation(sender = SENDER): PackedUserOperationV07 {
 }
 
 test("packs v0.7 typed data with MetaMask's Stateless DeleGator domain", () => {
-  const typedData = getMetaMaskUserOperationTypedData(
+  const typedData = getUserOperationTypedData(
     createUserOperation(),
     8453,
   );
@@ -106,7 +106,7 @@ test("signs the exact MetaMask typed data and rejects a mismatched key", async (
   assert.equal(
     await verifyTypedData({
       address: account.address,
-      ...getMetaMaskUserOperationTypedData(userOperation, 8453),
+      ...getUserOperationTypedData(userOperation, 8453),
       signature,
     }),
     true,
@@ -120,7 +120,7 @@ test("signs the exact MetaMask typed data and rejects a mismatched key", async (
 test("rejects malformed stateless and paymaster fields", () => {
   assert.throws(
     () =>
-      getMetaMaskUserOperationTypedData(
+      getUserOperationTypedData(
         { ...createUserOperation(), factory: TARGET },
         8453,
       ),
@@ -128,7 +128,7 @@ test("rejects malformed stateless and paymaster fields", () => {
   );
   assert.throws(
     () =>
-      getMetaMaskUserOperationTypedData(
+      getUserOperationTypedData(
         {
           ...createUserOperation(),
           paymaster: undefined,

@@ -178,6 +178,7 @@ test("Ledger pending requests cross the terminal boundary only after device appr
                   "../requests/pendingSignatureRelease": "\0ledger-signature-release",
                   "../requests/pendingSignatureStorage": "\0ledger-pending-signature",
                   "../signatures/confirmationPolicy": "\0ledger-signature-policy",
+                  "../signatureHistory/repository": "\0signature-history",
                   "./session": "\0ledger-session",
                   "./signing": "\0ledger-signing",
                   "../trezor/operationId": "\0trezor-operation-id",
@@ -189,6 +190,14 @@ test("Ledger pending requests cross the terminal boundary only after device appr
             return null;
           },
           load(id) {
+            if (id === "\0signature-history") {
+              return `
+                export const prepareSignatureHistory = async (entry) => entry;
+                export const assertSignatureHistorySession = () => {};
+                export const commitSignatureHistory = async () => { globalThis.__walletchanLedgerLifecycle.events.push('signature-history'); };
+                export const discardSignatureHistory = async () => {};
+              `;
+            }
             if (id === "\0ledger-chains") {
               return "export const getStoredResolvedChainById = async () => { globalThis.__walletchanLedgerLifecycle.events.push('chains'); return { rpcUrl: 'https://rpc.test' }; };";
             }
@@ -373,7 +382,7 @@ test("Ledger pending requests cross the terminal boundary only after device appr
                 };`;
             }
             if (id === "\0ledger-signature-release") {
-              return "export const revalidatePendingSignatureBeforeRelease = async () => ({ authorized: true });";
+              return "export const revalidatePendingSignatureBeforeRelease = async (_pending, _provider, _binding, beforeRelease) => { await beforeRelease?.(); return { authorized: true }; };";
             }
             if (id === "\0ledger-pending-signature") {
               return `
@@ -607,6 +616,7 @@ test("Ledger pending requests cross the terminal boundary only after device appr
         "authorization",
         "effect",
         "device-signature",
+        "signature-history",
         "remove-signature",
       ]);
     });

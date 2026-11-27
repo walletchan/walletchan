@@ -30,7 +30,7 @@ test("public home selects accounts while Settings reuses the picker for manageme
   assert.doesNotMatch(settingsSource, /onAccountSelect=/);
   assert.match(
     pickerSource,
-    /if \(mode === "manage"\) onAccountSettings\(account\);[\s\S]*else onAccountSelect\?\.\(account\)/,
+    /if \(mode === "manage"\) onAccountSettings\?\.\(account\);[\s\S]*else onAccountSelect\?\.\(account\)/,
   );
 
   assert.match(

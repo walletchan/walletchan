@@ -1,3 +1,4 @@
+import { DATA_SETTINGS_ENTRIES, renderDataSettingsRow } from "./dataSettingsRegistry";
 import { Badge } from "@chakra-ui/react";
 import { InfoOutlineIcon } from "@chakra-ui/icons";
 import { SettingsRow } from "./SettingsRow";
@@ -9,9 +10,6 @@ import {
   FingerprintIcon,
   ClockIcon,
   LinkChainIcon,
-  TrashIcon,
-  ResetIcon,
-  ChatBubbleIcon,
   ShieldIcon,
   GlobeIcon,
   SpeakerIcon,
@@ -28,6 +26,8 @@ export type LeafId =
   | "chains"
   | "ensBrowsing"
   | "clearSigning"
+  | "activityHistory"
+  | "clearSignatureHistory"
   | "clearTxHistory"
   | "resetNonce"
   | "clearChatHistory";
@@ -136,27 +136,7 @@ export const LEAF_ENTRIES: readonly LeafEntry[] = [
     keywords: ["agent", "ai", "password", "unlock", "security"],
     group: "security",
   },
-  {
-    id: "clearTxHistory",
-    title: "Clear Transaction History",
-    subtitle: "Remove all transaction records",
-    keywords: ["clear", "transaction", "history", "tx", "data", "remove", "delete"],
-    group: "data",
-  },
-  {
-    id: "resetNonce",
-    title: "Reset Nonce Cache",
-    subtitle: "Fix stuck transactions from nonce conflicts",
-    keywords: ["nonce", "reset", "stuck", "cache", "data"],
-    group: "data",
-  },
-  {
-    id: "clearChatHistory",
-    title: "Clear Chat History",
-    subtitle: "Remove all Bankr chat conversations",
-    keywords: ["clear", "chat", "history", "conversation", "data", "remove", "delete"],
-    group: "data",
-  },
+  ...DATA_SETTINGS_ENTRIES,
 ];
 
 export function filterLeaves(query: string): LeafEntry[] {
@@ -405,50 +385,6 @@ export function renderLeafRow(id: LeafId, ctx: RowContext) {
         />
       );
 
-    case "clearTxHistory":
-      return (
-        <SettingsRow
-          key={id}
-          title="Clear Transaction History"
-          subtitle="Choose accounts to clear"
-          icon={<TrashIcon boxSize={5} />}
-          iconBg="accent.primary"
-          iconColor="accentFg.primary"
-          iconHoverColor="chart.negative"
-          cornerAccent="primary"
-          showChevron
-          onClick={() => ctx.onNavigate(id)}
-        />
-      );
-
-    case "resetNonce":
-      return (
-        <SettingsRow
-          key={id}
-          title="Reset Nonce Cache"
-          subtitle="Fix stuck transactions from nonce conflicts"
-          icon={<ResetIcon boxSize={5} />}
-          iconBg="accent.secondary"
-          iconColor="accentFg.secondary"
-          cornerAccent="secondary"
-          onClick={() => ctx.onAction(id)}
-        />
-      );
-
-    case "clearChatHistory":
-      return (
-        <SettingsRow
-          key={id}
-          title="Clear Chat History"
-          subtitle="Remove all Bankr chat conversations"
-          icon={<ChatBubbleIcon boxSize={5} />}
-          iconBg="accent.primary"
-          iconColor="accentFg.primary"
-          iconHoverColor="chart.negative"
-          cornerAccent="primary"
-          borderRadiusFull
-          onClick={() => ctx.onAction(id)}
-        />
-      );
+    default: return renderDataSettingsRow(id, ctx);
   }
 }

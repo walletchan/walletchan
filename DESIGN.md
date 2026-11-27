@@ -2133,3 +2133,34 @@ full precision on hover/focus; expiration includes timezone and seconds. Minimum
 maximum and partial-fill wording describes the signed limits. Audit: keyboard
 access to precision and contract disclosures, compact wrapping, two-theme and
 320px review are covered by the focused browser QA script.
+
+## Activity history and export
+
+Signed messages extend the existing compact activity ledger with a right-aligned
+three-dot trigger beside the network filter, shared date bands, neutral rows, brand amber signature icons
+in existing icon chips and muted timestamps. The read-only dialog reuses modal focus management,
+monospace content and copy controls. Data settings use the existing screen frame,
+account selector, labeled date inputs and sticky primary export action. The separate history deletion screens
+share an account checklist and a confirmation dialog. Both themes use current typography, surface/foreground/border/accent
+tokens and component recipes; no new palette, shadow, font or motion (2026-10-21).
+
+Activity defaults to transactions on every return from Assets or Positions.
+Signatures are selected through the same compact bottom ActionSheet as Assets, with no separate
+filter row, recording footer or explanatory empty-state copy. The shared dot
+glyph matches the existing portfolio options control.
+
+Signature details use a content-first, compact wallet inspector: app and date,
+a network row, then a bounded signed-content panel. Technical metadata
+uses the same collapsed disclosure as transaction reviews. Copy actions belong
+to the exact payload and digest; the close icon handles dismissal.
+The former explanatory footer is removed (2026-11-27).
+Design audit: precise, compact, approachable; existing Outfit/mono typography
+and semantic theme tokens, no decorative additions. Two-theme 320/420px browser
+review checks wrapping, disclosure keyboard access and modal focus restoration.
+
+The per-account signature inspector omits the account and account type; Source
+appears only for WalletConnect and internal requests (2026-11-27).
+
+Per-account signature details omit account identity and account type. Source is
+shown only for WalletConnect or internal requests; injected dapps already have
+their origin in the header (2026-11-27).

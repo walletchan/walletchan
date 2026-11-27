@@ -23,6 +23,7 @@ test("wallet reset local and sync manifests retain their exact released keys", (
     "privacyVault",
     "privacyRecoveryBackup",
     "accounts",
+    "tabAccounts",
     "ledgerDevices",
     "trezorDevices",
     "safeAccounts",

@@ -22,7 +22,11 @@ function dependencies(overrides: Record<string, unknown> = {}): any {
     removeLocalStorage: () => {},
     getTxHistory: async () => [],
     getSendRecipientReferences: async () => [],
-    getTxHistoryPage: async () => ({ items: [], hasMore: false, nextCursor: null }),
+    getTxHistoryPage: async () => ({
+      items: [],
+      hasMore: false,
+      nextCursor: null,
+    }),
     getTxHistoryItem: async () => null,
     getTransactionCalldata: async () => ({ success: true, data: "0x" }),
     resolveHistoryNftMetadata: async () => ({ success: true, data: {} }),
@@ -41,17 +45,24 @@ function dependencies(overrides: Record<string, unknown> = {}): any {
 test("Send recipient reads distinguish empty history from unavailable checks", async () => {
   for (const fails of [false, true]) {
     const capture = responseCapture();
-    const route = createBackgroundTransactionStatusMessageRouter(dependencies({
-      getSendRecipientReferences: async () => {
-        if (fails) throw new Error("storage unavailable");
-        return [];
-      },
-    }));
-    assert.deepEqual(route({ type: "getSendRecipientReferences" }, capture.sendResponse),
-      { handled: true, keepChannelOpen: true });
-    assert.deepEqual(await capture.response, fails
-      ? { success: false, error: "Could not check local recipients" }
-      : { success: true, references: [] });
+    const route = createBackgroundTransactionStatusMessageRouter(
+      dependencies({
+        getSendRecipientReferences: async () => {
+          if (fails) throw new Error("storage unavailable");
+          return [];
+        },
+      }),
+    );
+    assert.deepEqual(
+      route({ type: "getSendRecipientReferences" }, capture.sendResponse),
+      { handled: true, keepChannelOpen: true },
+    );
+    assert.deepEqual(
+      await capture.response,
+      fails
+        ? { success: false, error: "Could not check local recipients" }
+        : { success: true, references: [] },
+    );
   }
 });
 
@@ -86,9 +97,8 @@ test("failed notification results remain destructive one-time reads", () => {
   const responses: unknown[] = [];
 
   assert.deepEqual(
-    route(
-      { type: "getFailedTxResult", notificationId: "notice-1" },
-      (value) => responses.push(value),
+    route({ type: "getFailedTxResult", notificationId: "notice-1" }, (value) =>
+      responses.push(value),
     ),
     { handled: true, keepChannelOpen: false },
   );
@@ -172,9 +182,66 @@ test("Arbitrum status and force requests forward only the transaction id", async
   assert.deepEqual(await status.response, { eligible: true });
   const submit = responseCapture();
   route(
-    { type: "submitArbitrumForceInclusion", txId: "tx-arb", accountId: "attacker" },
+    {
+      type: "submitArbitrumForceInclusion",
+      txId: "tx-arb",
+      accountId: "attacker",
+    },
     submit.sendResponse,
   );
   assert.deepEqual(await submit.response, { success: true });
-  assert.deepEqual(calls, [["status", "tx-arb"], ["submit", "tx-arb"]]);
+  assert.deepEqual(calls, [
+    ["status", "tx-arb"],
+    ["submit", "tx-arb"],
+  ]);
+});
+
+test("activity routes validate filters and surface history failures", async () => {
+  const seen: unknown[] = [];
+  for (const type of [
+    "getSignatureHistory",
+    "exportActivity",
+    "clearSignatureHistory",
+  ]) {
+    const route = createBackgroundTransactionStatusMessageRouter(
+      dependencies({
+        getSignatureHistory: async (filter: unknown) => {
+          seen.push(filter);
+          return { entries: [] };
+        },
+        exportActivity: async (filter: unknown) => {
+          seen.push(filter);
+          return { schemaVersion: 1 };
+        },
+        clearSignatureHistory: async (owner: unknown) => {
+          seen.push(owner);
+        },
+      }),
+    );
+    const capture = responseCapture();
+    route(
+      { type, filter: { ownerAddress: `0x${"A".repeat(40)}` } },
+      capture.sendResponse,
+    );
+    assert.equal(
+      ((await capture.response) as { success: boolean }).success,
+      true,
+    );
+    const bad = responseCapture();
+    route({ type, filter: { ownerAddress: "invalid" } }, bad.sendResponse);
+    assert.equal(((await bad.response) as { success: boolean }).success, false);
+  }
+  assert.equal(seen.length, 3);
+  const capture = responseCapture();
+  createBackgroundTransactionStatusMessageRouter(
+    dependencies({
+      exportActivity: async () => {
+        throw new Error("Wallet locked while exporting activity");
+      },
+    }),
+  )({ type: "exportActivity" }, capture.sendResponse);
+  assert.deepEqual(await capture.response, {
+    success: false,
+    error: "Wallet locked while exporting activity",
+  });
 });
