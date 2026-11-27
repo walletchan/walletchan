@@ -4098,7 +4098,7 @@ Any helper that reads a `chrome.storage` array/map/object, mutates it, and
 writes the full value back must serialize that key through
 the stable `src/chrome/storageLock.ts` facade. `storage/lock.ts` owns the one
 shared in-process queue. Use a lock key that includes the storage area and
-storage key (for example `local:pendingTxRequests` or `sync:tabAccounts`) so
+storage key (for example `local:pendingTxRequests` or `local:tabAccounts`) so
 unrelated stores can still write in parallel while same-key read-modify-write
 operations cannot clobber each other.
 
@@ -7705,3 +7705,24 @@ Tests: `tests/ensBrowsing/recipientHistory.test.ts`,
 script uses synthetic resolution/history and covers all four signing account
 props, both themes, narrow layout, unavailable and stale responses; it does not
 replace live subgraph verification or real Ledger signing QA.
+
+### Dapp connection sync-quota recovery
+
+The released per-tab account map could hit Chrome Sync's per-item size limit
+before a dapp connection prompt was queued. `accounts/tabSelectionRepository.ts`
+now owns device-local `tabAccounts`; the synced global active account and
+address mirrors remain small. Worker startup/update and lazy locked reads copy
+the old map before use, with an existing local map authoritative even when empty.
+The legacy synced copy remains read-only for one release cycle. Existing tab
+choices survive the migration, and a failed copy leaves legacy data unchanged.
+The local reset manifest includes the new location; legacy sync cleanup remains
+in its manifest. No permissions, wallet keys or pending request bindings change.
+Provider account-read failures now return a bounded error instead of leaving an
+unhandled background rejection.
+
+`tests/accounts/tabSelectionStorage.test.ts` covers the 8 KiB boundary, concurrent
+growth, copy failure, stale-source precedence and malformed rows. The production
+`scripts/dapp-tab-quota-qa.mjs` reproduces the original error with
+`--expect-quota-error` against an old build, then verifies migration, account
+selection, injected account reads and explicit connection approval in an isolated
+Chromium profile against the candidate. It never signs or submits.

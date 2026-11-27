@@ -159,6 +159,7 @@ test("install and update lifecycle preserve defaults, migrations, and writes", a
     selectedThemeStorageKey: "theme",
     freshInstallThemeId: "warm-midnight",
     isThemeId: () => false,
+    migrateTabAccountStorage: async () => { events.push("tabs:migrate"); },
     migrateFromLegacyStorage: async () => events.push("legacy"),
     getSyncStorage: async () => ({
       networksInfo: { "OP Mainnet": { chainId: 10, rpcUrl: "https://rpc", hidden: true } },
@@ -182,7 +183,7 @@ test("install and update lifecycle preserve defaults, migrations, and writes", a
   ]);
   events.length = 0;
   await listener({ reason: "update" });
-  assert.deepEqual(events, ["autolock", "legacy", "optimism:set", "optimism:log"]);
+  assert.deepEqual(events, ["tabs:migrate", "autolock", "legacy", "optimism:set", "optimism:log"]);
   assert.deepEqual(syncWrites, [
     {
       networksInfo: {

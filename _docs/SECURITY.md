@@ -1609,6 +1609,7 @@ accessible resources.
 | `walletHomeModeV1`         | No               | Local presentation choice, exactly `public` or `private`; malformed/missing values resolve to public. It grants no provider, account, privacy, or signing authority. |
 | `seedGroups`               | No               | Seed group metadata (names, counts)                     |
 | `accounts`                 | No               | Account metadata (addresses, names, types)              |
+| `tabAccounts`              | No               | Device-local tab-to-account preferences; migrated from the read-only legacy sync value |
 | `ledgerDevices`            | No               | Public Ledger label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport secret or private key |
 | `trezorDevices`            | No               | Public Trezor label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport/session identifier, PIN, passphrase, or private key |
 | `addressContacts`          | No               | Local-only user labels for public EVM addresses         |
@@ -1668,7 +1669,7 @@ accessible resources.
 | `networksInfo`                                         | Runtime active RPC plus hidden/custom metadata; service-worker-owned mutations |
 | `activeAccountId`                                      | Active account ID                    |
 | `autoLockTimeout`                                      | Auto-lock timeout (ms)               |
-| `tabAccounts`                                          | Connected/pending-dapp-only per-tab account overrides |
+| `tabAccounts`                                          | Legacy read-only source for the device-local tab map |
 | `sidePanelMode` / `isArcBrowser`                       | Active UI windowing settings         |
 | `sidePanelVerified`                                    | Released legacy field; retained/reset for compatibility but not read by runtime windowing |
 | `hidePortfolioValue`                                   | Boolean - hide/show token USD values |
@@ -3113,3 +3114,15 @@ are display metadata, not protocol identity or authorization. Opaque appData is
 never fetched/interpreted. No signature input, backend authorization, secret,
 message route or persisted shape changes. Existing five-signer, master/agent,
 Safe/view-only and final-release policies remain authoritative.
+
+### Device-local tab selection
+
+`chrome.storage.local.tabAccounts` contains only tab-to-account-ID preferences,
+validated as safe nonnegative integer tab IDs and bounded account IDs. It is
+owned by the account repository's `local:tabAccounts` lock. Global selection
+remains in sync. The locked migration copies the legacy synced map before use,
+never overwrites a present local map with sync data, and preserves the legacy
+copy read-only for one release cycle. Copy failure cannot delete the source.
+Reset and fresh-onboarding cleanup include both storage areas. This migration
+creates no origin permission, signing capability or pending-request authority;
+exact-origin visibility and pinned-account signing gates remain independent.

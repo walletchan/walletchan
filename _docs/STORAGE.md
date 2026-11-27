@@ -78,6 +78,7 @@ hours in addition to normal read-time TTL checks.
 
 | Key             | Shape                                                          | Description                                                                                                                                                                                                                          | Introduced |
 | --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `tabAccounts` | `Record<number, string>` | Device-local per-tab account IDs owned by `accounts/tabSelectionRepository.ts`. Migrated by copying the released sync map before first use; a present local map (including empty) always wins. Legacy sync data is read-only and retained for one release cycle. The tab lifecycle removes closed/unscoped entries. Wallet reset/onboarding cleanup removes both areas. No addresses, keys or signing authority are stored here. | next |
 | `accounts`      | `Account[]` — base `{ id, type, address, displayName?, createdAt }`; Ledger/Trezor add `{ deviceId, hdPath, hdIndex }` | All account metadata. Types: `bankr`, `privateKey`, `seedPhrase`, `ledger`, `trezor`, `impersonator`, `safe`. Hardware fields are public address/device-derivation metadata and never include a private key, transport path, PIN, passphrase, or session. Trezor rows pass an exact codec at the account-repository read boundary; malformed or extra secret-like fields fail closed. A `safe` row is non-secret and its verified chain-scoped authority lives in `safeAccounts`. Array order is the user-defined display order used by the wallet account picker and dapp connection selector. These account types are additive and need no migration. | v1.0.0; Ledger/Safe/Trezor next |
 | `ledgerDevices` | `Record<deviceId, { label, model, addedAt }>` | Local-only public Ledger display metadata. `deviceId` is the lowercase canonical Ethereum address derived at `m/44'/60'/0'/0/0`, not a transport identifier or secret. Removing the last account for a device removes its entry; reset removes the whole key. Missing on older installs is normal, so no migration is required. | next |
 | `trezorDevices` | `Record<deviceId, { label, model, addedAt }>` | Exact-decoded local-only public Trezor display metadata. `deviceId` is the lowercase canonical Ethereum address derived at `m/44'/60'/0'/0/0` inside the selected passphrase wallet, not a transport identifier or proof of authority. Label/model are bounded and control-character-free. Removing the last account for a device removes its entry; onboarding rollback and reset remove the whole key. Missing on older installs is normal, so no migration is required. | next |
@@ -231,7 +232,7 @@ Syncs across Chrome profiles (if signed in). Persists across restarts.
 | `chainName`       | `string` (e.g. `"Base"`)                        | Shared saved chain context used to initialize already-connected injected providers (unconnected pages use mainnet) and as a fallback by other flows; not a wallet-wide selected network. Live injected chain state is per tab/document.                    | v0.1.0     |
 | `networksInfo`    | `Record<string, { chainId, rpcUrl, hidden?, isCustom?, explorer?, nativeCurrency? }>` | Supported network runtime config. `rpcUrl` is the sole active endpoint read by runtime consumers. Built-ins are normalized from `chainRegistry`; this key also stores hidden flags and user-added custom chains. `network/networkRepository.ts` owns the exact storage shape and `network/networkMutations.ts` owns service-worker writes; `NetworksContext` mirrors storage changes and bootstraps missing defaults through `ensureNetworksInfo`. | v0.1.0 |
 | `activeAccountId` | `string` (UUID)                                 | Shared fallback for tabs without a connected dapp and compatibility paths without tab context. Activating or selecting an account in a connected dapp tab updates it to that scoped account without changing other dapp-tab overrides. | v1.0.0     |
-| `tabAccounts`     | `Record<number, string>` (tabId → accountId)    | Per-tab account binding only for approved or pending dapp connections. Snapshotted on first scoped use and cleared on ordinary navigation, rejection, disconnect, tab close, or account removal. | v1.0.0     |
+| `tabAccounts`     | `Record<number, string>` (tabId → accountId)    | Legacy read-only migration source. Current tab selections live in local storage; no current writer may grow this sync item. Retained for one release cycle and cleared by explicit tab clear, onboarding cleanup or wallet reset. | v1.0.0     |
 
 ### Settings
 
@@ -495,3 +496,14 @@ Safe signature review adds `"safe"` to the existing optional `accountType` in
 required field changes. New Safe records are review/reject-only; direct-signer
 confirmation and release remain denied. No migration is needed for this additive
 account type value.
+
+### Per-tab selection quota recovery
+
+Tab IDs belong to this browser, so new `tabAccounts` writes use local storage.
+The owning repository copies legacy sync data under `local:tabAccounts` before
+using it. Failed local writes leave the legacy map untouched and fail the read;
+an existing local map is authoritative, including `{}`, and cannot be replaced
+by a stale synced copy. The released sync key is retained read-only for one
+release cycle. Migration runs on worker startup/update and lazily on every read
+so unpacked-extension reloads recover too. No wallet unlock/decryption is needed.
+All readers/writers remain behind the account facade.

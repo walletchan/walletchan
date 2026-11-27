@@ -312,3 +312,11 @@ test("Send ENS history errors do not leak upstream diagnostics", async () => {
   router({ type: "getEnsRecipientHistory", ensName: "test.eth", chainId: 1 }, {}, capture.sendResponse);
   assert.deepEqual(await capture.response, { success: false, error: "ENS history unavailable" });
 });
+
+test("provider account storage failures respond without releasing addresses or rejecting the router promise", async () => {
+  const capture = responseCapture();
+  createBackgroundDappPermissionMessageRouter(dependencies({
+    handleGetDappAccounts: async () => { throw new Error("storage unavailable"); },
+  }))({ type: "getDappAccounts" }, {}, capture.sendResponse);
+  assert.deepEqual(await capture.response, { success: false, accounts: [], code: -32603, error: "Could not read wallet account selection" });
+});

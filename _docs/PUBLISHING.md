@@ -351,3 +351,12 @@ Before every release that touches `chrome.storage`:
 - **Never commit the .pem file** to the repository (it's in `.gitignore`)
 - The website API caches GitHub responses for 5 minutes to avoid rate limits
 - CWS publishing info and permission justifications are in `CHROME_WEBSTORE.md`
+
+### Per-tab account selection migration
+
+Verify an old `storage.sync.tabAccounts` map near 8 KiB copies to local storage
+without changing the selected account for any tab. Local presence, including an
+empty map, is the migration commit marker; the old sync copy is read-only for one
+release cycle. Test reload and update, repeated migration, copy failure (legacy
+source preserved), subsequent local edits, and reset/onboarding removal of both
+areas. No credential or vault migration is involved.

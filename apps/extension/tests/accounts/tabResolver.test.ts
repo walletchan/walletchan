@@ -99,20 +99,20 @@ test("per-tab account overrides exist only for connected or pending dapps", asyn
   } = await import("../../src/chrome/accounts/tabResolver");
 
   assert.equal((await resolveBrowserTabAccount(1))?.id, accountA.id);
-  assert.deepEqual(syncState.tabAccounts, {});
+  assert.deepEqual(localState.tabAccounts, {});
 
   assert.equal((await resolveBrowserTabAccount(2))?.id, accountA.id);
-  assert.deepEqual(syncState.tabAccounts, { 2: accountA.id });
+  assert.deepEqual(localState.tabAccounts, { 2: accountA.id });
 
   const connectedSelection = await selectBrowserTabAccount(2, accountB.id);
   assert.equal(connectedSelection.scope, "dapp-tab");
   assert.equal(syncState.activeAccountId, accountB.id);
-  assert.deepEqual(syncState.tabAccounts, { 2: accountB.id });
+  assert.deepEqual(localState.tabAccounts, { 2: accountB.id });
 
   const globalSelection = await selectBrowserTabAccount(1, accountC.id);
   assert.equal(globalSelection.scope, "global");
   assert.equal(syncState.activeAccountId, accountC.id);
-  assert.deepEqual(syncState.tabAccounts, { 2: accountB.id });
+  assert.deepEqual(localState.tabAccounts, { 2: accountB.id });
 
   localState.pendingDappConnectionRequests = [
     {
@@ -126,13 +126,13 @@ test("per-tab account overrides exist only for connected or pending dapps", asyn
   const pendingSelection = await selectBrowserTabAccount(3, accountA.id);
   assert.equal(pendingSelection.scope, "dapp-tab");
   assert.equal(syncState.activeAccountId, accountA.id);
-  assert.deepEqual(syncState.tabAccounts, {
+  assert.deepEqual(localState.tabAccounts, {
     2: accountB.id,
     3: accountA.id,
   });
 
   await replaceBrowserTabAccountScope(4, 3);
-  assert.deepEqual(syncState.tabAccounts, {
+  assert.deepEqual(localState.tabAccounts, {
     2: accountB.id,
     4: accountA.id,
   });
@@ -147,12 +147,12 @@ test("per-tab account overrides exist only for connected or pending dapps", asyn
     url: "https://ordinary.example/new-tab",
     active: false,
   });
-  syncState.tabAccounts = {
-    ...(syncState.tabAccounts as Record<number, string>),
+  localState.tabAccounts = {
+    ...(localState.tabAccounts as Record<number, string>),
     7: accountB.id,
   };
   await replaceBrowserTabAccountScope(8, 7);
-  assert.deepEqual(syncState.tabAccounts, {
+  assert.deepEqual(localState.tabAccounts, {
     2: accountB.id,
     4: accountA.id,
   });
@@ -163,12 +163,12 @@ test("per-tab account overrides exist only for connected or pending dapps", asyn
     active: true,
   });
   assert.equal((await resolveBrowserTabAccount(2))?.id, accountA.id);
-  assert.deepEqual(syncState.tabAccounts, { 4: accountA.id });
+  assert.deepEqual(localState.tabAccounts, { 4: accountA.id });
 
   // Reproduce A (account A), B (ordinary), C (account B): ordinary B must
   // follow whichever connected tab was active most recently without storing
   // its own override.
-  syncState.tabAccounts = { 5: accountA.id, 6: accountB.id };
+  localState.tabAccounts = { 5: accountA.id, 6: accountB.id };
   syncState.activeAccountId = accountB.id;
   assert.equal((await activateBrowserTabAccount(5))?.id, accountA.id);
   assert.equal(
@@ -183,7 +183,7 @@ test("per-tab account overrides exist only for connected or pending dapps", asyn
   tabs.get(5)!.active = false;
   tabs.get(1)!.active = true;
   assert.equal((await activateBrowserTabAccount(1))?.id, accountA.id);
-  assert.deepEqual(syncState.tabAccounts, { 5: accountA.id, 6: accountB.id });
+  assert.deepEqual(localState.tabAccounts, { 5: accountA.id, 6: accountB.id });
 
   tabs.get(1)!.active = false;
   tabs.get(6)!.active = true;
@@ -192,7 +192,7 @@ test("per-tab account overrides exist only for connected or pending dapps", asyn
   tabs.get(6)!.active = false;
   tabs.get(1)!.active = true;
   assert.equal((await activateBrowserTabAccount(1))?.id, accountB.id);
-  assert.deepEqual(syncState.tabAccounts, { 5: accountA.id, 6: accountB.id });
+  assert.deepEqual(localState.tabAccounts, { 5: accountA.id, 6: accountB.id });
 
   await assert.rejects(
     selectBrowserTabAccount(1, "missing-account"),
