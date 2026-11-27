@@ -207,11 +207,14 @@ read-time 24-hour TTLs and are overwritten on the next successful fetch.
 
 ## IndexedDB
 
-Database `walletchan-history` version 2 is the authoritative transaction-history store.
+Database `walletchan-history` version 4 is the authoritative transaction-history store.
 
 | Store | Shape | Retention |
 | --- | --- | --- |
 | `transactions` | Compact `CompletedTransaction` plus lowercase `ownerAddress` and byte accounting. Settled `tx.data` is removed; `calldataSelector` may remain. Asset arrays are headers only. | Up to 1,000 settled rows per account/network and 50 MiB total; processing/pending recovery rows are exempt. |
+| `signatures` | Public ID/account-reference/owner/time/byte indexes plus AES-GCM encrypted signature content referencing shared account metadata. No returned signature bytes. | 10,000 rows / 25 MiB; oldest first; 768 KiB plaintext per row. |
+| `signatureAccounts` | Account ID key plus encrypted `{id,address,type}` metadata and byte accounting, stored once per signing account. | Counted once in the 25 MiB signature budget; deleted atomically when no signature references it. |
+| `signatureState` | Recording start timestamp and cumulative retention prune count. | Explicit clear preserves state; wallet reset clears it. |
 | `assetTransfers` | One ERC-20 or NFT transfer per row keyed by transaction/leg/index. NFT rows contain only contract, token ID, standard, amount, direction, and counterparty. | Removed atomically with the owning transaction. |
 
 Activity uses the owner/chain/created indexes in 30-row cursor pages. Full
@@ -497,6 +500,14 @@ required field changes. New Safe records are review/reject-only; direct-signer
 confirmation and release remain denied. No migration is needed for this additive
 account type value.
 
+Signature history starts with the first recorded signature after this update.
+The v4 upgrade creates signature and account stores additively; no previous off-chain signature history exists to
+migrate. The general vault key encrypts entries and password rotation rewraps
+that same key. Wallet reset explicitly clears all three signature stores through
+`background/composition/dataRoutes.ts`; ordinary transaction-history clear does
+not clear signatures. Removed-account history remains available in All accounts
+exports until explicitly cleared, retained out, or reset.
+
 ### Per-tab selection quota recovery
 
 Tab IDs belong to this browser, so new `tabAccounts` writes use local storage.
@@ -507,3 +518,8 @@ by a stale synced copy. The released sync key is retained read-only for one
 release cycle. Migration runs on worker startup/update and lazily on every read
 so unpacked-extension reloads recover too. No wallet unlock/decryption is needed.
 All readers/writers remain behind the account facade.
+
+Signature storage normalizes shared account metadata; public API entries hydrate
+address/type on read, and export schema v2 groups signatures by account ID. This
+feature is unreleased; existing local development rows have been normalized,
+and the temporary conversion module and UI route are removed.

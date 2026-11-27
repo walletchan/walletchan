@@ -31,7 +31,6 @@ const transitionalBudgets: Record<string, number> = {
   "components/Settings/AddChain.tsx": 550,
   "components/Settings/Chains.tsx": 478,
   "components/Settings/EnsBrowsingSettings.tsx": 666,
-  "components/Settings/settingsRegistry.tsx": 455,
   "components/Swap/BridgeChainTokenModal.tsx": 709,
   "components/Swap/SwapConfirmation.tsx": 749,
   "components/UnlockScreen.tsx": 440,

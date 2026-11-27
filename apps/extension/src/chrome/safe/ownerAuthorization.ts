@@ -1,3 +1,5 @@
+import { prepareSignatureHistory, commitSignatureHistory, discardSignatureHistory } from "../signatureHistory/repository";
+import { typedDataHistoryEntry } from "../signatureHistory/model";
 import { getAccountById } from "../accountStorage";
 import { getAuthCeremonyEpoch, isCurrentAuthCeremonyEpoch } from "../authTransition";
 import { signMessageViaApi } from "../bankr/signing";
@@ -173,6 +175,12 @@ export async function approveSafeProposalWithOwner(input: {
       account: authority.account,
       proposal,
     });
+    const history = await prepareSignatureHistory(typedDataHistoryEntry({
+      id: `safe:${proposal.id}:${authority.ownerAddress}`, account: authority.account,
+      origin: proposal.route.origin ?? "wallet", chainId: proposal.chainId, kind: "safeApproval", safeAddress: proposal.safeAddress,
+      typedData: buildSafeTransactionTypedData({ chainId: proposal.chainId, safeAddress: proposal.safeAddress,
+        safeVersion: proposal.safeVersion, transaction: proposal.transaction }),
+    }));
     if (!isCurrentAuthCeremonyEpoch(authEpoch) || !getPasswordType()) throw new Error("Authentication state changed; unlock and try again");
     const refreshedAuthority = await resolveAuthority(proposal, input.ownerAccountId);
     if (
@@ -196,7 +204,9 @@ export async function approveSafeProposalWithOwner(input: {
       accountId: authority.account.id,
       accountType: authority.account.type,
     });
-    return releaseSafeProposalEffect(proposal.id, claimId, (current) => {
+    await commitSignatureHistory(history);
+    if (!isCurrentAuthCeremonyEpoch(authEpoch) || !getPasswordType()) throw new Error("Authentication state changed; unlock and try again");
+    return await releaseSafeProposalEffect(proposal.id, claimId, (current) => {
       const confirmations = mergeSafeOwnerConfirmation(
         current.confirmations,
         confirmation,
@@ -210,6 +220,7 @@ export async function approveSafeProposalWithOwner(input: {
       };
     });
   } catch (error) {
+    await discardSignatureHistory(`safe:${proposal.id}:${authority.ownerAddress}`).catch(() => {});
     await releaseSafeProposalEffect(proposal.id, claimId, {
       state: proposal.state,
       error: error instanceof Error ? error.message : "Safe approval failed",

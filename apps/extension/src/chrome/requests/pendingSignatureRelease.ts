@@ -22,6 +22,7 @@ export async function revalidatePendingSignatureBeforeRelease(
   pending: PendingSignatureReleaseContext,
   expectedType: "bankr" | "privateKey" | "seedPhrase" | "ledger" | "trezor",
   expectedHardwareBinding?: { deviceId: string; hdPath: string },
+  beforeFinalAuthorization?: () => Promise<void>,
 ): Promise<{ authorized: true } | { authorized: false; error: string }> {
   return withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     if (!pending.accountId || !pending.accountAddress) {
@@ -45,6 +46,9 @@ export async function revalidatePendingSignatureBeforeRelease(
     if (!validation.valid) {
       return { authorized: false, error: validation.error ?? "Invalid typed data" };
     }
+    const beforeWrite = await enforcePendingRequestAuthorizationAtConfirmation("signature", pending);
+    if (!beforeWrite.authorized) return beforeWrite;
+    await beforeFinalAuthorization?.();
     // Keep transport + Bankr credential binding as the final await. Account
     // and credential mutations are excluded by the operation lock, while the
     // lifecycle validator rechecks origin/WC revocation epochs.

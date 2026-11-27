@@ -1,3 +1,4 @@
+import { upgradeSignatureHistorySchema } from "../signatureHistory/schema";
 import type { AssetTransferRecord, CompletedTransaction, NftTransferRecord } from "./types";
 import type { TxHistoryCursor, TxHistoryPage } from "./queryTypes";
 import {
@@ -7,7 +8,7 @@ import {
 } from "./recordCodec";
 
 export const HISTORY_DATABASE_NAME = "walletchan-history";
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 4;
 const TRANSACTIONS_STORE = "transactions";
 const TRANSFERS_STORE = "assetTransfers";
 const LEGACY_HISTORY_KEY = "txHistory";
@@ -34,12 +35,13 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-function openDatabase(): Promise<IDBDatabase> {
+export function openHistoryDatabase(): Promise<IDBDatabase> {
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(HISTORY_DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
+      upgradeSignatureHistorySchema(database);
       const transactions = database.objectStoreNames.contains(TRANSACTIONS_STORE)
         ? request.transaction!.objectStore(TRANSACTIONS_STORE)
         : database.createObjectStore(TRANSACTIONS_STORE, { keyPath: "id" });
@@ -98,7 +100,7 @@ async function deleteTransferRows(
 }
 
 async function putCompacted(transaction: CompletedTransaction): Promise<void> {
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const compacted = compactHistoryTransaction(transaction);
   const dbTransaction = database.transaction(
     [TRANSACTIONS_STORE, TRANSFERS_STORE],
@@ -131,7 +133,7 @@ async function migrateLegacyHistory(): Promise<void> {
 }
 
 export async function initializeHistoryDatabase(): Promise<void> {
-  await openDatabase();
+  await openHistoryDatabase();
   if (!migrationPromise) {
     migrationPromise = migrateLegacyHistory().catch((error) => {
       migrationPromise = null;
@@ -142,7 +144,7 @@ export async function initializeHistoryDatabase(): Promise<void> {
 }
 
 async function allStoredTransactions(): Promise<StoredTransaction[]> {
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const transaction = database.transaction(TRANSACTIONS_STORE, "readonly");
   return requestResult(
     transaction.objectStore(TRANSACTIONS_STORE).getAll() as IDBRequest<StoredTransaction[]>,
@@ -151,7 +153,7 @@ async function allStoredTransactions(): Promise<StoredTransaction[]> {
 
 async function deleteTransactions(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const transaction = database.transaction(
     [TRANSACTIONS_STORE, TRANSFERS_STORE],
     "readwrite",
@@ -190,7 +192,7 @@ async function enforceRetention(): Promise<void> {
   const remaining = (await allStoredTransactions()).filter(
     (entry) => !remove.has(entry.id),
   );
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const read = database.transaction(TRANSFERS_STORE, "readonly");
   const transfers = await requestResult(
     read.objectStore(TRANSFERS_STORE).getAll() as IDBRequest<StoredTransfer[]>,
@@ -234,7 +236,7 @@ export async function putHistoryTransaction(
 async function hydrateTransaction(
   transaction: StoredTransaction,
 ): Promise<CompletedTransaction> {
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const read = database.transaction(TRANSFERS_STORE, "readonly");
   const store = read.objectStore(TRANSFERS_STORE).index("byTx");
   const range = IDBKeyRange.bound(
@@ -266,7 +268,7 @@ export async function readHistoryTransaction(
   hydrate = true,
 ): Promise<CompletedTransaction | null> {
   await initializeHistoryDatabase();
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const transaction = database.transaction(TRANSACTIONS_STORE, "readonly");
   const stored = await requestResult(
     transaction.objectStore(TRANSACTIONS_STORE).get(id) as IDBRequest<StoredTransaction | undefined>,
@@ -292,19 +294,7 @@ export async function readAllHistoryTransactions(): Promise<CompletedTransaction
     });
 }
 
-export async function queryHistoryPage(options: {
-  ownerAddress?: string;
-  chainId?: number | null;
-  cursor?: TxHistoryCursor | null;
-  limit?: number;
-}): Promise<TxHistoryPage> {
-  await initializeHistoryDatabase();
-  const owner = options.ownerAddress?.toLowerCase();
-  const limit = Math.max(1, Math.min(options.limit ?? HISTORY_PAGE_SIZE, 100));
-  const database = await openDatabase();
-  const read = database.transaction(TRANSACTIONS_STORE, "readonly");
-  const store = read.objectStore(TRANSACTIONS_STORE);
-  const chainId = options.chainId;
+function historyIndex(store: IDBObjectStore, owner?: string, chainId?: number | null) {
   let source: IDBIndex;
   let prefix: Array<string | number>;
   if (owner && chainId != null) {
@@ -320,6 +310,35 @@ export async function queryHistoryPage(options: {
     source = store.index("byCreated");
     prefix = [];
   }
+  return { source, prefix };
+}
+
+/** Count matching records directly in the same indexes used by Activity paging. */
+export async function countHistoryTransactions(filter: { ownerAddress?: string; chainId?: number | null; from?: number; to?: number }): Promise<number> {
+  await initializeHistoryDatabase();
+  const db = await openHistoryDatabase();
+  const store = db.transaction(TRANSACTIONS_STORE).objectStore(TRANSACTIONS_STORE);
+  const { source, prefix } = historyIndex(store, filter.ownerAddress?.toLowerCase(), filter.chainId);
+  return requestResult(source.count(IDBKeyRange.bound(
+    [...prefix, filter.from ?? 0],
+    [...prefix, filter.to ?? Number.MAX_SAFE_INTEGER, []],
+  )));
+}
+
+export async function queryHistoryPage(options: {
+  ownerAddress?: string;
+  chainId?: number | null;
+  cursor?: TxHistoryCursor | null;
+  limit?: number;
+}): Promise<TxHistoryPage> {
+  await initializeHistoryDatabase();
+  const owner = options.ownerAddress?.toLowerCase();
+  const limit = Math.max(1, Math.min(options.limit ?? HISTORY_PAGE_SIZE, 100));
+  const database = await openHistoryDatabase();
+  const read = database.transaction(TRANSACTIONS_STORE, "readonly");
+  const store = read.objectStore(TRANSACTIONS_STORE);
+  const chainId = options.chainId;
+  const { source, prefix } = historyIndex(store, owner, chainId);
   const lower = [...prefix, 0, ""];
   const upper = options.cursor
     ? [...prefix, options.cursor.createdAt, options.cursor.id]
@@ -375,7 +394,7 @@ export async function clearHistoryDatabase(): Promise<void> {
     await chrome.storage.local.remove(LEGACY_HISTORY_KEY);
     return;
   }
-  const database = await openDatabase();
+  const database = await openHistoryDatabase();
   const transaction = database.transaction(
     [TRANSACTIONS_STORE, TRANSFERS_STORE],
     "readwrite",

@@ -19,14 +19,10 @@ export function FullScreenPickerLayer({
       document.getElementById("preview-root");
     if (!appRoot) return;
 
-    const previousAriaHidden = appRoot.getAttribute("aria-hidden");
     const wasInert = appRoot.hasAttribute("inert");
-    appRoot.setAttribute("aria-hidden", "true");
     appRoot.setAttribute("inert", "");
 
     return () => {
-      if (previousAriaHidden === null) appRoot.removeAttribute("aria-hidden");
-      else appRoot.setAttribute("aria-hidden", previousAriaHidden);
       if (!wasInert) appRoot.removeAttribute("inert");
     };
   }, []);

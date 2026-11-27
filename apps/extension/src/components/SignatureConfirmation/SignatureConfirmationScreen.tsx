@@ -69,15 +69,17 @@ function SignatureSummary({
       >
         {intent}
       </Text>
-      <Text
-        maxW="300px"
-        color="fg.secondary"
-        fontSize="sm"
-        lineHeight="1.45"
-        textAlign="center"
-      >
-        {description}
-      </Text>
+      {description && (
+        <Text
+          maxW="300px"
+          color="fg.secondary"
+          fontSize="sm"
+          lineHeight="1.45"
+          textAlign="center"
+        >
+          {description}
+        </Text>
+      )}
       {status && <Badge variant={status.variant}>{status.label}</Badge>}
     </VStack>
   );

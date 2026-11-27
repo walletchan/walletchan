@@ -1,3 +1,6 @@
+import { assertSignatureHistorySession, discardSignatureHistory, prepareSignatureHistory, commitSignatureHistory } from "../signatureHistory/repository";
+import { typedDataHistoryEntry } from "../signatureHistory/model";
+import { getUserOperationTypedData } from "./userOperation";
 import { WALLETCHAN_PIMLICO_PROXY_BASE } from "@/constants/externalUrls";
 import { getAccountById } from "../accountStorage";
 import { applyReceiptToHistory } from "../forceInclusion/receiptPoller";
@@ -190,6 +193,10 @@ export async function processUsdcTransactionInBackground(input: {
       chainId,
     );
     effectGuard.settleEffect();
+    const signatureHistory = await prepareSignatureHistory(typedDataHistoryEntry({
+      id: `user-operation:${txId}`, account: signer.account, origin: pending.origin,
+      chainId: chainId, typedData: getUserOperationTypedData(userOperation, chainId), kind: "userOperation",
+    }));
     const submission = await submitUserOperationRecoverably({
       client,
       record: {
@@ -200,7 +207,20 @@ export async function processUsdcTransactionInBackground(input: {
         chainId,
       },
       userOperation: { ...userOperation, signature },
-      beforeBroadcast: effectGuard.beginEffect,
+      beforeBroadcast: async () => {
+        try {
+          await commitSignatureHistory(signatureHistory);
+          const current = await getAccountById(signer.account.id);
+          if (!current || current.type !== signer.account.type || current.address.toLowerCase() !== sender.toLowerCase()) throw new Error("Signing account changed");
+          const live = await enforcePendingRequestAuthorizationAtConfirmation("transaction", pending);
+          if (!live.authorized) throw new Error(live.error);
+          assertSignatureHistorySession(signatureHistory);
+          effectGuard.beginEffect();
+        } catch (error) {
+          await discardSignatureHistory(signatureHistory.id).catch(() => {});
+          throw error;
+        }
+      },
     });
     if (!submission.outcomeUnknown) effectGuard.settleEffect();
     await updateTxInHistory(txId, {

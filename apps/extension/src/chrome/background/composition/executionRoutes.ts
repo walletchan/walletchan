@@ -40,7 +40,7 @@ import { createInternalIrreversibleOperationRunner } from "../internalOperationB
 import { createBackgroundSponsoredTransferMessageRouter } from "../sponsoredTransferRouter";
 import { createBackgroundSwapExecutionMessageRouter } from "../swapExecutionRouter";
 import { createBackgroundTransactionExecutionMessageRouter } from "../transactionExecutionRouter";
-import { createBackgroundTransactionStatusMessageRouter } from "../transactionStatusRouter";
+import { ACTIVITY_HISTORY_ROUTES, createBackgroundTransactionStatusMessageRouter } from "../transactionStatusRouter";
 import type { PendingResolutionComposition } from "./pendingResolution";
 import { getArbitrumForceInclusionStatus, submitArbitrumForceInclusion } from "../../arbitrumForceInclusion/status";
 import { handleConfirmTransactionAsyncLedger } from "../../ledger/transactionExecution";
@@ -102,6 +102,7 @@ export function composeExecutionRoutes(pending: PendingResolutionComposition) {
         void chrome.storage.local.remove(key);
       },
       getTxHistory,
+      ...ACTIVITY_HISTORY_ROUTES,
       getTxHistoryPage,
       getSendRecipientReferences,
       getTxHistoryItem: getTxById,

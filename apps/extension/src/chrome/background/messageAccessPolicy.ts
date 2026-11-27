@@ -1,3 +1,4 @@
+import { ACTIVITY_WALLET_UI_MESSAGE_TYPES } from "./activityMessageTypes";
 /**
  * Security audience for every message handled by the background composition root.
  *
@@ -158,15 +159,7 @@ export const WALLET_UI_MESSAGE_TYPES = [
   "initiateErc7715PermissionRevoke",
   "getPendingWatchAssetRequests",
   "getPendingAddChainRequests",
-  "getTxHistory",
-  "getTxHistoryPage",
-  "getSendRecipientReferences",
-  "getTxHistoryItem",
-  "getTransactionCalldata",
-  "resolveHistoryNftMetadata",
-  "getProcessingTxs",
-  "getFailedTxResult",
-  "checkPendingTxReceipt",
+  ...ACTIVITY_WALLET_UI_MESSAGE_TYPES,
 
   // Secret operations and migration
   "migrateFromLegacy",

@@ -4,7 +4,7 @@ import { hashTypedData, recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { INTERNAL_ACCOUNT_TYPED_DATA_ERROR, validateEIP712TypedData } from "../../src/chrome/eip712Validator";
 import { signaturePassesSurfacePreflight } from "../../src/chrome/provider/contentBridge/requestSurfaceSignaturePreflight";
-import { signMetaMaskUserOperation, getMetaMaskUserOperationTypedData } from "../../src/chrome/feePayment/userOperation";
+import { signMetaMaskUserOperation, getUserOperationTypedData } from "../../src/chrome/feePayment/userOperation";
 import { accountExecutionTypedData } from "./accountDomainFixture";
 
 const address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
@@ -94,6 +94,6 @@ test("reviewed internal UserOperations still produce the correct execution signa
   const signer = privateKeyToAccount(key);
   const op = { sender: signer.address, nonce: "0x0", callData: "0x", callGasLimit: "0x100", verificationGasLimit: "0x100", preVerificationGas: "0x100", maxFeePerGas: "0x1", maxPriorityFeePerGas: "0x1" } as const;
   const signature = await signMetaMaskUserOperation(key, op, 1);
-  assert.equal(await recoverTypedDataAddress({ ...getMetaMaskUserOperationTypedData(op, 1), signature }), signer.address);
+  assert.equal(await recoverTypedDataAddress({ ...getUserOperationTypedData(op, 1), signature }), signer.address);
   assert.equal(validateEIP712TypedData("eth_signTypedData_v4", accountExecutionTypedData(signer.address), [signer.address]).valid, false);
 });

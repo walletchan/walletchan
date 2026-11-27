@@ -1,3 +1,6 @@
+import { OverflowMenuIcon as PortfolioMenuIcon } from "@/components/ui";
+import { ActivityViewMenu } from "@/components/SignatureHistory/ActivityViewMenu";
+import { useActivityView } from "@/components/SignatureHistory/useActivityView";
 import {
   Profiler,
   useState,
@@ -9,7 +12,6 @@ import {
 import {
   Box,
   HStack,
-  Icon,
   Input,
   InputGroup,
   InputLeftElement,
@@ -19,10 +21,9 @@ import {
   useDisclosure,
   Button,
   VStack,
-  type IconProps,
 } from "@chakra-ui/react";
 import { ChevronDownIcon, CloseIcon, RepeatIcon, SearchIcon, WarningTwoIcon } from "@chakra-ui/icons";
-import TxStatusList from "@/components/TxStatusList";
+import ActivityHistory from "@/components/SignatureHistory/ActivityHistory";
 import type { PortfolioToken } from "@/chrome/portfolio/api";
 import type { CompletedTransaction } from "@/chrome/txHistoryStorage";
 import AddTokenModal from "@/components/AddTokenModal";
@@ -80,14 +81,6 @@ interface PortfolioTabsProps {
   ) => void;
   onHideTokens?: () => void;
 }
-const PortfolioMenuIcon = (props: IconProps) => (
-  <Icon viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <circle cx="12" cy="5" r="1.75" />
-    <circle cx="12" cy="12" r="1.75" />
-    <circle cx="12" cy="19" r="1.75" />
-  </Icon>
-);
-
 /** Delay before refreshing balances after onchain tx confirmation (ms) */
 const POST_CONFIRM_REFRESH_DELAY = 3000;
 
@@ -96,6 +89,7 @@ export default function PortfolioTabs({ address, accounts = [], connectedDappCha
   // activityTabTrigger increments after a tx is initiated; holdingsTabTrigger
   // increments when the user backs out of send/swap without submitting.
   const [tabIndex, setTabIndex] = useState(activityTabTrigger > holdingsTabTrigger ? 2 : 0);
+  const activity = useActivityView(tabIndex === 2);
   const tabIndexRef = useRef(tabIndex);
   tabIndexRef.current = tabIndex;
   const portfolioRootRef = useRef<HTMLDivElement>(null);
@@ -334,6 +328,7 @@ export default function PortfolioTabs({ address, accounts = [], connectedDappCha
           {selectedChain?.name ?? "All networks"}
         </Button>
 
+        {tabIndex === 2 && <ActivityViewMenu view={activity.view} onChange={activity.setView} />}
         {tabIndex < 2 && holdingsState && (
           <HStack spacing={0} align="center">
             {tabIndex === 0 && !isAssetSearchOpen && (
@@ -560,9 +555,10 @@ export default function PortfolioTabs({ address, accounts = [], connectedDappCha
             display={tabIndex === 2 ? "block" : "none"}
             aria-hidden={tabIndex !== 2}
           >
-            {activitySupplement?.(filterChainId, setHasSupplementalActivity)}
             <Profiler id="portfolio-activity" onRender={logPortfolioProfiler}>
-              <TxStatusList
+              <ActivityHistory
+                view={activity.view}
+                supplement={activitySupplement?.(filterChainId, setHasSupplementalActivity)}
                 maxItems={10}
                 address={address}
                 accounts={accounts}

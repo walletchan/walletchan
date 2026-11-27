@@ -38,7 +38,7 @@ export function SettingsRowListProvider({ children }: { children: ReactNode }) {
  */
 export interface SettingsRowProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: ReactNode;
   iconBg: string;
   iconColor?: string;
@@ -111,9 +111,11 @@ export function SettingsRow({
                 </Text>
                 {badge}
               </HStack>
-              <Text fontSize="xs" color="text.secondary" fontWeight="500">
-                {subtitle}
-              </Text>
+              {subtitle && (
+                <Text fontSize="xs" color="text.secondary" fontWeight="500">
+                  {subtitle}
+                </Text>
+              )}
             </Box>
           </HStack>
           {showChevron && (
@@ -159,7 +161,7 @@ export function SettingsRow({
           <ListItemTitle>{title}</ListItemTitle>
           {badge}
         </Flex>
-        <ListItemDescription>{subtitle}</ListItemDescription>
+        {subtitle && <ListItemDescription>{subtitle}</ListItemDescription>}
       </ListItemContent>
 
       {showChevron && !disabled && (

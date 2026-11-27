@@ -17,8 +17,10 @@ interface AccountSwitcherProps {
   activeAccount: Account | null;
   explorerChains: ResolvedChain[];
   onAccountSelect: (account: Account) => void;
-  onAddAccount: () => void;
-  onAccountSettings: (account: Account) => void;
+  onSelectAll?: () => void;
+  disabled?: boolean;
+  onAddAccount?: () => void;
+  onAccountSettings?: (account: Account) => void;
   onShowQr?: () => void;
   isPickerOpen?: boolean;
   onPickerOpenChange?: (isOpen: boolean) => void;
@@ -42,6 +44,8 @@ function AccountSwitcher({
   activeAccount,
   explorerChains,
   onAccountSelect,
+  onSelectAll,
+  disabled,
   onAddAccount,
   onAccountSettings,
   onShowQr,
@@ -73,12 +77,12 @@ function AccountSwitcher({
   };
 
   const openAccountSettings = (account: Account) => {
-    onAccountSettings(account);
+    onAccountSettings?.(account);
     closePicker(false);
   };
 
   const addAccount = () => {
-    onAddAccount();
+    onAddAccount?.();
     closePicker(false);
   };
 
@@ -87,6 +91,7 @@ function AccountSwitcher({
       <Flex w="full" minH="64px" position="relative" align="center" isolation="isolate">
         <Button
           ref={triggerRef}
+          isDisabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={isPickerOpen}
           aria-label="Choose account"
@@ -148,7 +153,7 @@ function AccountSwitcher({
           </HStack>
         ) : (
           <HStack position="relative" zIndex={1} w="full" justify="space-between" px={3} pointerEvents="none">
-            <Text color="fg.secondary" fontWeight="600">Choose account</Text>
+            <Text color="fg.secondary" fontWeight="600">{onSelectAll ? "All accounts" : "Choose account"}</Text>
             <ChevronRightIcon boxSize={5} color="fg.muted" />
           </HStack>
         )}
@@ -163,8 +168,9 @@ function AccountSwitcher({
             mode="select"
             onBack={() => closePicker()}
             onAccountSelect={selectAccount}
-            onAccountSettings={openAccountSettings}
-            onAddAccount={addAccount}
+            onSelectAll={onSelectAll && (() => { onSelectAll(); closePicker(); })}
+            onAccountSettings={onAccountSettings && openAccountSettings}
+            onAddAccount={onAddAccount && addAccount}
             onAccountsReordered={onAccountsReordered}
           />
         </FullScreenPickerLayer>

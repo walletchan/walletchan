@@ -25,3 +25,11 @@ agree at their fetched finalized blocks before an ambiguous record is consumed
 or removed. Account removal and wallet reset remain blocked while unresolved
 records exist. Submitted/consumed records survive until the trusted UI sends
 the account-bound ACK before clearing its intent and navigating away.
+
+`signatureHistory.ts` prepares the exact ERC-3009 signed-content record;
+`submission.ts` still owns its authorized commit immediately before relay state
+publication. The history helper does not sign, store a returned signature, or submit.
+
+`signatureHistory.ts` prepares the exact ERC-3009 typed-data projection for
+encrypted signature history. Submission retains ownership of authorization and
+record commit; the helper never stores returned signature bytes or submits.

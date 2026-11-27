@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertDialog,
+  AlertDialogOverlay,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter,
   HStack,
   VStack,
   Text,
@@ -31,7 +37,10 @@ import {
 } from "@/components/ui";
 import { SettingsScreenFrame } from "./SettingsScreenFrame";
 
+import { activityMessage } from "@/components/SignatureHistory/useSignatureHistory";
+
 interface Props {
+  kind: "transaction" | "signature";
   onBack: () => void;
 }
 
@@ -54,43 +63,57 @@ function accountTypeLabel(account: Account): string {
   }
 }
 
-function ClearTxHistoryScreen({ onBack }: Props) {
+function ClearHistoryScreen({ kind, onBack }: Props) {
   const toast = useThemedToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [txCounts, setTxCounts] = useState<Map<string, number>>(new Map());
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      new Promise<Account[]>((resolve) => {
-        chrome.runtime.sendMessage({ type: "getAccounts" }, (resp) => {
-          resolve(Array.isArray(resp) ? (resp as Account[]) : []);
-        });
-      }),
-      new Promise<CompletedTransaction[]>((resolve) => {
-        chrome.runtime.sendMessage({ type: "getTxHistory" }, (resp) => {
-          resolve(Array.isArray(resp) ? (resp as CompletedTransaction[]) : []);
-        });
-      }),
-    ]).then(([accs, history]) => {
-      if (cancelled) return;
-      const counts = new Map<string, number>();
-      for (const tx of history) {
-        const addr = tx.tx.from.toLowerCase();
-        counts.set(addr, (counts.get(addr) ?? 0) + 1);
+    async function load() {
+      try {
+        const [accounts, owners] = await Promise.all([
+          chrome.runtime.sendMessage({ type: "getAccounts" }) as Promise<
+            Account[]
+          >,
+          kind === "signature"
+            ? activityMessage<{ entries: { ownerAddress: string }[] }>({
+                type: "getSignatureHistory",
+              }).then(({ entries }) =>
+                entries.map((entry) => entry.ownerAddress),
+              )
+            : chrome.runtime
+                .sendMessage({ type: "getTxHistory" })
+                .then((history: CompletedTransaction[]) =>
+                  history.map((entry) => entry.tx.from),
+                ),
+        ]);
+        if (cancelled) return;
+        const counts = new Map<string, number>();
+        for (const owner of owners) {
+          const address = owner.toLowerCase();
+          counts.set(address, (counts.get(address) ?? 0) + 1);
+        }
+        setAccounts(accounts);
+        setCounts(counts);
+      } catch {
+        if (!cancelled) setError("Could not load history.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setAccounts(accs);
-      setTxCounts(counts);
-      setLoading(false);
-    });
-
+    }
+    void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [kind]);
 
   const allIds = useMemo(() => accounts.map((a) => a.id), [accounts]);
   const allSelected =
@@ -111,51 +134,62 @@ function ClearTxHistoryScreen({ onBack }: Props) {
     else setSelectedIds(new Set(allIds));
   };
 
-  const handleDelete = () => {
-    if (selectedIds.size === 0) return;
+  const handleDelete = async () => {
+    if (!confirming || submitting || !selectedIds.size) return;
     setSubmitting(true);
-
-    const selectedAccounts = accounts.filter((a) => selectedIds.has(a.id));
-    const totalCleared = selectedAccounts.reduce(
-      (sum, a) => sum + (txCounts.get(a.address.toLowerCase()) ?? 0),
-      0,
-    );
-
-    // When every account is selected, fall back to the full-wipe path so
-    // orphaned history (txs whose sender no longer maps to any account) is
-    // also removed. Otherwise filter by the chosen sender addresses.
-    const message = allSelected
-      ? { type: "clearTxHistory" }
-      : {
-          type: "clearTxHistoryForAddresses",
-          addresses: selectedAccounts.map((a) => a.address),
-        };
-
-    chrome.runtime.sendMessage(message, () => {
-      setSubmitting(false);
+    const addresses = [
+      ...new Set(
+        accounts
+          .filter((a) => selectedIds.has(a.id))
+          .map((a) => a.address.toLowerCase()),
+      ),
+    ];
+    try {
+      if (kind === "signature" && !allSelected) {
+        for (const ownerAddress of addresses) {
+          await activityMessage({
+            type: "clearSignatureHistory",
+            filter: { ownerAddress },
+          });
+        }
+      } else if (kind === "signature") {
+        await activityMessage({ type: "clearSignatureHistory" });
+      } else {
+        await activityMessage(
+          allSelected
+            ? { type: "clearTxHistory" }
+            : { type: "clearTxHistoryForAddresses", addresses },
+        );
+      }
       toast({
         title:
-          totalCleared > 0
-            ? `Cleared ${totalCleared} transaction${totalCleared === 1 ? "" : "s"}`
+          kind === "signature"
+            ? "Signature history cleared"
             : "Transaction history cleared",
         status: "success",
-        duration: 2000,
-        isClosable: true,
       });
       onBack();
-    });
+    } catch {
+      toast({ title: "Could not finish clearing history", status: "error" });
+    } finally {
+      setSubmitting(false);
+      setConfirming(false);
+    }
   };
+  const accountScope = allSelected
+    ? "all accounts"
+    : `${selectedIds.size} selected account${selectedIds.size === 1 ? "" : "s"}`;
 
   return (
     <SettingsScreenFrame
-      title="Clear transaction history"
+      title={`Clear ${kind} history`}
       onBack={() => {
         if (!submitting) onBack();
       }}
       primaryAction={
         <Button
           variant="danger"
-          onClick={handleDelete}
+          onClick={() => setConfirming(true)}
           isDisabled={selectedIds.size === 0 || loading}
           isLoading={submitting}
           loadingText="Deleting..."
@@ -167,17 +201,14 @@ function ClearTxHistoryScreen({ onBack }: Props) {
       }
     >
       <VStack spacing={5} align="stretch">
-        <Text fontSize="sm" color="fg.secondary" lineHeight="1.5">
-          Select the accounts whose local activity you want to delete. This
-          does not affect transactions onchain and cannot be undone.
-        </Text>
-
         {loading ? (
           <ListSurface aria-label="Loading accounts">
             <SkeletonRow />
             <SkeletonRow />
             <SkeletonRow />
           </ListSurface>
+        ) : error ? (
+          <Text role="alert">{error}</Text>
         ) : accounts.length === 0 ? (
           <EmptyState>
             <EmptyStateMedia>
@@ -186,12 +217,12 @@ function ClearTxHistoryScreen({ onBack }: Props) {
             <EmptyStateHeader>
               <EmptyStateTitle>No accounts found</EmptyStateTitle>
               <EmptyStateDescription>
-                Add an account before managing its transaction history.
+                Add an account before managing its {kind} history.
               </EmptyStateDescription>
             </EmptyStateHeader>
           </EmptyState>
         ) : (
-          <ListSurface aria-label="Accounts with transaction history">
+          <ListSurface aria-label={`Accounts with ${kind} history`}>
             <ListItem density="compact" bg="surface.sunken">
               <Checkbox
                 isChecked={allSelected}
@@ -203,7 +234,11 @@ function ClearTxHistoryScreen({ onBack }: Props) {
                   <Text fontSize="sm" fontWeight="600">
                     Select all accounts
                   </Text>
-                  <Text fontSize="xs" color="fg.muted" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                  <Text
+                    fontSize="xs"
+                    color="fg.muted"
+                    sx={{ fontVariantNumeric: "tabular-nums" }}
+                  >
                     {selectedIds.size}/{accounts.length}
                   </Text>
                 </HStack>
@@ -212,8 +247,9 @@ function ClearTxHistoryScreen({ onBack }: Props) {
 
             {accounts.map((account) => {
               const checked = selectedIds.has(account.id);
-              const count = txCounts.get(account.address.toLowerCase()) ?? 0;
-              const primary = account.displayName || truncateAddress(account.address);
+              const count = counts.get(account.address.toLowerCase()) ?? 0;
+              const primary =
+                account.displayName || truncateAddress(account.address);
               const showAddrLine = !!account.displayName;
               const blockieSrc = blo(account.address as `0x${string}`);
 
@@ -244,11 +280,18 @@ function ClearTxHistoryScreen({ onBack }: Props) {
                     </ListItemTitle>
                     <ListItemDescription noOfLines={1}>
                       {accountTypeLabel(account)}
-                      {showAddrLine ? ` · ${truncateAddress(account.address)}` : ""}
+                      {showAddrLine
+                        ? ` · ${truncateAddress(account.address)}`
+                        : ""}
                     </ListItemDescription>
                   </ListItemContent>
                   <ListItemMeta whiteSpace="nowrap">
-                    {count} tx
+                    {count}{" "}
+                    {kind === "transaction"
+                      ? "tx"
+                      : count === 1
+                        ? "signature"
+                        : "signatures"}
                   </ListItemMeta>
                 </ListItem>
               );
@@ -256,8 +299,42 @@ function ClearTxHistoryScreen({ onBack }: Props) {
           </ListSurface>
         )}
       </VStack>
+      <AlertDialog
+        isOpen={confirming}
+        leastDestructiveRef={cancelRef}
+        onClose={() => !submitting && setConfirming(false)}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader fontSize="md">
+              Clear {kind} history?
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              Permanently delete local {kind} history for {accountScope}?
+            </AlertDialogBody>
+            <AlertDialogFooter gap={2}>
+              <Button
+                ref={cancelRef}
+                variant="secondary"
+                isDisabled={submitting}
+                onClick={() => setConfirming(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                isLoading={submitting}
+                onClick={() => void handleDelete()}
+              >
+                Clear history
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </SettingsScreenFrame>
   );
 }
 
-export default ClearTxHistoryScreen;
+export default ClearHistoryScreen;

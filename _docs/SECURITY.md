@@ -1610,6 +1610,7 @@ accessible resources.
 | `seedGroups`               | No               | Seed group metadata (names, counts)                     |
 | `accounts`                 | No               | Account metadata (addresses, names, types)              |
 | `tabAccounts`              | No               | Device-local tab-to-account preferences; migrated from the read-only legacy sync value |
+| `tabAccounts` | No | Device-local tab-to-account-ID selections; copy-once migration from the legacy sync map, no signing authority. |
 | `ledgerDevices`            | No               | Public Ledger label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport secret or private key |
 | `trezorDevices`            | No               | Public Trezor label/model metadata keyed by the canonical public address at `m/44'/60'/0'/0/0`; no transport/session identifier, PIN, passphrase, or private key |
 | `addressContacts`          | No               | Local-only user labels for public EVM addresses         |
@@ -1669,7 +1670,7 @@ accessible resources.
 | `networksInfo`                                         | Runtime active RPC plus hidden/custom metadata; service-worker-owned mutations |
 | `activeAccountId`                                      | Active account ID                    |
 | `autoLockTimeout`                                      | Auto-lock timeout (ms)               |
-| `tabAccounts`                                          | Legacy read-only source for the device-local tab map |
+| `tabAccounts` | Legacy read-only migration source; current overrides are device-local |
 | `sidePanelMode` / `isArcBrowser`                       | Active UI windowing settings         |
 | `sidePanelVerified`                                    | Released legacy field; retained/reset for compatibility but not read by runtime windowing |
 | `hidePortfolioValue`                                   | Boolean - hide/show token USD values |
@@ -3114,6 +3115,37 @@ are display metadata, not protocol identity or authorization. Opaque appData is
 never fetched/interpreted. No signature input, backend authorization, secret,
 message route or persisted shape changes. Existing five-signer, master/agent,
 Safe/view-only and final-release policies remain authoritative.
+
+### Signed message history boundary
+
+`walletchan-history` v4 adds encrypted `signatures`/`signatureAccounts` and
+non-secret `signatureState` stores. Account address/type are encrypted once per
+account; each encrypted signature repeats its ID, account reference and timestamp.
+Reads check these against public envelope indexes and verify the encrypted shared
+account ID/address against the signature reference/owner index. Ciphertext movement between rows fails integrity checks.
+No returned signature, private key, seed, device/path binding, API credential or
+session token is added to history. Message content itself can be sensitive.
+Maximum plaintext entry size is 768 KiB (within the vault decrypt bound); encrypted
+rows plus shared metadata have a 25 MiB / 10,000-signature retention budget with visible prune accounting.
+
+Generic release preserves the wallet-secret lock, pinned account/hardware,
+external typed-data, origin/topic/credential and reset/effect-lease gates.
+History persistence repeats live session-key/auth-epoch checks; authority is
+rechecked after asynchronous recording and discarded releases remove their rows.
+A database/encryption failure blocks release instead of silently losing history.
+A durable authorized record does not prove delivery after worker interruption.
+Internal Safe/grant/sponsored/UserOperation records use their owning authority
+boundaries and never bypass feature-specific signer support.
+
+The activity history messages are wallet-UI-only and require a current unlocked
+session; decryption/export rechecks auth epoch, vault-key identity and expiry
+before returning plaintext. Master and agent sessions can inspect/export activity;
+this does not grant secret reveal. Export projects explicit transaction fields,
+excluding raw transaction bytes, calldata, authorization lists, internal recovery
+records and credentials. React renders signed content as escaped text, and UI
+copy/download requires user action. JSON contains decrypted private activity.
+Reset clears all three signature stores; transaction-history clearing leaves them alone.
+Password rotation preserves the general key, so signatures need no re-encryption.
 
 ### Device-local tab selection
 

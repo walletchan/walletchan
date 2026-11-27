@@ -1,4 +1,4 @@
-import { encodeMetaMaskDeleGatorCalls, getMetaMaskUserOperationTypedData } from "../../src/chrome/feePayment/userOperation";
+import { encodeMetaMaskDeleGatorCalls, getUserOperationTypedData } from "../../src/chrome/feePayment/userOperation";
 import { buildSafeTransactionTypedData } from "../../src/chrome/safe/transactionHash";
 
 export function safeTransactionTypedData(safeAddress: `0x${string}`) {
@@ -17,7 +17,7 @@ export function safeTransactionTypedData(safeAddress: `0x${string}`) {
 }
 
 export function accountExecutionTypedData(sender: `0x${string}`) {
-  const data = getMetaMaskUserOperationTypedData({
+  const data = getUserOperationTypedData({
     sender, nonce: "0x0",
     callData: encodeMetaMaskDeleGatorCalls(sender, [{
       to: "0x2222222222222222222222222222222222222222", value: 1n, data: "0x",

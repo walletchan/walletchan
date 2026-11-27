@@ -217,8 +217,7 @@ export function getSignatureIntent({
   if (isSiwe) {
     return {
       title: `Sign in to ${originHostname}`,
-      description:
-        "This proves control of your wallet without sending a transaction.",
+      description: "",
     };
   }
 

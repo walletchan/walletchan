@@ -1,3 +1,5 @@
+import { assertSignatureHistorySession, prepareSignatureHistory, commitSignatureHistory, discardSignatureHistory } from "../signatureHistory/repository";
+import { pendingSignatureHistoryEntry } from "../signatureHistory/model";
 import {
   beginPendingRequestEffectLease,
   guardPendingRequestEffectLease,
@@ -103,6 +105,7 @@ async function handleConfirmHardwareSignatureRequest(
         effectGuard.settleEffect();
         throw error;
       }
+      const history = await prepareSignatureHistory(pendingSignatureHistoryEntry(pending, account));
       const finalAuthorization = await revalidatePendingSignatureBeforeRelease(
         pending,
         provider,
@@ -110,19 +113,23 @@ async function handleConfirmHardwareSignatureRequest(
           deviceId: account.deviceId,
           hdPath: account.hdPath,
         },
+        () => commitSignatureHistory(history),
       );
       if (!finalAuthorization.authorized) {
+        await discardSignatureHistory(history.id);
         // Signing finished but authority moved: terminalize the request so the
         // background publishes the rejection instead of leaving the dapp waiting.
         await removePendingSignatureRequest(sigId);
         return { success: false, error: finalAuthorization.error };
       }
       await removePendingSignatureRequest(sigId);
+      assertSignatureHistorySession(history);
       return { success: true, signature };
     } finally {
       effectGuard.releaseIfSafe();
     }
   } catch (error) {
+    await discardSignatureHistory(`request:${sigId}`).catch(() => {});
     return {
       success: false,
       error:

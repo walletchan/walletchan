@@ -1,3 +1,5 @@
+import { prepareSignatureHistory, commitSignatureHistory, discardSignatureHistory } from "../signatureHistory/repository";
+import { typedDataHistoryEntry } from "../signatureHistory/model";
 /** Master-only approval and first-action-safe rejection of permission prompts. */
 
 import { assertErc7715PermissionEditIsAllowed } from "@/lib/erc7715PermissionEditing";
@@ -106,6 +108,10 @@ export async function handleConfirmErc7715PermissionRequest(
         delegationManager: ERC7710_DELEGATION_MANAGER,
       };
 
+      const history = await prepareSignatureHistory(typedDataHistoryEntry({
+        id: `permission:${requestId}`, account, origin: pending.senderOrigin ?? pending.origin,
+        source: "injected", chainId: pending.chainId, typedData, kind: "permission",
+      }));
       const finalAuthorization =
         await enforcePendingRequestAuthorizationAtConfirmation(
           "erc7715Permission",
@@ -126,8 +132,9 @@ export async function handleConfirmErc7715PermissionRequest(
           accountType: pending.accountType,
         },
         loadAccount: getAccountById,
-        commit: () =>
-          commitErc7715PermissionGrantApproval({
+        commit: async () => {
+          await commitSignatureHistory(history);
+          return commitErc7715PermissionGrantApproval({
             grant: {
               id: `${pending.origin}:${pending.accountId}:${pending.chainId}:${contextHash}`,
               origin: pending.origin,
@@ -152,13 +159,15 @@ export async function handleConfirmErc7715PermissionRequest(
             requestId,
             result,
             expectedMasterAuthEpoch,
-          }),
+          });
+        },
       });
       await writeErc7715PermissionResult(requestId, result).catch((error) => {
         console.warn("[erc7715] Grant committed; result bridge deferred", error);
       });
       return result;
     } catch (error) {
+      await discardSignatureHistory(`permission:${requestId}`).catch(() => {});
       await removePendingErc7715PermissionRequest(requestId);
       const result: Erc7715PermissionResult = {
         success: false,

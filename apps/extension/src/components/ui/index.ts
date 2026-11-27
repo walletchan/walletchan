@@ -11,3 +11,4 @@ export * from "./ListSurface";
 export * from "./OutcomeCard";
 export * from "./SkeletonRow";
 export * from "./StickyActionBar";
+export * from "./OverflowMenuIcon";

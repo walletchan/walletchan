@@ -4170,11 +4170,10 @@ chrome.runtime.onMessage.addListener((message) => {
 
 ### Clear History
 
-Users can clear transaction history via Settings:
+Settings → Data and privacy has separate entries for clearing transaction and
+signature history. Both use the same account checklist. The confirmation dialog
+names the history type and account scope, with initial focus on Cancel.
 
-- Navigate to Settings → "Clear Transaction History"
-- Confirmation modal prevents accidental deletion
-- Message: "This will permanently delete all transaction records. This action cannot be undone."
 
 ## ERC-5792 Bundle Status Storage
 
@@ -7705,6 +7704,64 @@ Tests: `tests/ensBrowsing/recipientHistory.test.ts`,
 script uses synthetic resolution/history and covers all four signing account
 props, both themes, narrow layout, unavailable and stale responses; it does not
 replace live subgraph verification or real Ledger signing QA.
+
+### Signed message history and activity export
+
+`chrome/signatureHistory/` owns encrypted off-chain signing history. The shared
+`walletchan-history` database upgrades additively to v4 with `signatures`,
+`signatureAccounts` and `signatureState` stores; existing transaction and transfer rows are preserved.
+Generic private-key/seed, Bankr and shared Ledger/Trezor confirmation handlers
+prepare exact signed-content records after signing, then commit inside the final
+wallet-secret release check. Account/hardware bindings and external typed-data
+policy are checked before writing, with origin/topic/credential authority checked
+before and after the write. Session-key/epoch checks reject lock or auth changes.
+Failed/cancelled/discarded signatures do not leave successful history records.
+The existing pending-request effect lease remains held through recording/release.
+A record means the signature was created and authorized for release, not that a
+dapp received it; MV3 termination between record and result publication cannot
+prove delivery. The history is not a provider-response recovery outbox.
+
+Safe owner approval records are attributed to the actual signing owner. ERC-7715
+grant commits, sponsored ERC-3009 release and fee-paid UserOperation broadcast
+also record exact typed-data projections in their owning boundaries. Ordinary
+transaction envelopes/EIP-7702 transaction authorizations stay in transaction
+history. Externally created remote-agent signatures are unobservable.
+
+The general vault key encrypts signature content (including origin/message) and
+shared account metadata. A signature keeps an account ID reference; address/type
+are hydrated from one encrypted account record. Encrypted ID/reference/time and
+account ID/address are bound to public indexes on read. Metadata is decrypted once
+per account per read. No released signature format predates this feature.
+Raw returned signature bytes are never added. Writes are idempotent by operation
+ID, retain 10,000 rows / 25 MiB, and record prune count and recording start.
+Explicit signature clear preserves coverage state; wallet reset clears all three
+signature stores independently of transaction-history clearing.
+
+Settings uses `getActivityHistorySummary` to count indexed transactions plus matching
+Safe proposals for the export filters. This route and `getSignatureHistory`,
+`clearSignatureHistory` and `exportActivity` are wallet-UI-only,
+are composed through the status router and fail closed while locked. JSON export
+uses account/date filters, schema v2 with `accounts[accountId]` containing
+address/type once and nested signatures, plus explicit transaction fields;
+it excludes full calldata, raw transactions, authorization lists and credentials.
+The public Activity wrapper retains the transaction ledger while switching to
+Signatures. Settings → Data and privacy → Activity History owns JSON download
+and confirmed clearing. Tests: `tests/history/signatureHistory.test.ts`, the
+all-signer confirmation suite, and `scripts/signature-history-qa.mjs`.
+
+History reads/clear use the shared cold-session restoration primitive only when
+the general vault-key capability is absent. Export obtains this through the
+history read, then captures its final session epoch/key. Restoration never
+bypasses manual lock, expiry or factor policy.
+
+Exports also include a `safeTransactions` array of local/imported Safe proposal
+metadata so Safe Activity is covered independently of the gas-paying EOA history.
+It excludes collected signatures and full call data and filters by Safe address.
+
+
+Signature pruning/clear/discard atomically remove unreferenced account metadata.
+The existing 25 MiB retention budget includes shared metadata once per account;
+individual signature rows remain independently writable and operation-idempotent.
 
 ### Dapp connection sync-quota recovery
 

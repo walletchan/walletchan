@@ -1,4 +1,4 @@
-import { Box, Text, VStack } from "@chakra-ui/react";
+import { Box, VStack } from "@chakra-ui/react";
 import { AppHeader, AppScreen, ListSurface, ScreenBody } from "@/components/ui";
 import { SettingsRowListProvider } from "./SettingsRow";
 import { LEAF_ENTRIES, renderLeafRow, type RowContext } from "./settingsRegistry";
@@ -14,11 +14,8 @@ function DataSettings({ onBack, ctx }: Props) {
     <Box flex="1 1 auto" minH={0} mx={-4} my={-4} w="calc(100% + 2rem)" h="calc(100% + 2rem)">
       <AppScreen>
         <AppHeader title="Data and privacy" onBack={onBack} />
-        <ScreenBody pb={6}>
+        <ScreenBody pt={4} pb={6}>
           <VStack align="stretch" spacing={4}>
-            <Text fontSize="sm" color="fg.secondary">
-              Manage local history and cached transaction state.
-            </Text>
             <ListSurface aria-label="Data settings">
               <SettingsRowListProvider>
                 {entries.map((entry) => renderLeafRow(entry.id, ctx))}

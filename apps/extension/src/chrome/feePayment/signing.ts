@@ -2,7 +2,7 @@ import { signMessageViaApi } from "../bankr/signing";
 import type { Account } from "../types";
 import type { Hex, PackedUserOperationV07 } from "./pimlicoTypes";
 import {
-  getMetaMaskUserOperationTypedData,
+  getUserOperationTypedData,
   signMetaMaskUserOperation,
 } from "./userOperation";
 
@@ -56,7 +56,7 @@ export async function signPreparedUserOperation(
     [
       signer.account.address,
       jsonSafeTypedData(
-        getMetaMaskUserOperationTypedData(userOperation, chainId),
+        getUserOperationTypedData(userOperation, chainId),
       ),
     ],
   );

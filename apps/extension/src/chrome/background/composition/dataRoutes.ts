@@ -1,3 +1,4 @@
+import { clearSignatureDatabase } from "../../signatureHistory/database";
 /** Read-only data, chat, clear-signing, and destructive reset route wiring. */
 
 import {
@@ -161,6 +162,7 @@ export function composeDataRoutes(pending: PendingResolutionComposition) {
     clearHistoryState: async () => {
       await Promise.all([
         clearHistoryDatabase(),
+        clearSignatureDatabase(undefined, true),
         clearHistoryNftMetadataCache(),
       ]);
     },
