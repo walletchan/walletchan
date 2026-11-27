@@ -284,6 +284,7 @@ export function SafeProposalConfirmation({
         <CopyButton
           label="Copy Safe transaction JSON"
           value={JSON.stringify(proposal.calls.map((call) => ({
+            from: safeAccount.address,
             to: call.to,
             value: call.value,
             data: call.data,

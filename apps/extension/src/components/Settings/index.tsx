@@ -1,3 +1,4 @@
+import ActivityExportSettings from "@/components/SignatureHistory/ActivityExportSettings";
 import { useState, useEffect, useRef, memo } from "react";
 import { useDisclosure } from "@chakra-ui/react";
 import { useThemedToast } from "@/hooks/useThemedToast";
@@ -19,7 +20,7 @@ import SecuritySettings from "./SecuritySettings";
 import PrivacyRecoverySettings from "./PrivacyRecoverySettings";
 import DataSettings from "./DataSettings";
 import AboutSettings from "./AboutSettings";
-import ClearTxHistoryScreen from "./ClearTxHistoryScreen";
+import ClearHistoryScreen from "./ClearHistoryScreen";
 import ExplorerEnhancementsSettings, { ExplorerEnhancementsSettingsRow } from "./ExplorerEnhancementsSettings";
 import { SettingsMain } from "./SettingsMain";
 import { SettingsRow } from "./SettingsRow";
@@ -38,24 +39,8 @@ import {
   LinkChainIcon,
   AccountsIcon,
 } from "./icons";
-export type SettingsTab =
-  | "main"
-  | "about"
-  | "security"
-  | "data"
-  | "chains"
-  | "changePassword"
-  | "autoLock"
-  | "agentPassword"
-  | "biometricUnlock"
-  | "privacyRecovery"
-  | "appearance"
-  | "accounts"
-  | "sounds"
-  | "explorerEnhancements"
-  | "ensBrowsing"
-  | "clearSigning"
-  | "clearTxHistory";
+export type { SettingsTab } from "./types";
+import type { SettingsTab } from "./types";
 
 interface SettingsProps {
   close: () => void;
@@ -277,10 +262,14 @@ function Settings({
     body = <SecuritySettings onBack={() => setTab("main")} ctx={rowCtx} />;
   } else if (tab === "data") {
     body = <DataSettings onBack={() => setTab("main")} ctx={rowCtx} />;
-  } else if (tab === "clearTxHistory") {
+  } else if (tab === "activityHistory") {
+    body = <ActivityExportSettings onBack={() => returnFromLeaf("activityHistory")} />;
+  } else if (tab === "clearTxHistory" || tab === "clearSignatureHistory") {
     body = (
-      <ClearTxHistoryScreen
-        onBack={() => returnFromLeaf("clearTxHistory")}
+      <ClearHistoryScreen
+        key={tab}
+        kind={tab === "clearTxHistory" ? "transaction" : "signature"}
+        onBack={() => returnFromLeaf(tab)}
       />
     );
   } else {

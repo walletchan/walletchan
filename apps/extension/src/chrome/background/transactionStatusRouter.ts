@@ -1,3 +1,10 @@
+export { ACTIVITY_HISTORY_ROUTES } from "../signatureHistory/export";
+import { parseHistoryFilter } from "../signatureHistory/export";
+import type {
+  getSignatureHistory,
+  clearSignatureHistory,
+} from "../signatureHistory/repository";
+import type { exportActivity, getActivityHistorySummary } from "../signatureHistory/export";
 /** Trusted-UI transport for transaction history, processing, and receipt state. */
 
 export const BACKGROUND_TRANSACTION_STATUS_MESSAGE_TYPES = [
@@ -5,6 +12,10 @@ export const BACKGROUND_TRANSACTION_STATUS_MESSAGE_TYPES = [
   "getFailedTxResult",
   "clearFailedTxResult",
   "getTxHistory",
+  "getSignatureHistory",
+  "getActivityHistorySummary",
+  "clearSignatureHistory",
+  "exportActivity",
   "getTxHistoryPage",
   "getSendRecipientReferences",
   "getTxHistoryItem",
@@ -21,10 +32,13 @@ export const BACKGROUND_TRANSACTION_STATUS_MESSAGE_TYPES = [
 ] as const;
 
 export type BackgroundTransactionStatusRouteResult =
-  | { handled: false }
-  | { handled: true; keepChannelOpen: boolean };
+  { handled: false } | { handled: true; keepChannelOpen: boolean };
 
 type Dependencies = {
+  getActivityHistorySummary: typeof getActivityHistorySummary;
+  getSignatureHistory: typeof getSignatureHistory;
+  clearSignatureHistory: typeof clearSignatureHistory;
+  exportActivity: typeof exportActivity;
   handleCancelProcessingTx: (txId: string) => Promise<any>;
   failedTxResults: Map<string, any>;
   removeLocalStorage: (key: string) => void;
@@ -65,6 +79,32 @@ export function createBackgroundTransactionStatusMessageRouter(
 ) => BackgroundTransactionStatusRouteResult {
   return (message, sendResponse) => {
     switch (message?.type) {
+      case "getActivityHistorySummary":
+      case "getSignatureHistory":
+      case "clearSignatureHistory":
+      case "exportActivity": {
+        void (async () => {
+          const filter = parseHistoryFilter(message.filter);
+          if (message.type === "getActivityHistorySummary") return dependencies.getActivityHistorySummary(filter);
+          if (message.type === "getSignatureHistory")
+            return dependencies.getSignatureHistory(filter);
+          if (message.type === "exportActivity")
+            return dependencies.exportActivity(filter);
+          return dependencies.clearSignatureHistory(filter.ownerAddress);
+        })()
+          .then((data) => sendResponse({ success: true, data }))
+          .catch((error) =>
+            sendResponse({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Could not access activity history",
+            }),
+          );
+        return HANDLED_ASYNC;
+      }
+
       case "cancelProcessingTx": {
         dependencies.handleCancelProcessingTx(message.txId).then(sendResponse);
         return HANDLED_ASYNC;
@@ -84,7 +124,9 @@ export function createBackgroundTransactionStatusMessageRouter(
 
       case "clearFailedTxResult": {
         dependencies.failedTxResults.delete(message.notificationId);
-        dependencies.removeLocalStorage(`notification-${message.notificationId}`);
+        dependencies.removeLocalStorage(
+          `notification-${message.notificationId}`,
+        );
         sendResponse({ success: true });
         return HANDLED_SYNC;
       }
@@ -95,39 +137,61 @@ export function createBackgroundTransactionStatusMessageRouter(
       }
 
       case "getSendRecipientReferences": {
-        dependencies.getSendRecipientReferences()
+        dependencies
+          .getSendRecipientReferences()
           .then((references) => sendResponse({ success: true, references }))
-          .catch(() => sendResponse({ success: false, error: "Could not check local recipients" }));
+          .catch(() =>
+            sendResponse({
+              success: false,
+              error: "Could not check local recipients",
+            }),
+          );
         return HANDLED_ASYNC;
       }
 
       case "getTxHistoryPage": {
-        dependencies.getTxHistoryPage({
-          ownerAddress:
-            typeof message.ownerAddress === "string" ? message.ownerAddress : undefined,
-          chainId: Number.isSafeInteger(message.chainId) ? message.chainId : null,
-          cursor: message.cursor ?? null,
-          limit: Number.isSafeInteger(message.limit) ? message.limit : undefined,
-        }).then(sendResponse);
+        dependencies
+          .getTxHistoryPage({
+            ownerAddress:
+              typeof message.ownerAddress === "string"
+                ? message.ownerAddress
+                : undefined,
+            chainId: Number.isSafeInteger(message.chainId)
+              ? message.chainId
+              : null,
+            cursor: message.cursor ?? null,
+            limit: Number.isSafeInteger(message.limit)
+              ? message.limit
+              : undefined,
+          })
+          .then(sendResponse);
         return HANDLED_ASYNC;
       }
 
       case "getTxHistoryItem": {
-        dependencies.getTxHistoryItem(String(message.txId || "")).then(sendResponse);
+        dependencies
+          .getTxHistoryItem(String(message.txId || ""))
+          .then(sendResponse);
         return HANDLED_ASYNC;
       }
 
       case "getTransactionCalldata": {
-        dependencies.getTransactionCalldata(String(message.txId || "")).then(sendResponse);
+        dependencies
+          .getTransactionCalldata(String(message.txId || ""))
+          .then(sendResponse);
         return HANDLED_ASYNC;
       }
 
       case "resolveHistoryNftMetadata": {
-        dependencies.resolveHistoryNftMetadata({
-          txId: String(message.txId || ""),
-          leg: message.leg === "destination" ? "destination" : "source",
-          nftIndex: Number.isSafeInteger(message.nftIndex) ? message.nftIndex : -1,
-        }).then(sendResponse);
+        dependencies
+          .resolveHistoryNftMetadata({
+            txId: String(message.txId || ""),
+            leg: message.leg === "destination" ? "destination" : "source",
+            nftIndex: Number.isSafeInteger(message.nftIndex)
+              ? message.nftIndex
+              : -1,
+          })
+          .then(sendResponse);
         return HANDLED_ASYNC;
       }
 
@@ -170,11 +234,7 @@ export function createBackgroundTransactionStatusMessageRouter(
 
       case "checkPendingTxReceipt": {
         dependencies
-          .checkPendingTxReceipt(
-            message.txId,
-            message.txHash,
-            message.chainId,
-          )
+          .checkPendingTxReceipt(message.txId, message.txHash, message.chainId)
           .then((result) => {
             sendResponse({ status: result });
           });

@@ -14,6 +14,9 @@ export interface FormatAbsoluteOptions {
   includeYear?: boolean;
   /** Separator between date and time. Default: ", ". */
   separator?: string;
+  /** Qualify expiry times using the viewer's local timezone. */
+  includeTimeZone?: boolean;
+  includeSeconds?: boolean;
 }
 
 export function formatAbsoluteTimestamp(
@@ -32,6 +35,8 @@ export function formatAbsoluteTimestamp(
     const timePart = date.toLocaleTimeString(undefined, {
       hour: "numeric",
       minute: "2-digit",
+      ...(opts.includeSeconds ? { second: "2-digit" as const } : {}),
+      ...(opts.includeTimeZone ? { timeZoneName: "shortOffset" as const } : {}),
     });
     return `${datePart}${opts.separator ?? ", "}${timePart}`;
   } catch {

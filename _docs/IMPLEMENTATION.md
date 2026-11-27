@@ -3863,7 +3863,14 @@ The animation shows:
 - "Your transaction has been submitted" subtext
 - Auto-closes popup after 1 second
 
-In sidepanel mode, the view navigates back immediately without the animation (sidepanel stays open for further interactions).
+Sidepanel and fullscreen confirmation views return to Activity after submission.
+`app/hooks/useResolvedTransactionNavigation.ts` also reconciles the selected
+transaction against fresh local pending-request storage on mount, storage
+changes, focus, and visibility restoration. A request resolved in another
+renderer follows the existing confirmation navigation callback, with Activity
+selection taking precedence over earlier Assets selections. Read failures do
+not imply resolution, and disposed/stale reads cannot navigate a newer review.
+Popup success animations retain their existing lifecycle.
 
 ### Receipt Polling & Flashblocks
 
@@ -4091,7 +4098,7 @@ Any helper that reads a `chrome.storage` array/map/object, mutates it, and
 writes the full value back must serialize that key through
 the stable `src/chrome/storageLock.ts` facade. `storage/lock.ts` owns the one
 shared in-process queue. Use a lock key that includes the storage area and
-storage key (for example `local:pendingTxRequests` or `sync:tabAccounts`) so
+storage key (for example `local:pendingTxRequests` or `local:tabAccounts`) so
 unrelated stores can still write in parallel while same-key read-modify-write
 operations cannot clobber each other.
 
@@ -4163,11 +4170,10 @@ chrome.runtime.onMessage.addListener((message) => {
 
 ### Clear History
 
-Users can clear transaction history via Settings:
+Settings → Data and privacy has separate entries for clearing transaction and
+signature history. Both use the same account checklist. The confirmation dialog
+names the history type and account scope, with initial focus on Cancel.
 
-- Navigate to Settings → "Clear Transaction History"
-- Confirmation modal prevents accidental deletion
-- Message: "This will permanently delete all transaction records. This action cannot be undone."
 
 ## ERC-5792 Bundle Status Storage
 
@@ -4355,6 +4361,11 @@ the locally fixed provider rather than the production backend.
   totals and snapshots.
 - Fresh popup/sidepanel mounts hydrate asynchronously from the reset-aware
   `chrome.storage.local.portfolioHoldingsCache` before the live fetch starts.
+  The fast catalog paint applies hydrated RPC balances before filtering empty
+  rows. Custom-chain native and custom ERC-20 zero placeholders therefore keep
+  their cached holdings during revalidation, including failed RPC reads; a
+  successful zero read still removes the holding. Browser regression coverage:
+  `tests/portfolio/portfolioCachedRpcRefresh.test.ts`.
   Cache V4 is keyed by address plus the visible-chain reload key, capped to four
   entries, limited to 4 MiB total and 1,000 tokens per entry, TTL-pruned after
   24 hours, and treated as optional display data. V3 invalidates older unbounded
@@ -4695,6 +4706,12 @@ continue to fail the main audience gate.
 and EIP-712 messages before the raw decoder/typed-data panel. Descriptor
 resolution is remote-first, local-second:
 
+- The website descriptor API indexes upstream `master` directly from a bounded
+  in-memory archive. Next's persistent Data Cache revalidates that index daily
+  on traffic, retaining the previous successful index on refresh errors and
+  using a committed snapshot on cold failure. New registry deployments require
+  no manual rebuild/redeploy. Existing extension hit/miss TTLs still apply.
+  See `CLEAR_SIGNING.md` for cache timing, limits, and fallback maintenance.
 - `chrome/clearSigningHandlers.ts` is the stable facade over the focused
   `chrome/clearSigning/` audit domain. `descriptorCache.ts` owns the exact v3
   key/schema and 1-day hit / 1-day miss TTL; `descriptorClient.ts` owns the
@@ -4732,6 +4749,18 @@ resolution is remote-first, local-second:
   If the remote registry misses or has no matching format, the ERC-7730 builder
   falls back to the local registry before recording `clearSignedMeta`; builder
   or history-write failures remain optional and never delay transaction flow.
+
+### CoW order clear signing
+
+`lib/clearSigning/cowOrder.ts` owns presentation-only recognition for the reviewed
+Base CoW settlement deployment. Canonical domain/hash, request chain, exact
+Order schema and bounded order semantics must all match before the existing
+clear-signing field renderer pairs amounts with tokens, resolves zero receiver,
+and formats expiry. The local profile takes precedence for CoW-looking orders;
+remote descriptors cannot bypass the guard. Failure preserves generic typed-data
+review. Signed payloads, permissions, password policies and all signer dispatch/
+release gates remain unchanged. See `CLEAR_SIGNING.md` for supported order
+variants, profile scope and QA; other chains currently retain the raw fallback.
 
 ### Typed Data Display
 
@@ -7850,3 +7879,82 @@ collection failure remains a safe policy message across the fee-payment step
 and background response, explaining insufficient tokens remaining after the
 transaction. Unknown provider text/data remains redacted; failed quote
 preparation never signs or submits. See `tests/safeBunker/feeQuoteErrors.test.ts`.
+
+### Signed message history and activity export
+
+`chrome/signatureHistory/` owns encrypted off-chain signing history. The shared
+`walletchan-history` database upgrades additively to v4 with `signatures`,
+`signatureAccounts` and `signatureState` stores; existing transaction and transfer rows are preserved.
+Generic private-key/seed, Bankr and shared Ledger/Trezor confirmation handlers
+prepare exact signed-content records after signing, then commit inside the final
+wallet-secret release check. Account/hardware bindings and external typed-data
+policy are checked before writing, with origin/topic/credential authority checked
+before and after the write. Session-key/epoch checks reject lock or auth changes.
+Failed/cancelled/discarded signatures do not leave successful history records.
+The existing pending-request effect lease remains held through recording/release.
+A record means the signature was created and authorized for release, not that a
+dapp received it; MV3 termination between record and result publication cannot
+prove delivery. The history is not a provider-response recovery outbox.
+
+Safe owner approval records are attributed to the actual signing owner. ERC-7715
+grant commits, sponsored ERC-3009 release and fee-paid UserOperation broadcast
+also record exact typed-data projections in their owning boundaries. Ordinary
+transaction envelopes/EIP-7702 transaction authorizations stay in transaction
+history. Externally created remote-agent signatures are unobservable.
+
+The general vault key encrypts signature content (including origin/message) and
+shared account metadata. A signature keeps an account ID reference; address/type
+are hydrated from one encrypted account record. Encrypted ID/reference/time and
+account ID/address are bound to public indexes on read. Metadata is decrypted once
+per account per read. No released signature format predates this feature.
+Raw returned signature bytes are never added. Writes are idempotent by operation
+ID, retain 10,000 rows / 25 MiB, and record prune count and recording start.
+Explicit signature clear preserves coverage state; wallet reset clears all three
+signature stores independently of transaction-history clearing.
+
+Settings uses `getActivityHistorySummary` to count indexed transactions plus matching
+Safe proposals for the export filters. This route and `getSignatureHistory`,
+`clearSignatureHistory` and `exportActivity` are wallet-UI-only,
+are composed through the status router and fail closed while locked. JSON export
+uses account/date filters, schema v2 with `accounts[accountId]` containing
+address/type once and nested signatures, plus explicit transaction fields;
+it excludes full calldata, raw transactions, authorization lists and credentials.
+The public Activity wrapper retains the transaction ledger while switching to
+Signatures. Settings → Data and privacy → Activity History owns JSON download
+and confirmed clearing. Tests: `tests/history/signatureHistory.test.ts`, the
+all-signer confirmation suite, and `scripts/signature-history-qa.mjs`.
+
+History reads/clear use the shared cold-session restoration primitive only when
+the general vault-key capability is absent. Export obtains this through the
+history read, then captures its final session epoch/key. Restoration never
+bypasses manual lock, expiry or factor policy.
+
+Exports also include a `safeTransactions` array of local/imported Safe proposal
+metadata so Safe Activity is covered independently of the gas-paying EOA history.
+It excludes collected signatures and full call data and filters by Safe address.
+
+
+Signature pruning/clear/discard atomically remove unreferenced account metadata.
+The existing 25 MiB retention budget includes shared metadata once per account;
+individual signature rows remain independently writable and operation-idempotent.
+
+### Dapp connection sync-quota recovery
+
+The released per-tab account map could hit Chrome Sync's per-item size limit
+before a dapp connection prompt was queued. `accounts/tabSelectionRepository.ts`
+now owns device-local `tabAccounts`; the synced global active account and
+address mirrors remain small. Worker startup/update and lazy locked reads copy
+the old map before use, with an existing local map authoritative even when empty.
+The legacy synced copy remains read-only for one release cycle. Existing tab
+choices survive the migration, and a failed copy leaves legacy data unchanged.
+The local reset manifest includes the new location; legacy sync cleanup remains
+in its manifest. No permissions, wallet keys or pending request bindings change.
+Provider account-read failures now return a bounded error instead of leaving an
+unhandled background rejection.
+
+`tests/accounts/tabSelectionStorage.test.ts` covers the 8 KiB boundary, concurrent
+growth, copy failure, stale-source precedence and malformed rows. The production
+`scripts/dapp-tab-quota-qa.mjs` reproduces the original error with
+`--expect-quota-error` against an old build, then verifies migration, account
+selection, injected account reads and explicit connection approval in an isolated
+Chromium profile against the candidate. It never signs or submits.

@@ -38,6 +38,8 @@ export type RenderedValue =
       chainId?: number;
       thresholdRaw?: string;
       thresholdMessage?: string;
+      /** Order limits are amounts, never unlimited allowance sentinels. */
+      allowUnlimited?: boolean;
       tokenMetadata?: TokenMetadataHint;
     }
   | { kind: "amount"; amountRaw: string; chainId?: number; decimals?: number }
@@ -451,6 +453,7 @@ function toRenderedValue(
         chainId: tokenChainId,
         thresholdRaw,
         thresholdMessage,
+        allowUnlimited: params.allowUnlimited !== false,
         tokenMetadata: descriptorTokenMetadata(
           context.descriptor,
           localTokenAddr,

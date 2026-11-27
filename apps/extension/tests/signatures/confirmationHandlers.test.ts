@@ -1,3 +1,4 @@
+import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import assert from "node:assert/strict";
 import { accountExecutionTypedData, safeTransactionTypedData } from "./accountDomainFixture";
 import { INTERNAL_ACCOUNT_TYPED_DATA_ERROR } from "../../src/chrome/eip712Validator";
@@ -47,6 +48,9 @@ function storageArea(storage: StorageRecord) {
 }
 
 test("confirmation preserves all wallet authorities and final release races", async (t) => {
+  const originalIndexedDb = globalThis.indexedDB;
+  const originalKeyRange = globalThis.IDBKeyRange;
+  Object.assign(globalThis, { indexedDB: new IDBFactory(), IDBKeyRange });
   const originalChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   const local: StorageRecord = {
     encryptedApiKeyVault: {
@@ -158,6 +162,9 @@ test("confirmation preserves all wallet authorities and final release races", as
       ],
     });
 
+    const historySession = await viteServer.ssrLoadModule("/src/chrome/sessionCache.ts");
+    const historyRepository = await viteServer.ssrLoadModule("/src/chrome/signatureHistory/repository.ts");
+    const historyKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
     const handlers = await viteServer.ssrLoadModule(
       "/src/chrome/signatures/confirmationHandlers.ts",
     );
@@ -175,6 +182,8 @@ test("confirmation preserves all wallet authorities and final release races", as
     const privateKey = `0x${"01".repeat(32)}`;
 
     const reset = () => {
+      historySession.setCachedVaultKey(historyKey);
+      historySession.setCachedPasswordType("master");
       local.pendingSignatureRequests = [];
       hooks.local = async () => `0x${"aa".repeat(65)}`;
       hooks.bankr = async () => ({ signature: `0x${"bb".repeat(65)}` });
@@ -323,9 +332,11 @@ test("confirmation preserves all wallet authorities and final release races", as
 
     await t.test("imported SafeTx remains reviewable and releasable through all five signer handlers", async () => {
       const safeAddress = "0x3333333333333333333333333333333333333333";
+      for (const passwordType of ["master", "agent"] as const) {
       for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
           reset();
+          historySession.setCachedPasswordType(passwordType);
           const data = safeTransactionTypedData(safeAddress);
           await queue(type, "safe-owner", { signature: { method, params: [address, JSON.stringify(data)], chainId: 1 } });
           (local.accounts as unknown[]).push({ id: "safe", type: "safe", address: safeAddress, createdAt: 1 });
@@ -343,8 +354,44 @@ test("confirmation preserves all wallet authorities and final release races", as
             : await handlers.handleConfirmSignatureRequest("safe-owner", "master-password");
           assert.equal(result.success, true, JSON.stringify(result));
           assert.match(result.signature, /^0x[0-9a-f]+$/);
+          const saved = await historyRepository.getSignatureHistory();
+          const entry = saved.entries.find((entry: {id: string}) => entry.id === "request:safe-owner");
+          assert.ok(entry, `${type} must record successful signing`);
+          assert.equal("signature" in entry, false);
+          await historyRepository.clearSignatureHistory();
         }
       }
+      }
+    });
+
+    await t.test("history write failure prevents release and late auth changes remove the record", async () => {
+      const historyDatabase = await viteServer!.ssrLoadModule("/src/chrome/history/database.ts");
+      const auth = await viteServer!.ssrLoadModule("/src/chrome/authTransition.ts");
+      reset(); hooks.privateKey = privateKey;
+      await queue("privateKey", "history-failure");
+      const db = await historyDatabase.openHistoryDatabase();
+      const originalTransaction = db.transaction;
+      db.transaction = function (...args: any[]) {
+        if (String(args[0]).includes("signatures")) throw new Error("History storage unavailable");
+        return originalTransaction.apply(this, args);
+      };
+      let failed;
+      try { failed = await handlers.handleConfirmSignatureRequest("history-failure", "master-password"); }
+      finally { db.transaction = originalTransaction; }
+      assert.equal(failed.success, false);
+      assert.equal(failed.signature, undefined);
+      reset(); hooks.privateKey = privateKey;
+      await queue("privateKey", "history-auth-race");
+      const originalSend = chrome.runtime.sendMessage;
+      (chrome.runtime as any).sendMessage = async (message: { type: string }) => {
+        if (message.type === "signatureHistoryUpdated") auth.invalidateAuthCeremonies();
+      };
+      let raced;
+      try { raced = await handlers.handleConfirmSignatureRequest("history-auth-race", "master-password"); }
+      finally { chrome.runtime.sendMessage = originalSend; }
+      assert.equal(raced.success, false);
+      assert.equal(raced.signature, undefined);
+      assert.equal((await historyRepository.getSignatureHistory()).entries.some((entry: { id: string }) => entry.id === "request:history-auth-race"), false);
     });
 
     await t.test("Safe delegatecall and refund warnings do not rewrite or block the exact owner signature", async () => {
@@ -602,6 +649,7 @@ test("confirmation preserves all wallet authorities and final release races", as
     });
   } finally {
     await viteServer?.close();
+    Object.assign(globalThis, { indexedDB: originalIndexedDb, IDBKeyRange: originalKeyRange });
     Reflect.deleteProperty(globalThis, "__walletchanSignatureTestHooks");
     if (originalChrome) {
       Object.defineProperty(globalThis, "chrome", originalChrome);

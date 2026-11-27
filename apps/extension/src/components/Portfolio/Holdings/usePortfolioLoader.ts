@@ -21,7 +21,7 @@ import {
   schedulePortfolioBackgroundTask,
   writeHoldingsSnapshot,
 } from "./cache";
-import { hasRenderablePortfolioToken, mergeTokenEnrichment } from "./transforms";
+import { mergeTokenEnrichment } from "./transforms";
 import type { LoadPortfolioOptions } from "./types";
 import type { HoldingsState } from "./useHoldingsState";
 import type { RpcHealthReport } from "@/types";
@@ -142,9 +142,9 @@ export function usePortfolioLoader({
         setOmittedTokenValueUsdByChain(catalog.omittedTokenValueUsdByChain);
 
         // Paint immediately; detached RPC work must not delay the first useful render.
-        const initialDisplayTokens = applyVerifiedBalances(
-          mergedTokens.filter(hasRenderablePortfolioToken),
-        );
+        // RPC-only assets arrive as zero placeholders. Restore their cached
+        // balances before the merge filters out genuinely empty holdings.
+        const initialDisplayTokens = applyVerifiedBalances(mergedTokens);
         const defiPositions = catalog.defiPositions || [];
         const initialTotal =
           getWalletTokenTotal(initialDisplayTokens) +

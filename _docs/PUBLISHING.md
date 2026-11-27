@@ -436,3 +436,27 @@ This documentation cleanup does not migrate storage or publish a release.
   QA. Disposable-node and mocked-provider results do not replace those checks.
 - Rollback must retain the new optional journal fields and required module
   configuration; an older binary that rejects the module is not a safe rollback.
+
+### Signature-history upgrade verification
+
+For the additive history v4 schema, verify older databases upgrade without changing
+transaction/asset-transfer records. Missing signature stores/data are normal on
+older installs. Sign a message after unlock, restart/reunlock and verify the
+encrypted entry can still be read. Confirm password change preserves readability,
+transaction-history clear preserves signatures, signature clear preserves coverage
+state, and full wallet reset clears all three signature stores. Verify shared account
+metadata is counted once, retained while referenced and removed on final
+prune/discard/clear. Export schema v2 groups signatures under account ID with
+address/type once. This feature has no released older signature format: local
+development data has already been normalized; the temporary converter and UI
+route have been removed. Recording has no retroactive off-chain backfill. Check
+JSON export in Chromium and Firefox; real Ledger/Trezor signing remains a device QA gate.
+
+### Per-tab account selection migration
+
+Verify an old `storage.sync.tabAccounts` map near 8 KiB copies to local storage
+without changing the selected account for any tab. Local presence, including an
+empty map, is the migration commit marker; the old sync copy is read-only for one
+release cycle. Test reload and update, repeated migration, copy failure (legacy
+source preserved), subsequent local edits, and reset/onboarding removal of both
+areas. No credential or vault migration is involved.

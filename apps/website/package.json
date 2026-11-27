@@ -34,6 +34,7 @@
     "react-parallax-tilt": "^1.7.346",
     "react-rnd": "^10.5.3",
     "react-tweet": "^3.3.0",
+    "tar": "7.5.22",
     "viem": "^2.30.4",
     "wagmi": "^2.15.4"
   },

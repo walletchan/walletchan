@@ -53,10 +53,9 @@ const ERROR = "Rejected for test";
 const CODE = -32602;
 
 test("background root clutter is limited to the composition root", async () => {
-  const entries = await readdir(
-    new URL("../../src/chrome/", import.meta.url),
-    { withFileTypes: true },
-  );
+  const entries = await readdir(new URL("../../src/chrome/", import.meta.url), {
+    withFileTypes: true,
+  });
   assert.deepEqual(
     entries
       .filter((entry) => entry.isFile() && entry.name.startsWith("background"))
@@ -135,8 +134,14 @@ test("every main background route has exactly one explicit audience", async () =
       "delegated routes must not remain in the main switch",
     );
   }
-  assert.equal(new Set(PROVIDER_MESSAGE_TYPES).size, PROVIDER_MESSAGE_TYPES.length);
-  assert.equal(new Set(WALLET_UI_MESSAGE_TYPES).size, WALLET_UI_MESSAGE_TYPES.length);
+  assert.equal(
+    new Set(PROVIDER_MESSAGE_TYPES).size,
+    PROVIDER_MESSAGE_TYPES.length,
+  );
+  assert.equal(
+    new Set(WALLET_UI_MESSAGE_TYPES).size,
+    WALLET_UI_MESSAGE_TYPES.length,
+  );
   assert.deepEqual(
     PROVIDER_MESSAGE_TYPES.filter((type) =>
       (WALLET_UI_MESSAGE_TYPES as readonly string[]).includes(type),
@@ -163,7 +168,10 @@ test("every main background route has exactly one explicit audience", async () =
 test("delegated routers run after the audience gate and before unknown handling", async () => {
   const [source, ...compositionSources] = await Promise.all([
     readFile(
-      new URL("../../src/chrome/background/messagePipeline.ts", import.meta.url),
+      new URL(
+        "../../src/chrome/background/messagePipeline.ts",
+        import.meta.url,
+      ),
       "utf8",
     ),
     ...[
@@ -175,7 +183,10 @@ test("delegated routers run after the audience gate and before unknown handling"
       "dataRoutes.ts",
     ].map((file) =>
       readFile(
-        new URL(`../../src/chrome/background/composition/${file}`, import.meta.url),
+        new URL(
+          `../../src/chrome/background/composition/${file}`,
+          import.meta.url,
+        ),
         "utf8",
       ),
     ),
@@ -217,7 +228,10 @@ test("delegated routers run after the audience gate and before unknown handling"
     "routeBackgroundResetMessage",
   ].map((name) => source.indexOf(`routes.${name}`));
   assert.ok(routeOrder.every((index) => index > audienceGate));
-  assert.deepEqual(routeOrder, [...routeOrder].sort((a, b) => a - b));
+  assert.deepEqual(
+    routeOrder,
+    [...routeOrder].sort((a, b) => a - b),
+  );
   const resetRoute = routeOrder.at(-1) ?? -1;
   const unknownHandling = source.indexOf("Unknown message type", resetRoute);
   assert.ok(audienceGate >= 0 && resetRoute < unknownHandling);
@@ -297,10 +311,7 @@ test("network registry and display-mode settings remain wallet-UI-only", () => {
 });
 
 test("delegated dapp and WalletConnect routes retain their exact audiences", () => {
-  for (const type of [
-    "getDappAccounts",
-    "requestDappConnection",
-  ]) {
+  for (const type of ["getDappAccounts", "requestDappConnection"]) {
     assert.equal(classifyBackgroundMessage(type), "provider", type);
   }
   for (const type of [
@@ -338,7 +349,9 @@ test("metadata prompt routes retain provider intake and trusted-UI decisions", (
 
 test("provider rejection mapping preserves every result key and payload", () => {
   const failure = { success: false, error: ERROR, code: CODE };
-  const cases: Array<[Record<string, unknown>, ProviderRequestRejectionDelivery]> = [
+  const cases: Array<
+    [Record<string, unknown>, ProviderRequestRejectionDelivery]
+  > = [
     [
       { type: "sendTransaction", txId: "tx-1" },
       { kind: "storage", key: "txResult:tx-1", result: failure },
@@ -400,10 +413,7 @@ test("provider rejection mapping preserves every result key and payload", () => 
       { kind: "direct-response", response: failure },
     ],
     [{ type: "walletShowCallsStatus" }, { kind: "handled-no-response" }],
-    [
-      { type: "dappChainSwitchNotification" },
-      { kind: "handled-no-response" },
-    ],
+    [{ type: "dappChainSwitchNotification" }, { kind: "handled-no-response" }],
   ];
 
   for (const [message, expected] of cases) {
@@ -468,9 +478,7 @@ test("provider rejection delivery preserves listener handling semantics", async 
     ),
     true,
   );
-  assert.deepEqual(responses, [
-    { success: false, error: ERROR, code: CODE },
-  ]);
+  assert.deepEqual(responses, [{ success: false, error: ERROR, code: CODE }]);
 
   const callbackCount = writes.length + responses.length;
   assert.equal(
@@ -487,10 +495,7 @@ test("provider rejection delivery preserves listener handling semantics", async 
   assert.equal(writes.length + responses.length, callbackCount);
 
   assert.equal(
-    deliverProviderRequestRejection(
-      { kind: "unhandled" },
-      ports,
-    ),
+    deliverProviderRequestRejection({ kind: "unhandled" }, ports),
     false,
   );
 });
@@ -527,6 +532,16 @@ test("the production listener keeps ENS first and fails untrusted unknown routes
 });
 
 test("Send ENS history remains wallet-UI-only", () => {
-  assert.equal(classifyBackgroundMessage("getEnsRecipientHistory"), "wallet-ui");
-  assert.equal(PROVIDER_MESSAGE_TYPES.includes("getEnsRecipientHistory" as never), false);
+  assert.equal(
+    classifyBackgroundMessage("getEnsRecipientHistory"),
+    "wallet-ui",
+  );
+  assert.equal(
+    PROVIDER_MESSAGE_TYPES.includes("getEnsRecipientHistory" as never),
+    false,
+  );
+});
+
+test("retired temporary history conversion is no longer an accepted message", () => {
+  assert.equal(classifyBackgroundMessage("convertSignatureHistory"), null);
 });

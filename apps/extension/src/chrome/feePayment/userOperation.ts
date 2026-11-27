@@ -141,7 +141,7 @@ export const SIGNABLE_USER_OPERATION_TYPES = {
   ],
 } as const;
 
-export function getMetaMaskUserOperationTypedData(
+export function getUserOperationTypedData(
   userOperation: PackedUserOperationV07,
   chainId: number,
 ) {
@@ -225,6 +225,6 @@ export async function signMetaMaskUserOperation(
     throw new Error("UserOperation signer does not match sender");
   }
   return account.signTypedData(
-    getMetaMaskUserOperationTypedData(userOperation, chainId),
+    getUserOperationTypedData(userOperation, chainId),
   );
 }

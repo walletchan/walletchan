@@ -316,3 +316,17 @@ AccountRemovalModal owns the shared two-step account/phrase warning and portfoli
 preview for regular and Bunker settings. accountRemovalModel counts both regular
 and Bunker seed references. Each settings owner keeps its guarded removal transport;
 BunkerRotationScreen is only for owner rotation, not account deletion.
+
+## Signature history and export
+
+`components/SignatureHistory/` composes the public Activity filter, signature
+ledger/detail presentation, trusted-message loading hook and Settings export
+destination. `presentation.ts` is pure; the hook owns Chrome subscriptions and
+stale-response suppression. The Settings screen owns filter/download/clear UI
+effects; encryption, authorization, retention and export projection stay in
+`chrome/signatureHistory/`. Private Activity keeps its existing isolated scope.
+
+Portfolio owns the Activity view through `SignatureHistory/useActivityView.ts`.
+It places `ActivityViewMenu` beside the existing network filter and passes the
+chosen view into `ActivityHistory`. Leaving Activity resets the view to
+transactions; transaction-ledger state stays mounted behind signature browsing.

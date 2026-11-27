@@ -11,6 +11,7 @@ export type InstallUpdateLifecycleDependencies = {
   freshInstallThemeId: string;
   isThemeId: (value: unknown) => boolean;
   migrateFromLegacyStorage: () => Promise<unknown>;
+  migrateTabAccountStorage: () => Promise<void>;
   getSyncStorage: (keys: string[]) => Promise<Record<string, any>>;
   setSyncStorage: (values: Record<string, unknown>) => Promise<unknown>;
   getRuntimeUrl: (path: string) => string;
@@ -98,6 +99,9 @@ export function registerInstallUpdateLifecycle(
         ),
       );
     } else if (details.reason === "update") {
+      await dependencies.migrateTabAccountStorage().catch((error) =>
+        dependencies.error("[WalletChan] Tab selection migration failed:", error),
+      );
       await dependencies.initializeAutoLockTimeoutDefault().catch((error) =>
         dependencies.error("[WalletChan] Auto-lock migration failed:", error),
       );

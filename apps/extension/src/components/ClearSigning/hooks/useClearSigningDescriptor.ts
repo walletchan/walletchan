@@ -9,6 +9,7 @@ import {
   resolveIntentText,
   runtimeTokenMetadataKey,
 } from "@/lib/clearSigning/applyFormat";
+import { getCowOrderDescriptor, isCowOrderCandidate } from "@/lib/clearSigning/cowOrder";
 import { getBuiltinCalldataDescriptor } from "@/lib/clearSigning/builtinDescriptors";
 import { decodeCalldataForDescriptor } from "@/lib/clearSigning/decodeForDescriptor";
 import {
@@ -52,6 +53,7 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
   }, [chainId, networksInfo]);
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<MatchedState | null>(null);
+  const [resolvedKey, setResolvedKey] = useState("");
   const { onResolved } = props;
   const onResolvedRef = useRef(onResolved);
 
@@ -62,6 +64,7 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
   // Stable signature for the effect dependency array — re-run whenever the
   // payload we'd render against changes.
   const calldataValue = kind === "calldata" ? props.calldata : "";
+  const transactionValue = kind === "calldata" ? props.value : undefined;
   const typedDataKey =
     kind === "eip712"
       ? `${props.typedData?.primaryType || ""}:${JSON.stringify(
@@ -70,6 +73,8 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
           props.typedData?.domain || {},
         )}`
       : "";
+
+  const requestKey = JSON.stringify([kind, chainId, lookupAddress, props.from, transactionValue, calldataValue, typedDataKey]);
 
   // Defer the descriptor fetch + ABI decode until the surrounding screen
   // has finished animating in. The resolved match flips a sibling raw
@@ -115,10 +120,23 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
         return;
       }
 
+      // CoW orders use the reviewed local profile even if a remote descriptor
+      // appears later. Neither remote coverage nor proxy resolution may weaken
+      // its exact protocol guard or omit economically relevant fields.
+      const cowCandidate = kind === "eip712" && isCowOrderCandidate(props.typedData);
+      const cowDescriptor = cowCandidate && kind === "eip712"
+        ? getCowOrderDescriptor(chainId, lookupAddress, props.typedData, props.from)
+        : null;
+      if (cowCandidate && !cowDescriptor) {
+        setLoading(false);
+        onResolvedRef.current?.(false);
+        return;
+      }
+
       // Try the remote descriptor first; fall back to a built-in generic
       // calldata descriptor (ERC-20 transfer, etc.) when there's no remote
       // entry or the remote entry doesn't cover this selector.
-      let descriptor: Erc7730Descriptor | null = remoteDescriptor;
+      let descriptor: Erc7730Descriptor | null = cowDescriptor || remoteDescriptor;
       let matched =
         descriptor &&
         verifyDescriptorContext(
@@ -134,7 +152,7 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
           : null;
 
       if (descriptor) {
-        console.log(`${tag} ✓ remote descriptor loaded`, descriptor);
+        console.log(`${tag} ✓ ${cowDescriptor ? "local CoW" : "remote"} descriptor loaded`, descriptor);
       } else {
         console.log(`${tag} ✗ no remote descriptor (404 / not in registry)`);
       }
@@ -251,6 +269,7 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
         enrichedInput,
         descriptor,
       );
+      setResolvedKey(requestKey);
       setState({
         descriptor,
         fields,
@@ -269,11 +288,15 @@ export function useClearSigningDescriptor(props: ClearSigningViewProps): {
     kind,
     chainId,
     lookupAddress,
+    props.from,
+    transactionValue,
     calldataValue,
     typedDataKey,
     screenEntered,
     nativeCurrency,
   ]);
 
-  return { loading, state };
+  // Never paint a previous request's resolved fields while the next effect
+  // starts or asynchronous token metadata is still resolving.
+  return { loading, state: resolvedKey === requestKey ? state : null };
 }

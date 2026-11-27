@@ -114,6 +114,7 @@ function SettingsPreview({ scenario }: { scenario: string }) {
     biometric: "biometricUnlock",
     "clear-signing": "clearSigning",
     "transaction-history": "clearTxHistory",
+    "activity-history": "activityHistory",
     "ens-browsing": "ensBrowsing",
   };
   const initialTab = settingsScenarioTabs[scenario] ?? "main";

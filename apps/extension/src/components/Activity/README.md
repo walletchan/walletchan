@@ -77,3 +77,8 @@ naming/function resolution. The automatic owner swap is not shown as another
 user action. Gas payer rows use the existing Safe executor marker and normal
 EOA receipt/gas tracking. Transaction details use `historyCallModel.ts` to
 present the complete user-call list even after history calldata compaction.
+
+Public Portfolio Activity is wrapped by `SignatureHistory/ActivityHistory.tsx`.
+The wrapper keeps transaction state mounted while switching to Signatures and
+places supplemental Safe activity only in the Transactions view. Private Activity
+continues to use the transaction ledger directly.

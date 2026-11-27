@@ -15,3 +15,11 @@ These tests mirror `src/chrome/history/`:
 
 RPC retry timing and upstream token metadata are intentionally kept behind the
 domain boundaries; tests here focus on deterministic policy and persistence.
+
+`signatureHistory.test.ts` exercises additive v2→v4 upgrade preservation, actual
+vault encryption/decryption and identity binding, duplicate suppression, filters,
+explicit transaction/Safe exports without signatures/calldata, byte retention,
+per-account clear, reset and session invalidation.
+
+Temporary conversion coverage validates all five signer types, mixed old/current
+rows, repeated calls, corrupt-row rollback and session invalidation.

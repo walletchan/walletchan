@@ -30,8 +30,9 @@ export interface AccountPickerScreenProps {
   title: string;
   onBack: () => void;
   onAccountSelect?: (account: Account) => void;
-  onAccountSettings: (account: Account) => void;
-  onAddAccount: () => void;
+  onAccountSettings?: (account: Account) => void;
+  onSelectAll?: () => void;
+  onAddAccount?: () => void;
   onAccountsReordered?: (accounts: Account[]) => void;
   mode?: "select" | "manage";
 }
@@ -43,6 +44,7 @@ export default function AccountPickerScreen({
   title,
   onBack,
   onAccountSelect,
+  onSelectAll,
   onAccountSettings,
   onAddAccount,
   onAccountsReordered,
@@ -120,7 +122,7 @@ export default function AccountPickerScreen({
   };
 
   const openAccount = (account: Account) => {
-    if (mode === "manage") onAccountSettings(account);
+    if (mode === "manage") onAccountSettings?.(account);
     else onAccountSelect?.(account);
   };
 
@@ -163,7 +165,7 @@ export default function AccountPickerScreen({
                 variant="ghost"
               />
             )}
-            {mode === "select" && (
+            {mode === "select" && onAccountSettings && (
               <IconButton
                 aria-label={`Settings for ${getDisplayName(account)}`}
                 icon={<SettingsIcon />}
@@ -183,7 +185,7 @@ export default function AccountPickerScreen({
       ref={pickerRef}
       title={title}
       onBack={onBack}
-      trailing={
+      trailing={onAddAccount && (
         <IconButton
           aria-label="Add account"
           icon={<AddIcon boxSize={4} />}
@@ -195,7 +197,7 @@ export default function AccountPickerScreen({
           onClick={onAddAccount}
           _hover={{ color: "accent.highlight", bg: "surface.raisedHover" }}
         />
-      }
+      )}
       controls={
         <FullScreenPickerSearch
           label="Search accounts"
@@ -206,9 +208,16 @@ export default function AccountPickerScreen({
         />
       }
     >
+      {onSelectAll && !normalizedQuery && (
+        <FullScreenPickerGroup label={null}>
+          <ListItem interactive aria-pressed={!activeAccount} tone={!activeAccount ? "highlight" : "default"} onClick={onSelectAll}>
+            <ListItemContent><ListItemTitle>All accounts</ListItemTitle></ListItemContent>
+          </ListItem>
+        </FullScreenPickerGroup>
+      )}
       {filteredAccounts.length > 0 ? (
         <>
-          {!normalizedQuery && accounts.length > 1 ? (
+          {!onSelectAll && !normalizedQuery && accounts.length > 1 ? (
             <SortableAccountPickerRows
               accounts={accounts}
               label={null}
@@ -235,7 +244,7 @@ export default function AccountPickerScreen({
         />
       )}
 
-      <FullScreenPickerGroup label={null}>
+      {onAddAccount && <FullScreenPickerGroup label={null}>
         <ListItem interactive onClick={onAddAccount}>
           <ListItemMedia>
             <Flex
@@ -253,7 +262,7 @@ export default function AccountPickerScreen({
             <ListItemTitle>Add account</ListItemTitle>
           </ListItemContent>
         </ListItem>
-      </FullScreenPickerGroup>
+      </FullScreenPickerGroup>}
     </FullScreenPicker>
   );
 }

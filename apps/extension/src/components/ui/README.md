@@ -15,3 +15,6 @@ This is the public, domain-free application layer described in
 
 These modules accept renderable content, labels, state, and callbacks. They do
 not import wallet features or access Chrome, storage, signing, or network APIs.
+
+`OverflowMenuIcon.tsx` shares the existing vertical three-dot glyph between
+portfolio and Activity overflow controls, without owning menu state or effects.

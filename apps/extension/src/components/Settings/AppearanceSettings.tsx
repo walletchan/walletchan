@@ -59,9 +59,6 @@ function AppearanceSettings({ onCancel }: AppearanceSettingsProps) {
   return (
     <SettingsScreenFrame title="Appearance" onBack={onCancel}>
       <VStack spacing={6} align="stretch">
-        <Text fontSize="sm" color="fg.secondary" lineHeight="1.5">
-          Choose the visual style for WalletChan.
-        </Text>
 
         <ListSurface aria-label="Wallet themes">
           {themeList.map((theme) => {

@@ -47,6 +47,13 @@ Keep rendering and resolution behavior neutral when splitting this domain:
 - `hideLoadingSkeleton` stays quiet while resolution is pending.
 - `hideHeader` lets a parent-owned action heading suppress only the duplicated
   intent/owner row while preserving every formatted field.
+- CoW order profiles are selected by the pure `lib/clearSigning/cowOrder.ts`
+  guard before any remote descriptor can decorate a CoW-looking request. The
+  initial deployment scope is Base only; raw review remains the fallback.
+- Resolution is bound to the current payload and signer; token metadata and
+  fiat prices are bound to the current asset. Stale effects cannot cross them.
+- Shortened amounts expose full precision on hover/focus. CoW limits disable
+  unlimited allowance formatting; missing metadata retains base units/address.
 - Interpolated intents and token-amount rows consume the same resolved ERC-20
   symbol/decimals, with raw base units retained when metadata is unavailable.
 - nested calldata stops after `MAX_NESTED_DEPTH` and falls back to raw rows.
