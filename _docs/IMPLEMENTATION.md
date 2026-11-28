@@ -3819,14 +3819,19 @@ own type references, graph/depth bounds, delegation and account-domain checks
 apply equally to ordinary and namespaced requests. No compatibility denylist,
 secondary hashing implementation or signing-payload rewriting is used.
 
-`patches/viem@2.45.1.patch` fixes dependency resolution in the pinned extension
-encoder: strip only array suffixes, preserve full struct names and resolve own
-schema properties. It backports upstream's parser correction in TypeScript,
-ESM and CommonJS, with own-property hardening. Local signing, displayed viem
+The extension pins released viem 2.58.8 without an encoder patch. Upstream fixed
+dependency parsing in 2.57.12 and colon-containing names in 2.57.17. Dependency
+resolution strips only array suffixes and preserves full struct names; wallet
+validation still requires own schema properties. Local signing, displayed viem
 digests, Trezor hashes and hardware/remote signature recovery all consume the
 same corrected encoder. Ledger's SDK uses canonical full-name schema encoding.
 Remote/hardware responses still must recover to the pinned account against the
-correct digest; an incompatible signer fails closed. See `patches/README.md`.
+correct digest; an incompatible signer fails closed.
+
+The released upgrade increases the background bundle from about 4.36 MB to
+4.78 MB. Its component budget is 4.75 MiB (previously 4.25 MiB);
+the overall package, prover artifact/worker, memory, runtime and concurrency
+budgets are unchanged.
 
 The SDK-shaped Hyperliquid fixture verifies V3/V4 object/JSON requests and unchanged
 viem/ethers digests; all five signer types are covered through confirmation/release

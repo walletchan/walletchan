@@ -1382,12 +1382,12 @@ ERC-7710 rejection retains its exact guidance.
 
 Struct names allow colon-separated identifier segments generically, without
 dapp/origin exceptions or name rewriting, including nested references and arrays.
-The primary type must have an own schema definition. The pinned viem dependency
-patch strips only array suffixes during dependency lookup and resolves own schema
-properties. This prevents truncated names from omitting child definitions,
-incorporating unrelated prefix types, or traversing inherited properties. It
-patches TypeScript, ESM and CommonJS together. Signature display/hashing, local
-signing and hardware/remote recovery use this corrected dependency. Regression
+The primary type and referenced struct types must have own schema definitions.
+The extension pins released viem 2.58.8 without a local encoder patch. Its parser
+strips only array suffixes during dependency lookup, preserving full names rather
+than omitting child definitions or incorporating unrelated namespace prefixes.
+Existing own-property validation rejects inherited definitions. Signature
+display/hashing, local signing and hardware/remote recovery use this dependency. Regression
 tests require distinct child schemas to hash differently even with empty arrays,
 and agree with ethers and clear-signing type encoding. Remote/hardware signatures
 over an incompatible digest cannot pass pinned-account recovery. No namespaced

@@ -19,6 +19,6 @@ All modules are pure and must remain independent from Chrome, sessions,
 accounts, credentials, signing, transport, and storage. The root
 `eip712Validator.ts` file is only a stable policy-free re-export facade.
 
-The viem dependency patch in `patches/viem@2.45.1.patch` preserves exact names
-and resolves only own type definitions when collecting hashing dependencies.
-The validator does not duplicate or compensate for encoder behavior.
+The extension pins released viem 2.58.8, whose dependency parser preserves exact
+names and strips only array suffixes. Own type definitions remain mandatory in
+validation. The validator does not duplicate or compensate for encoder behavior.
