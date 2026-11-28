@@ -53,7 +53,7 @@ for (const value of [null, {}, { number: null }, { number: "pending" }, { number
   }, method => method === "eth_blockNumber" ? failure() : result(value));
 });
 
-for (const [status, reason] of [[200, "blockHeight"], [400, "blockHeight"], [401, "access"], [403, "access"], [429, "rateLimit"], [503, "unavailable"]] as const) test(`failed fallback gives safe diagnostic for HTTP ${status}`, async () => {
+for (const [status, reason] of [[200, "blockHeight"], [400, "blockHeight"], [401, "access"], [403, "access"], [429, "rateLimit"], [500, "unavailable"], [502, "unavailable"], [503, "unavailable"], [504, "unavailable"]] as const) test(`failed fallback gives safe diagnostic for HTTP ${status}`, async () => {
   await withRpc(async client => {
     await assert.rejects(bunkerStep("authority", () => client.getBlockNumber()), error => {
       assert.equal(rpcFailureReason(error), reason);
@@ -62,6 +62,33 @@ for (const [status, reason] of [[200, "blockHeight"], [400, "blockHeight"], [401
       return true;
     });
   }, () => failure(status, status === 200 || status === 400 ? -32601 : -32000));
+});
+
+test("JSON-RPC errors on HTTP 5xx retain unavailable diagnostics outside block-height fallback", async () => {
+  for (const status of [500, 502, 503, 504]) {
+    await withRpc(async (client, calls) => {
+      await assert.rejects(bunkerStep("fees", () => client.getGasPrice()), error => {
+        assert.equal(rpcFailureReason(error), "unavailable");
+        assert.match(bunkerStepMessage(error)!, /selected RPC is unavailable/);
+        assert.doesNotMatch(bunkerStepMessage(error)!, /deadbeef|private-api-key/);
+        return true;
+      });
+      assert.deepEqual(calls.map(call => call.method), ["eth_gasPrice"]);
+    }, () => failure(status, -32000));
+  }
+});
+
+test("HTTP 5xx fallback preserves more specific diagnostics in nested causes", () => {
+  for (const [cause, reason] of [
+    [{ name: "TimeoutError" }, "timeout"],
+    [{ status: 429 }, "rateLimit"],
+    [{ status: 401 }, "access"],
+    [{ code: -32700 }, "invalid"],
+  ] as const) {
+    const error = { name: "RpcRequestError", status: 503, message: secret, cause };
+    assert.equal(rpcFailureReason(error), reason);
+    assert.doesNotMatch(rpcFailureMessage(error)!, /deadbeef|private-api-key/);
+  }
 });
 
 test("other RPC methods retain their original errors and are never replayed", async () => {

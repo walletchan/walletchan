@@ -29,7 +29,11 @@ export function rpcFailureReason(error: unknown): RpcFailureReason | null {
     if (item.code === -32601 || item.code === -32004) return "unsupported";
     if (item.name === "HttpRequestTimeoutError" || item.name === "TimeoutError") return "timeout";
     if (item.code === -32700 || item.name === "HttpResponseTooLargeError") return "invalid";
-    if (item.name === "HttpRequestError") fallback = "unavailable";
+    // Viem can preserve HTTP failures as RpcRequestError with status metadata.
+    if (
+      item.name === "HttpRequestError" ||
+      (typeof item.status === "number" && item.status >= 500 && item.status <= 599)
+    ) fallback = "unavailable";
     current = item.cause;
   }
   return fallback;

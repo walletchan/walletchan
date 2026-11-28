@@ -1773,7 +1773,7 @@ license, endpoint, patch and bundle review. Suite is an upstream trust boundary:
 its own releases/privacy settings are outside WalletChan's bundled SDK pin.
 
 The production background build applies syntax-only Terser compaction with
-`compress: false` and `mangle: false` before its 4.25 MiB combined Safe Bunker/Trezor budget.
+`compress: false` and `mangle: false` before its 4.75 MiB background bundle budget.
 This removes comments and whitespace without optimizer or identifier-mangling
 semantics. Release scripts delete the exact same-version archive before
 invoking `zip -r`, so a prior archive cannot retain stale hashed chunks.
