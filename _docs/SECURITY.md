@@ -3197,6 +3197,20 @@ owners/reservations are retained. exposureUnknown requires confirmed explicit
 rotation; external Safe tools may bypass client rotation, and recovery cannot
 cancel competing signatures.
 
+An orphaned import/expiry anchor remains a hard failure for normal reads/signing.
+Explicit master recovery can replace it only after verifying full infrastructure
+and Safe configuration at a confirmed block and rechecking that block hash.
+It restores invalidated signed evidence to outstanding state, preserves used-owner
+reservations and requires a new confirmed recovery rotation before spending.
+Neither agent authority nor a failing/moving RPC proof can commit this change.
+
+Journal capacity is enforced on every write, including review/signing/settlement.
+Byte-aware compaction only removes fully published terminal records, retaining
+the latest receipt, current revert warning, undelivered results and all unresolved
+signatures. Expired signed operations under the current owner stay available in
+case their expiry anchor reorgs. Future raw EOA envelopes and recovery/status
+headroom are reserved before signature release; oversized live intent fails closed.
+
 Safe and payer history contain public intent/address/hash/gas and optional owner-
 rotation metadata, never seed/key/signature/raw envelope/initializer. Safe balance
 changes exclude gas paid by the external EOA. History clearing is not permission

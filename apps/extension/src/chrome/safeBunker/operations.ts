@@ -27,6 +27,7 @@ import { publishBunkerRejection, publishBunkerRoutes } from "./publication";
 import type { SafeCall } from "../safe/types";
 import type { GasOverrides } from "../transactions/localExecution";
 import type { BunkerOperation, BunkerRoute } from "./types";
+import { compactBunkerJournal } from "./journalCapacity";
 
 export const outstanding = (o: BunkerOperation) => !!o.signature && !["confirmed", "reverted", "invalidated"].includes(o.state);
 export async function stateForAccount(accountId: string) {
@@ -56,17 +57,12 @@ export async function queueBunkerOperation(input: { accountId: string; chainId: 
       if (JSON.stringify(previous.calls) !== JSON.stringify(input.calls) || JSON.stringify(previous.routes) !== JSON.stringify(input.routes) || JSON.stringify(previous.swapContext) !== JSON.stringify(swapContext) || JSON.stringify(previous.swapMeta) !== JSON.stringify(swapMeta) || JSON.stringify(previous.transferMeta) !== JSON.stringify(transferMeta) || JSON.stringify(previous.nativeMax) !== JSON.stringify(input.nativeMax)) throw new Error("Bunker request identity was reused");
       return previous;
     }
-    if (state.operations.length >= 90) {
-      const retained = new Set(state.operations.filter((o) => o.receipt).slice(-10).map((o) => o.id));
-      const warning = [...state.operations].reverse().find(o => o.state === "reverted" && o.review?.ownerIndex === state.ownerIndex);
-      if (warning) retained.add(warning.id);
-      state.operations = state.operations.filter((o) => retained.has(o.id) || !["rejected", "invalidated", "confirmed", "reverted"].includes(o.state) || ["confirmed", "reverted"].includes(o.state) && !o.published || o.state === "rejected" && !o.resultPublished);
-    }
+    compactBunkerJournal(state, !input.recovery);
     if (state.operations.length >= 100) throw new Error("Bunker activity limit reached; archive settled activity first");
     if (input.recovery && input.calls.length) throw new Error("Recovery cannot spend funds");
     const op: BunkerOperation = { id, ...(swapContext ? { swapContext } : {}), ...(swapMeta ? { swapMeta } : {}), ...(transferMeta ? { transferMeta } : {}), ...(input.nativeMax ? { nativeMax: input.nativeMax } : {}), calls: input.calls, routes: input.routes, kind: input.recovery ? "recovery" : "transaction", state: "queued", createdAt: Date.now() };
     await authorizeBunkerOperation(state, op); current();
-    state.operations.push(op); await writeBunkerState(state, current);
+    state.operations.push(op); compactBunkerJournal(state, !input.recovery); await writeBunkerState(state, current);
     // Recovery starts in settings, whose caller opens the exact review and preserves Back.
     if (!input.recovery && options.notifyRenderer !== false) chrome.runtime.sendMessage({ type: "newSafeBunkerRequest", accountId: input.accountId, requestId: id }).catch(() => {});
     return op;
@@ -173,6 +169,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
       latest.nextIndex = state.nextIndex; target.review = op.review; target.scanBlock = op.scanBlock;
       if (target.nativeMax && !target.signature) { target.calls = op.calls; target.transferMeta = op.transferMeta; }
       if (!target.signature) target.state = op.state;
+      compactBunkerJournal(latest, op.kind !== "recovery");
       routeGate(); current(); await bunkerStep("save", () => writeBunkerState(latest, current)); return target;
     }));
   } finally { if (activeReviews.get(reviewKey) === claim) activeReviews.delete(reviewKey); }

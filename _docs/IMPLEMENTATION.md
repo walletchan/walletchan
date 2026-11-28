@@ -8065,6 +8065,24 @@ payer reviews fall back to self; signed reviews retain their exact identity.
 Native MAX now uses the same bounded reservation loop with custom calldata,
 which is never rewritten. Zero-value calldata calls remain ordinary requests.
 
+### Safe Bunker recovery and journal capacity
+
+Safe Bunker recovery and journal capacity are owned by `recoveryAnchor.ts` and
+`journalCapacity.ts`. Ordinary reads still reject an orphaned verification
+anchor. Explicit master recovery alone may verify the full pinned configuration
+at a new confirmed block, recheck its hash, and commit a replacement anchor with
+`exposureUnknown` and a bounded owner scan. Invalidated signatures become
+outstanding again; exact signatures, envelopes and successor reservations remain.
+Spending stays blocked until a confirmed explicit recovery rotation.
+
+Every journal write compacts fully published terminal operations by serialized
+byte size as well as count. Ten recent receipts are preferred; byte pressure may
+remove older receipts while retaining the latest receipt, current revert warning,
+undelivered results and unresolved signatures (including expired signatures under
+the current owner). The existing 512 KiB bound reserves 32 KiB for recovery and
+the future serialized EOA envelope of reviewed/signed operations. Oversized live
+intent fails before signature release. No storage key or schema changes.
+
 ### Safe Bunker onboarding import
 
 Import or connect now includes a dedicated Safe Bunker choice under Import.

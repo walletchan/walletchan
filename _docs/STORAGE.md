@@ -565,6 +565,20 @@ The encrypted journal accepts this additional operation status without changing
 the V2 envelope. Missing public warning metadata means empty; authenticated
 index synchronization rebuilds it idempotently without modifying ciphertext.
 Compaction retains the current warning evidence and unpublished failure results.
+Writes also compact below ninety operations when serialized byte size requires
+it, within the unchanged 512 KiB plaintext limit. The latest receipt is retained;
+ten recent receipts are preferred when space permits. Unresolved signatures and
+signed invalidations under the current owner are never discarded. Capacity
+checks reserve 32 KiB for recovery/status updates and the future raw EOA envelope
+before its owner signature is saved. Compaction and public index projections
+commit together; Activity remains independent. There is no shape/key migration.
+
+Only explicit master recovery may replace an orphaned `plan.verifiedBlock` after
+full pinned infrastructure/configuration and confirmed-block hash revalidation.
+It preserves signature/envelope/reservation evidence, restores signed invalidated
+operations to outstanding state and starts owner matching with `exposureUnknown`.
+Normal review remains blocked until a confirmed recovery rotation. A failed
+authority/hash/auth check commits no replacement proof.
 Earlier-build signed operations bearing the fixed revert marker recover their
 transaction hash from Activity and upgrade only after canonical receipt checks;
 missing history is left unresolved rather than inventing evidence.

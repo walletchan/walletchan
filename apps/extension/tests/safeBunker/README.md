@@ -85,3 +85,11 @@ The local contract integration verifies group/separate preservation, unsigned
 stale-payer projection, and native MAX calldata execution through Safe4337Module.
 UI regressions cover restored overview/acknowledgement, once-only refresh,
 reject-before-refresh and lock/signed-race navigation barriers.
+
+`journalCapacity.test.ts` covers byte pressure below ninety records, count
+retention/idempotence, pre-signature EOA envelope/recovery reserves and fail-closed
+retention of live signatures, current-owner expired signatures and undelivered
+results. The execution integration exercises actual reorg recovery of a saved
+anchor, agent/stale-master/chain/hash failures without writes, preserved signature
+and successor evidence, explicit recovery rotation and post-compaction execution
+and settlement on both disposable chains. No browser is launched.

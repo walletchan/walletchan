@@ -2,6 +2,7 @@ import { arrayBufferToBase64, decodeBase64Exact, decodeBase64Bounded } from "../
 import { captureBunkerAccess } from "./access";
 import { withBunkerSourcePhrase } from "./sources";
 import { headerJson, type BunkerCipher, type BunkerDraftEntry } from "./record";
+import { BUNKER_JOURNAL_MAX_BYTES } from "./journalCapacity";
 const encoder = new TextEncoder();
 async function seal(key: CryptoKey, bytes: Uint8Array, context: string): Promise<BunkerCipher> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -26,7 +27,7 @@ export async function withBunkerDraftSeed<T>(entry: BunkerDraftEntry, key: Crypt
 const context = (entry: BunkerDraftEntry, revision: number) => `WalletChan.BunkerJournal.v2:${headerJson(entry.header)}:${revision}`;
 export async function encryptBunkerState(entry: BunkerDraftEntry, key: CryptoKey, revision: number, state: unknown) {
   const bytes = encoder.encode(JSON.stringify(state));
-  if (bytes.length > 512 * 1024) throw new Error("Bunker journal limit reached");
+  if (bytes.length > BUNKER_JOURNAL_MAX_BYTES) throw new Error("Bunker journal limit reached");
   try { return await seal(key, bytes, context(entry, revision)); } finally { bytes.fill(0); }
 }
 export async function decryptBunkerState(entry: BunkerDraftEntry, key: CryptoKey, revision: number, cipher: BunkerCipher) {

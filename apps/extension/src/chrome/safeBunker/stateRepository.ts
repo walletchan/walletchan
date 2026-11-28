@@ -8,6 +8,7 @@ import { exactRecord, assertBunkerDraftId, type BunkerCipher, type BunkerDraftEn
 import { loadBunkerDraftVault } from "./repository";
 import { decodeBunkerState } from "./stateCodec";
 import type { BunkerState } from "./types";
+import { compactBunkerJournal } from "./journalCapacity";
 
 export const BUNKER_STATE_KEY = "safeBunkerJournalsV2";
 interface StoredState { id: string; revision: number; cipher: BunkerCipher }
@@ -38,6 +39,7 @@ export async function readBunkerState(id: string, key = getCachedVaultKey()): Pr
 export async function writeBunkerState(state: BunkerState, current: () => CryptoKey, extra: Record<string, unknown> = {}, entryOverride?: BunkerDraftEntry) {
   return withStorageLock(WALLET_SECRET_STORAGE_LOCK_KEY, async () => {
     const key = current(); const checked = decodeBunkerState(state);
+    compactBunkerJournal(checked);
     const [stored, vault] = await Promise.all([loadStoredBunkerStates(), loadBunkerDraftVault()]);
     const entry = entryOverride ?? vault.entries.find((e) => e.header.id === state.id); if (!entry) throw new Error("Bunker seed is missing");
     const old = stored.find((e) => e.id === state.id); const revision = (old?.revision ?? 0) + 1;
@@ -49,6 +51,8 @@ export async function writeBunkerState(state: BunkerState, current: () => Crypto
     await chrome.storage.local.set({ ...extra, [BUNKER_REVERT_WARNINGS_KEY]: warnings, [BUNKER_PENDING_KEY]: [...pending, ...projectBunkerPending(checked)], [BUNKER_STATE_KEY]: { version: 2,
       entries: [...stored.filter((e) => e.id !== state.id), { id: state.id, revision, cipher }] } });
     current();
+    const retained = new Set(checked.operations.map(op => op.id));
+    state.operations = state.operations.filter(op => retained.has(op.id));
     notifyBunkerPendingChanged();
   });
 }

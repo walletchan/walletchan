@@ -432,6 +432,11 @@ This documentation cleanup does not migrate storage or publish a release.
 - Verify module-required v3 deployment, rediscovery, import and restart/recovery;
   module-free Bunkers have no supported compatibility or upgrade path.
 - Run Safe Bunker, shared fee-payment, proxy and account/auth/hardware regressions.
+- Verify orphaned import/expiry anchors recover only through master-authorized
+  confirmed proof replacement and explicit rotation; preserve signature evidence
+  and reject a moving/mismatched proof without writes. Exercise byte-limited
+  journals below ninety records through queue, review, signing and settlement,
+  retaining unresolved signatures, pending delivery and recovery headroom.
 - Complete live Pimlico native/ERC-20 billing acceptance and Ledger/Trezor device
   QA. Disposable-node and mocked-provider results do not replace those checks.
 - Rollback must retain the new optional journal fields and required module

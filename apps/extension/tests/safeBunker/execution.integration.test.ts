@@ -127,6 +127,17 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
         calls: [{ to: address, value: amount.toString() as `${bigint}`, data: "0x", operation: 0 }], routes: [{ kind: "wallet", origin: "WalletChan", requestId: operationId }] });
       return operationId;
     };
+    const awaitExecutorReceipt = async (operationId: string) => {
+      const { getTxById } = await import("../../src/chrome/txHistoryStorage");
+      const operation = (await stateForAccount(state.accountId)).operations.find(op => op.id === operationId)!;
+      const rowId = `bunker-executor:${state.accountId}:${operationId}:${operation.outer!.hash}`;
+      for (let attempt = 0; attempt < 80; attempt++) {
+        const row = await getTxById(rowId);
+        if (row?.status === "success") return;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      assert.fail("executor receipt must settle before its disposable chain is rewound");
+    };
     await t.test("inline swap staging is durable and rejectable without automatic navigation", async () => {
       const baseline = await stateForAccount(state.accountId);
       const previousSend = chrome.runtime.sendMessage;
@@ -769,6 +780,120 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
 
 
       } finally { prototype.estimateUserOperationGas = original.estimate; prototype.getUserOperationGasPrice = original.prices; prototype.sendUserOperation = original.send; prototype.getUserOperationReceipt = original.receipt; }
+    });
+    await t.test("orphaned anchors require master recovery, preserve expired signatures and permit canonical rotation", async () => {
+      const { writeBunkerState } = await import("../../src/chrome/safeBunker/stateRepository");
+      const original = await stateForAccount(state.accountId);
+      const snapshot = await client.request({ method: "evm_snapshot" as any });
+      try {
+        // Anchor a branch that is actually reorganized away, without changing Safe authority.
+        const branch = await client.request({ method: "evm_snapshot" as any });
+        const txHash = await wallet.sendTransaction({ to: address, value: 1n });
+        await mine();
+        const receipt = await client.getTransactionReceipt({ hash: txHash });
+        const orphaned = structuredClone(original);
+        orphaned.plan.verifiedBlock = { number: receipt.blockNumber.toString(), hash: receipt.blockHash };
+        const evidence = structuredClone(original.operations.find(op => op.signature && op.review)!);
+        delete evidence.members; delete evidence.transferMeta; delete evidence.nativeMax;
+        evidence.id = "orphaned-expiry"; evidence.state = "invalidated"; evidence.published = true;
+        evidence.review!.ownerIndex = original.ownerIndex;
+        delete evidence.receipt;
+        orphaned.operations.push(evidence);
+        await writeBunkerState(orphaned, captureBunkerAccess());
+        await client.request({ method: "evm_revert" as any, params: [branch] as any }); await mine();
+        await assert.rejects(reconcileBunker(id, client), /Chain reorganization detected/);
+        const storedBefore = structuredClone(local.safeBunkerJournalsV2);
+        unlock("agent");
+        await assert.rejects(createBunkerRecoveryOperation(state.accountId, client), /Authentication changed/);
+        assert.deepEqual(local.safeBunkerJournalsV2, storedBefore);
+        unlock();
+        // Infrastructure checks still run when bypassing the obsolete anchor.
+        const wrongChain = { ...client, getChainId: async () => chainId + 1 } as typeof client;
+        await assert.rejects(createBunkerRecoveryOperation(state.accountId, wrongChain), /chain mismatch/);
+        assert.deepEqual(local.safeBunkerJournalsV2, storedBefore);
+        const staleMaster = { ...client, getCode: async (params: any) => {
+          const code = await client.getCode(params); cache.setCachedPasswordType("agent"); return code;
+        } } as typeof client;
+        await assert.rejects(createBunkerRecoveryOperation(state.accountId, staleMaster), /Authentication changed/);
+        assert.deepEqual(local.safeBunkerJournalsV2, storedBefore, "auth loss during proof verification cannot commit");
+        unlock();
+        const head = await client.getBlockNumber(), replacementBlock = head - 2n;
+        const proofReads = BigInt(orphaned.plan.verifiedBlock!.number) === replacementBlock ? 2 : 1;
+        let reads = 0;
+        const moving = { ...client, getBlock: async (params: any) => {
+          const block = await client.getBlock(params);
+          return params.blockNumber === replacementBlock && ++reads > proofReads ? { ...block, hash: `0x${"aa".repeat(32)}` } : block;
+        } } as typeof client;
+        await assert.rejects(createBunkerRecoveryOperation(state.accountId, moving), /Chain reorganization detected/);
+        assert.deepEqual(local.safeBunkerJournalsV2, storedBefore, "moving canonical proof cannot commit");
+        assert.deepEqual(await createBunkerRecoveryOperation(state.accountId, client), { scanning: true });
+        let recovered = await stateForAccount(state.accountId);
+        assert.ok(recovered.exposureUnknown); assert.ok(recovered.recovery);
+        const retained = recovered.operations.find(op => op.id === evidence.id)!;
+        assert.equal(retained.signature, evidence.signature); assert.deepEqual(retained.review, evidence.review);
+        assert.equal(retained.state, retained.outer || retained.userOperationHash ? "ambiguous" : "signed");
+        assert.deepEqual(recovered.usedOwners, original.usedOwners);
+        for (let page = 0; page < 4 && recovered.recovery; page++) {
+          await continueBunkerRecovery(id, client);
+          recovered = await stateForAccount(state.accountId);
+        }
+        assert.equal(recovered.recovery, null); assert.equal(recovered.exposureUnknown, true);
+        const ordinary = await create(991);
+        await assert.rejects(reviewBunkerOperation(state.accountId, ordinary, "payer", client), /Rotate the restored owner/);
+        const rotation = await createBunkerRecoveryOperation(state.accountId, client);
+        assert.ok("id" in rotation); if (!("id" in rotation)) return;
+        const reviewed = await reviewBunkerOperation(state.accountId, rotation.id, "payer", client);
+        await confirmBunkerOperation(state.accountId, rotation.id, reviewed.review!.digest, false, client);
+        await mine(); await reconcileBunker(id, client);
+        recovered = await stateForAccount(state.accountId);
+        assert.equal(recovered.exposureUnknown, false); assert.equal(recovered.ownerIndex, reviewed.review!.nextIndex);
+        await awaitExecutorReceipt(rotation.id);
+      } finally {
+        unlock(); await client.request({ method: "evm_revert" as any, params: [snapshot] as any });
+        await writeBunkerState(original, captureBunkerAccess());
+      }
+    });
+    await t.test("byte-aware repository cleanup permits requests and signed settlement below ninety records", async () => {
+      const { writeBunkerState } = await import("../../src/chrome/safeBunker/stateRepository");
+      const { getTxById, addTxToHistoryIfAbsent } = await import("../../src/chrome/txHistoryStorage");
+      const { buildBunkerHistory } = await import("../../src/chrome/safeBunker/history");
+      const original = await stateForAccount(state.accountId);
+      const branch = await client.request({ method: "evm_snapshot" as any });
+      try {
+        const filled = structuredClone(original);
+        const settled = structuredClone(original.operations.find(op => op.state === "confirmed" && op.signature && op.review && op.calls.length)!);
+        delete settled.members; delete settled.transferMeta; delete settled.nativeMax;
+        filled.operations = Array.from({ length: 16 }, (_, i) => {
+          const op = structuredClone(settled); op.id = `large-settled-${i}`;
+          delete op.outer;
+          op.published = true; op.resultPublished = true;
+          op.calls[0].data = `0x${"ab".repeat(12000)}`;
+          op.review!.transaction.data = `0x${"ab".repeat(12000)}`;
+          return op;
+        });
+        assert.ok(new TextEncoder().encode(JSON.stringify(filled)).length > 512 * 1024);
+        // These represent fully published settled records. Seed their public
+        // projections so reconciliation does not start unrelated receipt backfills.
+        for (const op of filled.operations) await addTxToHistoryIfAbsent({ ...buildBunkerHistory(filled, op)!,
+          assetChanges: { version: 2, blockNumber: op.receipt!.block, erc20Transfers: [] } });
+        await writeBunkerState(filled, captureBunkerAccess());
+        const compacted = await stateForAccount(state.accountId);
+        assert.ok(compacted.operations.length < 16); assert.equal(compacted.operations.at(-1)!.id, "large-settled-15");
+        await wallet.sendTransaction({ to: predicted, value: 10000000000000000n });
+        const requestId = await create(992);
+        const reviewed = await reviewBunkerOperation(state.accountId, requestId, "payer", client);
+        await confirmBunkerOperation(state.accountId, requestId, reviewed.review!.digest, false, client);
+        await mine(); await reconcileBunker(id, client);
+        assert.equal((await stateForAccount(state.accountId)).operations.find(op => op.id === requestId)!.state, "confirmed");
+        assert.equal((await getTxById(`bunker:${state.accountId}:${requestId}`))?.status, "success");
+        await awaitExecutorReceipt(requestId);
+        // No source/binding or signature history reservations are deleted by cleanup.
+        assert.ok(local.safeBunkerBindingsV2.entries.some((entry: any) => entry.header.id === id));
+        assert.ok(original.usedOwners.every(owner => compacted.usedOwners.includes(owner)));
+      } finally {
+        await client.request({ method: "evm_revert" as any, params: [branch] as any });
+        await writeBunkerState(original, captureBunkerAccess());
+      }
     });
     await t.test("master removal clears operational data and repairs selection", async () => {
       const { removeBunkerAccount } = await import("../../src/chrome/safeBunker/management");

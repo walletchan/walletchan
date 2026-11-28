@@ -116,6 +116,10 @@ the expected owner, Safe nonce and EntryPoint nonce still unchanged. Submitted h
 authority/nonces. No signature evidence is deleted.
 The expiry block becomes the existing plan.verifiedBlock anchor; subsequent
 reviews/signatures fail closed if that canonical proof is reorganized.
+Explicit master recovery can revalidate and replace an orphaned proof at a new
+confirmed canonical block. It retains and reopens signed invalidated evidence,
+starts bounded owner matching and requires confirmed recovery rotation before
+ordinary spending. Normal reads cannot bypass the anchor check.
 
 Bunker gas preparation preserves ERC-7677 paymaster postOp limits and the
 paymaster verification-gas floor. Account/verification/pre-verification budgets

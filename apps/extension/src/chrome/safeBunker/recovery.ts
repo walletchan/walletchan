@@ -8,11 +8,13 @@ import { bunkerEntry, readBunkerLive } from "./live";
 import { activateBunker, BunkerOwnerMismatchError } from "./deployment";
 import { readBunkerState, writeBunkerState } from "./stateRepository";
 import { queueBunkerOperation } from "./operations";
+import { recoverBunkerAnchor } from "./recoveryAnchor";
 
 export async function continueBunkerRecovery(id: string, client: PublicClient) {
   const current = captureBunkerAccess(); current();
   return withStorageLock(`bunker:${id}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     const state = await readBunkerState(id, current()); if (!state?.recovery) throw new Error("No Bunker recovery scan is pending");
+    await recoverBunkerAnchor(state, client, current);
     const r = state.recovery;
     // One cheap current-owner read per bounded local derivation page. No event history.
     const owners = await client.readContract({ address: state.plan.address, abi: SAFE_READ_ABI, functionName: "getOwners" });
@@ -57,6 +59,7 @@ export async function createBunkerRecoveryOperation(accountId: string, client: P
   const initial = await stateForAccount(accountId);
   const scanning = await withStorageLock(`bunker:${initial.id}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     const state = await stateForAccount(accountId);
+    if (await recoverBunkerAnchor(state, client, current)) { await writeBunkerState(state, current); return true; }
     if (state.recovery) return true;
     const live = await readBunkerLive(state, client);
     const expected = await withBunkerDraftSeed(await bunkerEntry(state.id), current(), (seed) => deriveBunkerOwner(seed, state.chainId, state.ownerIndex));

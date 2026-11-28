@@ -63,6 +63,13 @@ unexecuted signed SafeOps, including submitted hashes, and canonical proof ancho
 (required exact module/fallback configuration across the lifecycle). See
 _docs/SAFE_BUNKER_4337.md.
 
+`recoveryAnchor` is the explicit master-only orphaned-anchor recovery boundary;
+it verifies a new confirmed proof, preserves/reopens signature exposure and
+requires a recovery rotation. Normal live reads remain fail-closed.
+`journalCapacity` owns byte/count compaction and pre-signature envelope/recovery
+headroom. It retains live signatures, unpublished results, current-owner expiry
+evidence, the latest receipt and revert warning. Storage shapes are unchanged.
+
 `swapMetadata.ts` validates optional display-only pair/logo snapshots on internal
 swap intake and journal decode. `history.ts` projects them into normal Activity
 swapMeta and idempotently repairs public rows without altering signed intent.
