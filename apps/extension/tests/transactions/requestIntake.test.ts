@@ -213,6 +213,23 @@ test("request intake persists exact transaction and signature account context", 
     const popupCount = popupCreates.length;
     const messageCount = runtimeMessages.length;
     const wc = await server.ssrLoadModule("/src/chrome/walletConnect/pendingRequests.ts");
+    const diagnosticKit = { getActiveSessions: () => ({ topic: {
+      peer: { metadata: { name: "Example", url: "https://app.example", icons: [] } },
+    } }) };
+    await assert.rejects(
+      wc.createPendingSignatureRequest(diagnosticKit, { topic: "topic", id: 99 }, "eth_signTypedData_v4", [address, {
+        domain: { name: "Example", chainId: 1 }, primaryType: "Broken",
+        types: { Broken: [{ name: "value", type: "Undefined" }] },
+        message: { value: "private-message-value" },
+      }], 1, "claim"),
+      (error: Error) => {
+        assert.match(error.message, /undefined type 'Undefined'/);
+        assert.match(error.message, /eth_signTypedData_v4/);
+        assert.match(error.message, /https:\/\/app\.example/);
+        assert.doesNotMatch(error.message, /private-message-value/);
+        return true;
+      },
+    );
     for (const type of ["privateKey", "seedPhrase", "ledger", "bankr"] as const) {
       for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
         for (const target of [address, "0x3333333333333333333333333333333333333333"] as const) {

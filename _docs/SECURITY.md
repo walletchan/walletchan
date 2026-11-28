@@ -1371,14 +1371,19 @@ if valid: continue to normal flow
 
 ### Console Logging
 
-Failed validations log to console for debugging:
+Injected validation failures warn with the same bounded diagnostic returned to
+the requesting dapp; WalletConnect returns the shared diagnostic too. It includes
+the validator reason, method, origin, payload format, primary type, domain and
+up to eight types/eight fields per type. Strings are control-character stripped
+and capped at 160 characters; the total error is capped at 4096 characters.
+Message values, arbitrary extra payload fields, wallet state and credentials
+are excluded. Oversized strings are not parsed again for diagnostics. Raw
+ERC-7710 rejection retains its exact guidance.
 
-```
-[WalletChan] EIP-712 validation failed for https://malicious.site:
-  Type 'Attack' exceeds maximum nesting depth of 50 (found 60825)
-```
-
-This helps developers identify malicious sites attempting attacks.
+Struct names allow colon-separated identifier segments for deployed schemas
+such as Hyperliquid's. They are never rewritten before hashing. Field-name
+restrictions, own-property reference resolution, graph/depth bounds, raw
+delegation rejection and external account-domain protection remain enforced.
 
 ---
 

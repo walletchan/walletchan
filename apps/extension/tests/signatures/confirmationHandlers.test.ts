@@ -2,6 +2,7 @@ import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import assert from "node:assert/strict";
 import { accountExecutionTypedData, safeTransactionTypedData } from "./accountDomainFixture";
 import { INTERNAL_ACCOUNT_TYPED_DATA_ERROR } from "../../src/chrome/eip712Validator";
+import { hyperliquidApproveAgent } from "./hyperliquidFixture";
 import { Buffer } from "node:buffer";
 import path from "node:path";
 import test from "node:test";
@@ -308,6 +309,35 @@ test("confirmation preserves all wallet authorities and final release races", as
         reset();
         await queue(type, "ordinary", { signature: { method: "eth_signTypedData_v4", params: [address, accountExecutionTypedData("0x3333333333333333333333333333333333333333")], chainId: 1 } });
         assert.equal((await confirmationPolicy.prepareSignatureConfirmation("ordinary")).ok, true);
+      }
+    });
+
+    await t.test("Hyperliquid typed data reaches review and release for all five signers and both factors", async () => {
+      for (const passwordType of ["master", "agent"] as const) {
+        for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
+          for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
+            reset();
+            historySession.setCachedPasswordType(passwordType);
+            await queue(type, "hyperliquid", { signature: {
+              method, params: [address, JSON.stringify(hyperliquidApproveAgent)], chainId: 421614,
+            } });
+            const prepared = await confirmationPolicy.prepareSignatureConfirmation("hyperliquid");
+            assert.equal(prepared.ok, true, JSON.stringify(prepared));
+            hooks.ledgerSession = async () => {};
+            hooks.ledger = async () => `0x${"dd".repeat(65)}`;
+            hooks.privateKey = privateKey;
+            hooks.apiKey = "bankr-api-key";
+            const password = `${passwordType}-password`;
+            const result = type === "ledger" || type === "trezor"
+              ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"]("hyperliquid", password)
+              : type === "bankr"
+                ? await handlers.handleConfirmSignatureRequestBankr("hyperliquid", password)
+                : await handlers.handleConfirmSignatureRequest("hyperliquid", password);
+            assert.equal(result.success, true, `${type}: ${JSON.stringify(result)}`);
+            assert.equal(await pendingStorage.getPendingSignatureRequestById("hyperliquid"), null);
+            await historyRepository.clearSignatureHistory();
+          }
+        }
       }
     });
 

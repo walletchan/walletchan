@@ -11,6 +11,8 @@
 - `sanitization.ts` projects domain/message values onto declared schema fields
   before display and signing.
 - `types.ts` owns the shared validation result contract.
+- `diagnostics.ts` formats bounded validation reasons and caller-owned schema
+  context for injected/WalletConnect rejections without message values or wallet state.
 
 All modules are pure and must remain independent from Chrome, sessions,
 accounts, credentials, signing, transport, and storage. The root

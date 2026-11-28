@@ -1,4 +1,5 @@
 /** Provider signature-method and EIP-712 validation before durable intake. */
+import { formatEip712ValidationError } from "../signatures/eip712/diagnostics";
 
 export type BackgroundSignatureValidationDependencies = {
   validateEIP712TypedData: (method: string, payload: unknown) => any;
@@ -58,17 +59,15 @@ export function createEnqueueAuthorizedSignatureRequest(
         signature.params[1],
       );
       if (!validation.valid) {
-        dependencies.warn(
-          `[WalletChan] EIP-712 validation failed for ${trustedOrigin}:`,
-          validation.error,
-        );
-        reject(
-          message.sigId,
+        const error =
           validation.error ===
             dependencies.rawErc7710DelegationSignatureError
             ? dependencies.rawErc7710DelegationSignatureError
-            : "Data must conform to EIP-712 schema",
-        );
+            : formatEip712ValidationError(
+                validation.error, signature.method, signature.params[1], trustedOrigin,
+              );
+        dependencies.warn("[WalletChan] EIP-712 validation failed:", error);
+        reject(message.sigId, error);
         return;
       }
       if (validation.sanitized) signature.params[1] = validation.sanitized;

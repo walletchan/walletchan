@@ -240,8 +240,7 @@ export function getSignatureIntent({
         : originHostname;
     return {
       title: `Authorize ${application}`,
-      description:
-        "Review the structured fields below before authorizing this request.",
+      description: "",
     };
   }
 

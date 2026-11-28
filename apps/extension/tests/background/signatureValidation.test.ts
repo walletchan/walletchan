@@ -46,7 +46,7 @@ test("malformed and deprecated methods publish exact durable errors", async () =
   }
 });
 
-test("EIP-712 validation preserves raw-delegation and generic errors", async () => {
+test("EIP-712 validation preserves delegation guidance and reports request context", async () => {
   const raw = createHarness({ valid: false, error: "Raw delegation blocked" });
   raw.enqueue(
     { sigId: "sig-2", signature: { method: "eth_signTypedData_v4", params: ["0x1", {}] } },
@@ -66,11 +66,14 @@ test("EIP-712 validation preserves raw-delegation and generic errors", async () 
     "https://app.example",
   );
   await Promise.resolve();
-  assert.deepEqual(invalid.writes[0], [
-    "sigResult:sig-3",
-    { success: false, error: "Data must conform to EIP-712 schema" },
-  ]);
-  assert.match(String(invalid.warnings[0][0]), /https:\/\/app\.example/);
+  const [key, result] = invalid.writes[0] as [string, { success: boolean; error: string }];
+  assert.equal(key, "sigResult:sig-3");
+  assert.equal(result.success, false);
+  assert.match(result.error, /Data must conform to EIP-712 schema: unexpected field/);
+  assert.match(result.error, /eth_signTypedData_v3/);
+  assert.match(result.error, /https:\/\/app\.example/);
+  assert.equal(invalid.warnings[0][1], result.error);
+  assert.deepEqual(invalid.handled, []);
 });
 
 test("sanitized typed data and exact sender scope reach signature intake", () => {

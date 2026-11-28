@@ -92,8 +92,11 @@ export function validateEip712TypeDefinitions(
   types: Record<string, any>,
 ): EIP712ValidationResult {
   const validIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  // Deployed typed-data protocols use namespaced struct names (e.g. Hyperliquid).
+  // Preserve the exact name for hashing; field identifiers remain unchanged.
+  const validTypeName = /^[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)*$/;
   for (const [typeName, fields] of Object.entries(types)) {
-    if (!validIdentifier.test(typeName)) {
+    if (!validTypeName.test(typeName)) {
       return { valid: false, error: `Type '${typeName}' has an invalid name` };
     }
     if (!Array.isArray(fields)) {
