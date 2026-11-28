@@ -55,3 +55,67 @@ test("EIP-712 schema and field identifiers are bounded to safe identifiers", () 
     assert.match(result.error || "", /invalid name/i);
   }
 });
+
+test("EIP-712 rejects a domain that omits a declared field (would hash undefined)", () => {
+  const empty = validateEIP712TypedData("eth_signTypedData_v4", { ...base, domain: {} });
+  assert.equal(empty.valid, false);
+  assert.match(empty.error!, /missing declared field 'chainId'/);
+  const inherited = validateEIP712TypedData("eth_signTypedData_v4", {
+    ...base,
+    types: { ...base.types, EIP712Domain: [{ name: "constructor", type: "string" }] },
+    domain: {},
+  });
+  assert.equal(inherited.valid, false);
+  const nulled = validateEIP712TypedData("eth_signTypedData_v4", { ...base, domain: { chainId: null } });
+  assert.equal(nulled.valid, false);
+  assert.match(nulled.error!, /missing declared field 'chainId'/);
+});
+
+test("EIP-712 rejects a domain value that cannot be hashed as its type", () => {
+  const contract = [{ name: "verifyingContract", type: "address" }];
+  const { EIP712Domain: _, ...undeclared } = base.types;
+  for (const input of [
+    { ...base, domain: { chainId: "abc" } },
+    { ...base, types: { ...base.types, EIP712Domain: contract }, domain: { verifyingContract: "0x123" } },
+    // No EIP712Domain: types are derived from the domain, as viem does when signing.
+    { ...base, types: undeclared, domain: { verifyingContract: "0x123" } },
+  ]) {
+    const result = validateEIP712TypedData("eth_signTypedData_v4", input);
+    assert.equal(result.valid, false, JSON.stringify(input.domain));
+    assert.equal(result.error, "Invalid domain: a value does not match its type");
+  }
+  // Struct and array domain fields are not dry-run hashed: a large array there costs seconds before approval.
+  const heavy = validateEIP712TypedData("eth_signTypedData_v4", {
+    ...base,
+    types: { ...undeclared, EIP712Domain: [{ name: "arr", type: "T[]" }], T: [{ name: "f", type: "uint256" }] },
+    domain: { arr: [{ f: "abc" }] },
+  });
+  assert.equal(heavy.valid, true);
+  // A malformed primitive beside a struct or array field is still caught.
+  const mixed = validateEIP712TypedData("eth_signTypedData_v4", {
+    ...base,
+    types: {
+      ...undeclared,
+      EIP712Domain: [{ name: "arr", type: "T[]" }, { name: "chainId", type: "uint256" }],
+      T: [{ name: "f", type: "uint256" }],
+    },
+    domain: { arr: [{ f: 1 }], chainId: "abc" },
+  });
+  assert.equal(mixed.valid, false);
+  assert.equal(mixed.error, "Invalid domain: a value does not match its type");
+  // Common valid encodings must still pass, declared or derived.
+  const full = [
+    { name: "name", type: "string" }, { name: "version", type: "string" }, { name: "chainId", type: "uint256" },
+    { name: "verifyingContract", type: "address" }, { name: "salt", type: "bytes32" },
+  ];
+  for (const chainId of [1, "1", "0x1"]) {
+    const domain = {
+      name: "App", version: "1", chainId,
+      verifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC", salt: `0x${"ab".repeat(32)}`,
+    };
+    for (const types of [{ ...undeclared, EIP712Domain: full }, undeclared]) {
+      const result = validateEIP712TypedData("eth_signTypedData_v4", { ...base, types, domain });
+      assert.equal(result.valid, true, `${JSON.stringify(chainId)} ${result.error}`);
+    }
+  }
+});

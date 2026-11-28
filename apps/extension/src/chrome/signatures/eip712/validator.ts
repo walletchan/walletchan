@@ -1,5 +1,6 @@
 /** Bounded EIP-712 validation facade and orchestration. */
 
+import { getTypesForEIP712Domain, hashDomain } from "viem";
 import {
   RAW_ERC7710_DELEGATION_SIGNATURE_ERROR,
   isRawErc7710DelegationSignatureRequest,
@@ -90,6 +91,13 @@ export function validateEIP712TypedData(
   // Graph traversal and delegation inspection assume well-formed field objects.
   const typeDefinitions = validateEip712TypeDefinitions(data.types);
   if (!typeDefinitions.valid) return typeDefinitions;
+  // A declared domain field that is absent, undefined or null cannot be hashed, so reject before any device prompt.
+  const missing = (data.types.EIP712Domain ?? []).find(
+    (field: { name: string }) => !Object.prototype.hasOwnProperty.call(data.domain, field.name) || data.domain[field.name] == null,
+  );
+  if (missing) {
+    return { valid: false, error: `Domain is missing declared field '${missing.name}'` };
+  }
   if (isRawErc7710DelegationSignatureRequest(method, data)) {
     return { valid: false, error: RAW_ERC7710_DELEGATION_SIGNATURE_ERROR };
   }
@@ -104,6 +112,18 @@ export function validateEIP712TypedData(
   ]) {
     const result = validate();
     if (!result.valid) return result;
+  }
+  // A value of the wrong type (chainId "abc", a short address) also makes viem throw only after approval.
+  // Last, so the policy errors win. Only the primitive domain fields (all the standard ones) are hashed, even
+  // beside a struct or array field: those can make hashing cost seconds, and this runs before the user approves.
+  const domainTypes: Array<{ type: string }> = data.types.EIP712Domain ?? getTypesForEIP712Domain({ domain: data.domain });
+  const primitiveFields = domainTypes.filter(
+    (field) => !field.type.endsWith("]") && !Object.prototype.hasOwnProperty.call(data.types, field.type),
+  );
+  try {
+    hashDomain({ domain: data.domain, types: { ...data.types, EIP712Domain: primitiveFields } });
+  } catch {
+    return { valid: false, error: "Invalid domain: a value does not match its type" };
   }
 
   return { valid: true, sanitized: sanitizeEip712TypedData(data) };
