@@ -1,5 +1,5 @@
 import { FLASHBLOCKS_CHAIN_IDS } from "../../constants/networks";
-import { isWalletOuterGasPayer } from "./nativeDelta";
+import { isHistoryOuterGasPayer } from "./nativeGasPayerPolicy";
 import { getTxById } from "./repository";
 import { reconcileReceiptDerivedHistory } from "./receiptReconciliationWorker";
 import type { CompletedTransaction } from "./types";
@@ -43,7 +43,7 @@ export async function queueReceiptDerivedHistoryReconciliation(
     tx.txHash,
     tx.chainId,
     tx.tx.from,
-    isWalletOuterGasPayer(tx.feePaymentToken, tx.erc20FeePayment),
+    isHistoryOuterGasPayer(tx),
     tx.erc20FeePayment,
     tx.userOperationHash,
   );

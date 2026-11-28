@@ -1,5 +1,5 @@
 import { Box, Portal, type BoxProps } from "@chakra-ui/react";
-import { useEffect, type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 
 interface FullScreenPickerLayerProps extends BoxProps {
   children: ReactNode;
@@ -13,12 +13,15 @@ export function FullScreenPickerLayer({
   children,
   ...rest
 }: FullScreenPickerLayerProps) {
-  useEffect(() => {
+  // Restore the covered tree before picker triggers restore keyboard focus.
+  useLayoutEffect(() => {
     const appRoot =
       document.getElementById("root") ??
       document.getElementById("preview-root");
     if (!appRoot) return;
 
+    // Inert covers focus, interaction and the accessibility tree. aria-hidden
+    // would hide the trigger before the picker transfers focus on the next frame.
     const wasInert = appRoot.hasAttribute("inert");
     appRoot.setAttribute("inert", "");
 

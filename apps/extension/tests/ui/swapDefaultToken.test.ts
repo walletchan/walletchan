@@ -67,3 +67,9 @@ test("source native lookup stays pinned to the selected chain", () => {
   const base = { ...token("ETH", 8453, 30), name: "Base ETH" };
   assert.equal(findNativeTokenForChain([ethereum, base], 8453), base);
 });
+
+test("Bunker swap starts on its deployed chain even when that network has no swap support", () => {
+  for (const chainId of [8453, 42161, 11155111, 999_999]) {
+    assert.equal(resolveInitialSwapChainId(1, undefined, chainId), chainId);
+  }
+});

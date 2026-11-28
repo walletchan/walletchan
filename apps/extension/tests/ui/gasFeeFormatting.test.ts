@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatEthCompact,
+  formatCompactFee,
   formatEthExact,
   formatEthFee,
 } from "../../src/lib/gasFormatUtils";
@@ -48,4 +49,12 @@ test("ERC-20 fee fallback distinguishes pending and unavailable settlement", () 
     getErc20FeeStatusLabel({ ...base, pending: false }),
     "Fee amount unavailable",
   );
+});
+
+test("confirmation fee labels compact long zero runs while preserving non-zero fees", () => {
+  assert.equal(formatCompactFee("5794000", "ETH"), "0.0₁₁5794 ETH");
+  assert.equal(formatCompactFee("1", "ETH"), "1 wei");
+  assert.equal(formatCompactFee("99999", "ETH"), "99,999 wei");
+  assert.equal(formatCompactFee("0", "ETH"), "0 ETH");
+  assert.equal(formatCompactFee("123456789000000", "ETH"), "0.0001235 ETH");
 });

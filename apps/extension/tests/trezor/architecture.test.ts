@@ -187,7 +187,7 @@ test("Trezor transaction and signature paths recover exact signers before releas
       source("src/chrome/background/transactionExecutionRouter.ts"),
       source("src/chrome/background/secretManagementRouter.ts"),
       source(
-        "src/components/TransactionConfirmation/TransactionConfirmation.tsx",
+        "src/components/TransactionConfirmation/TransactionActionNotice.tsx",
       ),
       source(
         "src/components/SignatureConfirmation/SignatureRequestConfirmation.tsx",

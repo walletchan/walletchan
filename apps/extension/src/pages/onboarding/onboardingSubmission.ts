@@ -1,3 +1,5 @@
+import type { SeedGroup, SafeBunkerAccount } from "@/chrome/types";
+import type { RestoredBunkerSelection } from "./useBunkerOnboardingSelection";
 import type { LedgerAccountSelection } from "@/components/Ledger/AddLedgerFlow";
 import type { TrezorAccountSelection } from "@/components/Trezor/AddTrezorFlow";
 import { validateAndDeriveAddress } from "@/utils/privateKeyUtils";
@@ -25,6 +27,7 @@ interface OnboardingSubmissionInput {
   ledgerSelection: LedgerAccountSelection | null;
   trezorSelection: TrezorAccountSelection | null;
   safeSelection?: SafeOnboardingSelection | null;
+  importBunkers?: (group: SeedGroup) => Promise<RestoredBunkerSelection>;
   resolveAddress(input: string): Promise<string | null>;
 }
 
@@ -55,6 +58,8 @@ export async function submitOnboardingAccount(
       }
     } else if (input.accountType === "seedPhrase") {
       if (!input.createNewWallet && !input.mnemonic.trim()) throw new Error("Seed phrase is required");
+    } else if (input.accountType === "safeBunker") {
+      if (!input.mnemonic.trim() || !input.importBunkers) throw new Error("Import the Bunker seed phrase first");
     } else if (input.accountType === "bankr") {
       resolvedBankrAddress = await input.resolveAddress(
         input.walletAddress.trim(),
@@ -131,6 +136,17 @@ export async function submitOnboardingAccount(
       }
       finalAddress = response.account.address;
       finalDisplayAddress = response.account.displayName || finalAddress;
+    } else if (input.accountType === "safeBunker") {
+      await initializeCredential("pk-only-mode");
+      const saved = await requireSuccess<{ success: boolean; group: SeedGroup }>({ type: "saveSeedPhraseOnly", generate: false, mnemonic: input.mnemonic }, "Could not save the Bunker phrase");
+      if (typeof saved.group?.id !== "string" || !saved.group.id) throw new Error("Bunker phrase was not saved safely");
+      const selected = await input.importBunkers!(saved.group);
+      const accounts = await chrome.runtime.sendMessage({ type: "getAccounts" }) as SafeBunkerAccount[];
+      const account = Array.isArray(accounts) ? accounts.find(a => a.id === selected.accountId && a.type === "safeBunker" && a.seedGroupId === saved.group.id && a.chainId === selected.chainId) : undefined;
+      if (!account) throw new Error("Bunker account was not committed safely");
+      await requireSuccess({ type: "setActiveAccount", accountId: account.id }, "Could not select the imported Bunker");
+      finalAddress = account.address; finalDisplayAddress = account.displayName || account.address;
+      finalChainName = CHAIN_REGISTRY.find(chain => chain.chainId === account.chainId)?.name || "Base";
     } else if (input.accountType === "privateKey") {
       const result = validateAndDeriveAddress(input.privateKey);
       if (!result.valid || !result.address || !result.normalizedKey) {

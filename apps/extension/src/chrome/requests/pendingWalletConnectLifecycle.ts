@@ -194,6 +194,8 @@ export async function cancelPendingRequestsForWalletConnectTopic(
   // Install before the first await. A concurrent confirm that has not reached
   // its last-safe-point check will fail even while storage is being listed.
   beginWalletConnectTopicTermination(topic);
+  const { cancelBunkerInboxRequests } = await import("../safeBunker/inbox");
+  await cancelBunkerInboxRequests({ topic });
   const [transactions, signatures, batches, permissions, routes] =
     await Promise.all([
       getPendingTxRequests(),

@@ -1,3 +1,4 @@
+import { enqueueBunkerRequest } from "../safeBunker/inbox";
 /** ERC-5792 request validation and durable two-record queue commit. */
 import { ALLOWED_CHAIN_IDS } from "../../constants/chainRegistry";
 import { BANKR_SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "../../constants/networks";
@@ -67,6 +68,18 @@ export async function handleWalletSendCalls(
     const isBankrAccount = account?.type === "bankr";
     const isPKOrSP = account?.type === "privateKey" || account?.type === "seedPhrase";
     const isImpersonator = account?.type === "impersonator";
+    if (account?.type === "safeBunker") {
+      if (chainId !== account.chainId || params.from && params.from.toLowerCase() !== account.address.toLowerCase()) throw new Error("Bunker chain or sender mismatch");
+      if (params.calls.some((c) => !c.to || (c as { from?: string }).from && (c as { from?: string }).from!.toLowerCase() !== account.address.toLowerCase())) throw new Error("Bunker call sender mismatch");
+      if (Object.entries(params.capabilities ?? {}).some(([key, value]) => key !== "atomic" && (value as { optional?: boolean })?.optional !== true)) throw new Error("Unsupported Bunker capability");
+      const normalized = normalizeBatchCallValues(params.calls);
+      if (!normalized.ok) throw new Error(normalized.error);
+      await enqueueBunkerRequest({ id: bundleId, accountId: account.id, chainId,
+        calls: normalized.calls.map((c) => ({ to: c.to!, value: BigInt(c.value || "0x0").toString() as `${bigint}`, data: c.data || "0x", operation: 0 })),
+        routes: [{ kind: "batch", origin: senderOrigin ?? origin, requestId: bundleId,
+          ...(walletConnect ? { topic: walletConnect.topic, remoteId: walletConnect.requestId } : { tabId, frameId }) }] });
+      clearProviderRequestSurfaceHint(senderWindowId); openExtensionPopup(senderWindowId); return;
+    }
     const isSafe = account?.type === "safe";
     const supportsBatch =
       !!account &&

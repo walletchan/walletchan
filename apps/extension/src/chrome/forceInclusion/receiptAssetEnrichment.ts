@@ -1,6 +1,6 @@
 import { getRpcUrl } from "../transactions/rpcConfig";
 import { getTxById } from "../txHistoryStorage";
-import { isWalletOuterGasPayer } from "../history/nativeDelta";
+import { isHistoryOuterGasPayer } from "../history/nativeGasPayerPolicy";
 import { getUserOperationTokenFeeFromReceipt } from "../feePayment/userOperationEvent";
 
 export async function startReceiptAssetChangeExtraction(
@@ -16,7 +16,7 @@ export async function startReceiptAssetChangeExtraction(
     if (!rpcUrl) return;
     const tx = await getTxById(txId);
     const sender = tx?.tx?.from;
-    if (!sender) return;
+    if (!tx || !sender) return;
     const sponsoredFee = receipt && tx?.userOperationHash && tx.erc20FeePayment
       ? getUserOperationTokenFeeFromReceipt(
           receipt,
@@ -35,10 +35,7 @@ export async function startReceiptAssetChangeExtraction(
       userAddress: sender,
       receipt,
       rpcUrl,
-      payerForGas: isWalletOuterGasPayer(
-        tx?.feePaymentToken,
-        tx?.erc20FeePayment,
-      ),
+      payerForGas: isHistoryOuterGasPayer(tx),
       ...(feePaymentPaymaster && tx?.erc20FeePayment
         ? {
             feePayment: {

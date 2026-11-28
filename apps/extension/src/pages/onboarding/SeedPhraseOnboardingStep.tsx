@@ -1,13 +1,17 @@
-import { Box, Flex } from "@chakra-ui/react";
+import { Box, Flex, Text } from "@chakra-ui/react";
+import { BUNKER_ONBOARDING_STEPS } from "./onboardingTypes";
 import { useState } from "react";
 import SeedPhraseSetup from "@/components/SeedPhraseSetup";
+import { BunkerSetupIntro } from "@/components/SafeBunker/BunkerSetupIntro";
 import { OnboardingFrame, OnboardingHeader } from "./OnboardingShell";
 
 export function SeedPhraseOnboardingStep({
+  phraseOnly = false, error,
   onBack,
   onProgressStepClick,
   onCollect,
 }: {
+  phraseOnly?: boolean; error?: string;
   onBack: () => void;
   onProgressStepClick: (step: number) => void;
   onCollect: (
@@ -18,9 +22,16 @@ export function SeedPhraseOnboardingStep({
   ) => void;
 }) {
   const [isImportView, setIsImportView] = useState(true);
+  const [showBunkerIntro, setShowBunkerIntro] = useState(phraseOnly && !error);
+  const handleBack = () => phraseOnly ? setShowBunkerIntro(true) : onBack();
+  if (showBunkerIntro) return (
+    <OnboardingFrame steps={BUNKER_ONBOARDING_STEPS} currentStep={1} onStepClick={onProgressStepClick}>
+      <BunkerSetupIntro onBack={onBack} onProceed={() => setShowBunkerIntro(false)} />
+    </OnboardingFrame>
+  );
   return (
-    <OnboardingFrame currentStep={1} onStepClick={onProgressStepClick}>
-      {isImportView && <OnboardingHeader onBack={onBack} step={1} />}
+    <OnboardingFrame steps={phraseOnly ? BUNKER_ONBOARDING_STEPS : undefined} currentStep={1} onStepClick={onProgressStepClick}>
+      {isImportView && <OnboardingHeader totalSteps={phraseOnly ? 4 : 3} onBack={handleBack} step={1} />}
       <Flex flex="1" minH={0} overflowY="auto" justify="center">
         <Box
           w="full"
@@ -31,10 +42,11 @@ export function SeedPhraseOnboardingStep({
           position="relative"
         >
           <Box>
-            <SeedPhraseSetup
+            {error && <Text role="alert" fontSize="sm" color="status.error.emphasis" mb={4}>{error}</Text>}
+            <SeedPhraseSetup phraseOnly={phraseOnly}
               initialMode="import"
               onImportViewChange={setIsImportView}
-              onBack={onBack}
+              onBack={handleBack}
               onComplete={() => {}}
               onCollect={onCollect}
             />

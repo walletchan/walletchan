@@ -23,6 +23,10 @@ contains no RPC or signing implementation.
 
 Data flows from the screen into the feature hooks and pure models, then into
 domain-free UI primitives. Background reads live under `chrome/staking/`.
-Execution remains account-pinned and reset-aware through the existing internal
-multi-transaction handlers. Tests cover calldata/amount decisions and every
-wallet-type execution plan; Ledger additionally requires real-device QA.
+EOA execution remains account-pinned and reset-aware through the existing internal
+multi-transaction handlers. `BunkerStakingReview.tsx` instead embeds the staking
+summary in the shared Bunker confirmation: approval/deposit, redeem and claim
+use the Bunker rotation and payer coordinator. Preparation is claimed before
+awaiting a runtime response, and Bunkers on other chains cannot start Base
+staking. Tests cover calldata/amount decisions and every wallet-type execution
+plan; hardware acceptance additionally requires real-device QA.

@@ -1,3 +1,4 @@
+import type { BunkerSwapContext } from "@/chrome/safeBunker/swapContext";
 import type { SafeCall } from "@/chrome/safe/types";
 import type { PreparedSwapTxEntry } from "./swapViewTypes";
 
@@ -5,6 +6,7 @@ interface CreateSafeSwapProposalOptions {
   safeAccountId: string;
   chainId: number;
   transactions: PreparedSwapTxEntry[];
+  swapContext?: BunkerSwapContext;
 }
 
 interface CreateSafeProposalResponse {
@@ -62,4 +64,13 @@ export async function createSafeSwapProposal({
     throw new Error(response.error || "Could not create Safe swap request");
   }
   return proposalId;
+}
+
+/** Stage unsigned calls for one direct Bunker confirmation, never a Safe proposal. */
+export async function createBunkerSwapRequest({ safeAccountId, chainId, transactions, swapContext }: CreateSafeSwapProposalOptions, id: string): Promise<string> {
+  const swapMeta = transactions.find(entry => entry.swapMeta)?.swapMeta;
+  const response = await chrome.runtime.sendMessage({ type: "createSafeBunkerRequest",
+    accountId: safeAccountId, chainId, id, ...(swapMeta ? { swapMeta } : {}), ...(swapContext ? { swapContext } : {}), calls: buildSafeSwapProposalCalls(transactions, chainId) });
+  if (!response?.success) throw new Error(response?.error || "Could not prepare Bunker swap");
+  return id;
 }

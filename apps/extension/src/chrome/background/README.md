@@ -105,6 +105,13 @@ dependencies. `composition/lifecycle.ts` owns the single `onMessage`
 registration and released listener order; focused callbacks and startup effects
 live under `lifecycle/`.
 
+`safeBunkerRouter.ts` owns trusted master-only Bunker setup, deployment,
+request, recovery and management messages. It restores only an absent coherent
+session and captures epoch/key authority before dispatch. Background startup
+retains both Bunker reconciliation and the independent tab-selection migration;
+reset checks unresolved Bunker effects and clears signature history alongside
+ordinary transaction history.
+
 `activityMessageTypes.ts` owns the effect-free Activity/history/receipt message
 audience list used by `messageAccessPolicy.ts`; it grants only trusted wallet UI
 access and adds no provider messages.

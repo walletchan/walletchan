@@ -74,7 +74,7 @@ this patch on every Connect update; do not silently drop it.
   does not assert that Suite itself never uses analytics or remote services.
 - Build guards reject SDK dynamic-function/eval markers and retained
   crypto-utils code. The current Chrome background passes the existing fixed
-  4 MiB budget. Ledger's offscreen document contains no Trezor SDK.
+  4.25 MiB combined Safe Bunker/Trezor budget. Ledger's offscreen document contains no Trezor SDK.
 - Firefox aliases authority-bearing Trezor modules to a fail-closed stub;
   packaging rejects Suite/WebSocket/Trezor transport markers and removes
   Chrome-only Trezor assets. No Firefox Trezor support is claimed.

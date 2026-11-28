@@ -9,7 +9,7 @@ import type { PreparedSwapTxEntry } from "./swapViewTypes";
 import { executePreparedSwap } from "./executePreparedSwap";
 import { prepareBridgeSwap } from "./prepareBridgeSwap";
 import { prepareSameChainSwap } from "./prepareSameChainSwap";
-import { createSafeSwapProposal } from "./safeSwapProposal";
+import { createBunkerSwapRequest, createSafeSwapProposal } from "./safeSwapProposal";
 import { getSwapSubmissionKind } from "./swapSubmissionModel";
 import type {
   PreparedAccountLock,
@@ -90,7 +90,7 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
     if (submissionKind === "unsupported") {
       toast({
         title:
-          options.accountType === "safe"
+          (options.accountType === "safe" || options.accountType === "safeBunker")
             ? "Safe bridge unavailable"
             : options.accountType === "ledger"
               ? "Ledger swap not available"
@@ -98,7 +98,7 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
               ? "Trezor swap not available"
             : "View-only account",
         description:
-          options.accountType === "safe"
+          (options.accountType === "safe" || options.accountType === "safeBunker")
             ? "Safe swaps currently stay on one network."
             : options.accountType === "ledger"
               ? "Use a swap dapp; WalletChan will show the normal Ledger confirmation."
@@ -163,6 +163,16 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
       setPrepared7702(plan.delegation);
       setPreparedQuote(plan.quote);
       const requestId = crypto.randomUUID();
+      if (submissionKind === "bunkerExecution") {
+        if (!options.accountId) throw new Error("Bunker swap account unavailable");
+        await createBunkerSwapRequest({ safeAccountId: options.accountId,
+          chainId: options.sellChainId, transactions: plan.transactions,
+          swapContext: { slippageBps: options.slippageBps,
+            sell: { address: sellToken.contractAddress, name: sellToken.name, symbol: sellToken.symbol, decimals: sellToken.decimals,
+              amount: plan.quote.sellAmount, priceUsd: sellToken.priceUsd || 0, logo: sellToken.logoUrl || null },
+            buy: { address: options.buyTokenAddress, name: buyTokenInfo.name, symbol: buyTokenInfo.symbol, decimals: buyTokenInfo.decimals,
+              amount: plan.quote.buyAmount, priceUsd: options.buyTokenPriceUsd || 0, logo: options.buyTokenLogoURI || null } } }, requestId);
+      }
       activeRequestRef.current = requestId;
       setPreparedRequestId(requestId);
       setShowConfirmation(true);
@@ -187,6 +197,7 @@ export function usePreparedSwap(options: UsePreparedSwapOptions) {
   ) => {
     if (submittingRef.current || !preparedTransactions?.length || !preparedRequestId ||
       activeRequestRef.current !== preparedRequestId || impactBlockedRef.current) return;
+    if (options.accountType === "safeBunker") return; // Bunker confirmation owns signing and submission.
     submittingRef.current = true;
     setIsSubmitting(true);
     try {

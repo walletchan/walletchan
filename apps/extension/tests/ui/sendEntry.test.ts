@@ -38,7 +38,7 @@ test("homepage and asset-row actions use their distinct Send entries", async () 
 
   assert.match(
     app,
-    /activeAccount\?\.type !== "safe"[\s\S]{0,500}?onSend=\{\(\) => \{\s*setTransferToken\(resolveSendEntryToken\(null, networksInfo\)\)/u,
+    /activeAccount\?\.type !== "safe"[\s\S]{0,500}?onSend=\{\(\) => \{\s*setTransferToken\(resolveSendEntryToken\(null, networksInfo, activeAccount\?\.type === "safeBunker" \? activeAccount\.chainId : undefined\)\)/u,
   );
   assert.match(
     app,
@@ -48,4 +48,14 @@ test("homepage and asset-row actions use their distinct Send entries", async () 
     app,
     /onTokenClick=\{\(token\) => \{[\s\S]*?setTransferToken\(resolveSendEntryToken\(token, networksInfo\)\)/u,
   );
+});
+
+
+test("Bunker homepage Send starts with its deployed chain native asset", () => {
+  for (const chainId of [8453, 42161, 11155111]) {
+    const token = resolveSendEntryToken(null, undefined, chainId);
+    assert.equal(token.chainId, chainId);
+    assert.equal(token.contractAddress, "native");
+  }
+  assert.equal(resolveSendEntryToken(null, undefined, 56).symbol, "BNB");
 });

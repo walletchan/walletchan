@@ -1,3 +1,4 @@
+import { assertBunkerDraftIntegrity } from "../safeBunker/integrity";
 import { getAccounts } from "../accountStorage";
 import {
   decrypt,
@@ -203,6 +204,12 @@ async function hydrateAuthSessionFromVaultKeyBytesWithinSecretOperation(
     } else if (!decryptedVault) {
       return { success: false, error: "Failed to decrypt vault" };
     }
+  }
+
+  try {
+    await assertBunkerDraftIntegrity(vaultKey);
+  } catch {
+    return { success: false, error: "Bunker seed storage could not be verified" };
   }
 
   let persistedSessionId: string | null = null;

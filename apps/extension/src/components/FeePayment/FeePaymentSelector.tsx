@@ -24,6 +24,7 @@ import { isTransactionSignatureExpired } from "./model/quoteError";
 import { useFeePaymentQuote } from "./hooks/useFeePaymentQuote";
 
 export type FeePaymentRequestKind =
+  | "bunker"
   | "transaction"
   | "batch"
   | "crossDapp"
@@ -37,6 +38,7 @@ interface FeePaymentSelectorProps {
   quote: FeePaymentQuoteSummary | null;
   disabled?: boolean;
   onExpiredRequestRetry?: () => void;
+  onQuoteErrorRetry?: () => void;
   requestKind?: FeePaymentRequestKind;
   accountId?: string;
   requestPayload?: {
@@ -74,6 +76,7 @@ export function FeePaymentSelector({
   quote,
   disabled,
   onExpiredRequestRetry,
+  onQuoteErrorRetry,
   requestKind = "transaction",
   accountId,
   requestPayload,
@@ -249,7 +252,9 @@ export function FeePaymentSelector({
           error={displayedQuoteError} isSwap={requestKind === "swap"}
           disabled={disabled}
           onRetry={() => {
-            if (onExpiredRequestRetry && isTransactionSignatureExpired(displayedQuoteError)) {
+            if (onQuoteErrorRetry) {
+              onQuoteErrorRetry();
+            } else if (onExpiredRequestRetry && isTransactionSignatureExpired(displayedQuoteError)) {
               onExpiredRequestRetry();
             } else requestQuote();
           }}

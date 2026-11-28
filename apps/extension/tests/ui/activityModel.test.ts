@@ -465,3 +465,10 @@ test("history names require verification on the transaction network", () => {
   assert.equal(getActivityPresentation(transaction({clearSignedMeta: {...meta, counterpartyEnsChainId: 1}})).context, "To 0x1111...1111 · app.example.com");
   assert.equal(getActivityPresentation(transaction({clearSignedMeta: {...meta, counterpartyEnsChainId: 8453}})).context, "To onshow.eth · app.example.com");
 });
+
+test("existing Bunker recovery history displays owner rotation with wallet identity", () => {
+  const tx = transaction({ origin: "Bunker recovery", functionName: "Recover Bunker owner",
+    safeBunkerMeta: { kind: "recovery", calls: [] } });
+  assert.deepEqual(getActivityPresentation(tx), { originHostname: null, intent: "Owner rotation",
+    context: "WalletChan", value: null, compactValue: null });
+});

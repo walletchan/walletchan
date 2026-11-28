@@ -31,7 +31,7 @@ async function getVisibleWalletConnectChains(): Promise<ResolvedChain[]> {
     getActiveAccount(),
     getStoredNetworksInfo(),
   ]);
-  return getVisibleChains(networksInfo, account?.type);
+  return getVisibleChains(networksInfo, account?.type, account?.type === "safeBunker" ? account.chainId : undefined);
 }
 
 async function resolveVisibleWalletConnectChain(

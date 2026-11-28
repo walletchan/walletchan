@@ -34,14 +34,13 @@ import {
 
 interface Props {
   account: Account | null;
+  seedGroupIdOverride?: string;
   onBack: () => void;
 }
 
-function RevealSeedPhrase({ account, onBack }: Props) {
-  const backup = useSeedBackupState(account?.type === "seedPhrase" ? account.seedGroupId : undefined);
-  const seedGroupName = account?.type === "seedPhrase"
-    ? backup.groups.find((group) => group.id === account.seedGroupId)?.name
-    : undefined;
+function RevealSeedPhrase({ account, seedGroupIdOverride, onBack }: Props) {
+  const backup = useSeedBackupState(seedGroupIdOverride ?? (account?.type === "safeBunker" ? account.seedGroupId : account?.type === "seedPhrase" ? account.seedGroupId : undefined));
+  const seedGroupName = backup.groups.find((group) => group.id === (seedGroupIdOverride ?? (account?.type === "seedPhrase" || account?.type === "safeBunker" ? account.seedGroupId : undefined)))?.name;
   const mountedRef = useRef(true);
   const revealRevision = useRef(0);
   const [password, setPassword] = useState("");
@@ -65,7 +64,7 @@ function RevealSeedPhrase({ account, onBack }: Props) {
     };
     chrome.runtime.onMessage.addListener(onLock);
     return () => { mountedRef.current = false; chrome.runtime.onMessage.removeListener(onLock); };
-  }, [account?.id]);
+  }, [account?.id, seedGroupIdOverride]);
   useEffect(() => {
     setIsCheckingSession(true);
     chrome.runtime.sendMessage(
@@ -87,13 +86,14 @@ function RevealSeedPhrase({ account, onBack }: Props) {
   }, []);
 
   const handleReveal = () => {
-    if (!password || !account || account.type !== "seedPhrase" || backup.isLoading || backup.error) return;
+    const seedGroupId = seedGroupIdOverride ?? (account?.type === "safeBunker" ? account.seedGroupId : account?.type === "seedPhrase" ? account.seedGroupId : null);
+    if (!password || !seedGroupId || isLoading || backup.isLoading || backup.error) return;
     const revision = ++revealRevision.current;
     setError("");
     setIsLoading(true);
 
     chrome.runtime.sendMessage(
-      { type: "revealSeedPhrase", seedGroupId: account.seedGroupId, password },
+      { type: "revealSeedPhrase", seedGroupId, password },
       (result: { success: boolean; mnemonic?: string; error?: string }) => {
         if (!mountedRef.current || revision !== revealRevision.current) return;
         setIsLoading(false);

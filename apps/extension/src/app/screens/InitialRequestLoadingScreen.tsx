@@ -4,7 +4,6 @@ import {
   Skeleton,
   SkeletonCircle,
   usePrefersReducedMotion,
-  VisuallyHidden,
   VStack,
 } from "@chakra-ui/react";
 import { ConfirmationScreen } from "@/components/ui";
@@ -119,7 +118,7 @@ function ActionSkeleton({ tone }: { tone: SkeletonTone }) {
 }
 
 /** Cold-start placeholder shaped like the transaction confirmation it precedes. */
-export default function InitialRequestLoadingScreen() {
+export default function InitialRequestLoadingScreen({ onBack, title = "Request" }: { onBack?: () => void; title?: string } = {}) {
   const { themeId } = useTheme();
   const prefersReducedMotion = usePrefersReducedMotion();
   const tone: SkeletonTone = {
@@ -150,12 +149,8 @@ export default function InitialRequestLoadingScreen() {
       role="status"
       aria-busy="true"
       aria-label="Loading request"
-      title={
-        <>
-          <VisuallyHidden>Loading request</VisuallyHidden>
-          {sectionHeading("156px")}
-        </>
-      }
+      title={title}
+      onBack={onBack}
       trailing={
         <Skeleton
           {...tone}

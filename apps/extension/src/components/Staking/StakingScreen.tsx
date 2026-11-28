@@ -1,3 +1,4 @@
+import { BunkerStakingReview } from "./BunkerStakingReview";
 import { STAKING_CHAIN_ID } from "./constants";
 import { useMemo, useState } from "react";
 import { Box, Button, HStack, Spinner, Text, VStack } from "@chakra-ui/react";
@@ -42,12 +43,18 @@ export default function StakingScreen(props: StakingScreenProps) {
     owner: props.fromAddress,
     accountId: props.accountId,
     accountType: props.accountType,
+    bunkerChainId: props.bunkerAccount?.chainId,
     state: staking.state,
     onTransactionInitiated: props.onTransactionInitiated,
   });
   const isImpersonator = props.accountType === "impersonator";
+  const unavailableBunker = props.accountType === "safeBunker" && props.bunkerAccount?.chainId !== STAKING_CHAIN_ID;
   const isTrezor = props.accountType === "trezor";
 
+  if (controller.plan && props.accountType === "safeBunker" && props.bunkerAccount) {
+    return <BunkerStakingReview account={props.bunkerAccount} plan={controller.plan} priceUsd={priceUsd}
+      isPopup={props.isPopup} onBack={controller.cancel} onSubmitted={props.onTransactionInitiated} />;
+  }
   if (controller.plan) {
     return (
       <StakingReviewScreen
@@ -90,7 +97,7 @@ export default function StakingScreen(props: StakingScreenProps) {
     parsedAmount <= balance &&
     staking.state &&
     !isImpersonator &&
-    !isTrezor,
+    !isTrezor && !unavailableBunker && !controller.submitting,
   );
   const needsApproval = Boolean(
     mode === "stake" &&
@@ -98,7 +105,7 @@ export default function StakingScreen(props: StakingScreenProps) {
     staking.state &&
     staking.state.allowance < parsedAmount,
   );
-  const canBatchApproval = needsApproval && (
+  const canBatchApproval = needsApproval && (props.accountType === "safeBunker" ||
     props.accountType === "bankr" ||
     ((props.accountType === "privateKey" || props.accountType === "seedPhrase") && controller.delegate)
   );
@@ -107,7 +114,7 @@ export default function StakingScreen(props: StakingScreenProps) {
     <AppScreen stickyActionClearance="118px">
       <AppHeader
         title="Stake WCHAN"
-        onBack={props.onBack}
+        onBack={controller.submitting ? undefined : props.onBack}
         trailing={props.fromAddress ? <FromAccountDisplay chainId={STAKING_CHAIN_ID} address={props.fromAddress} /> : undefined}
       />
       <ScreenBody pt={4}>
@@ -117,7 +124,8 @@ export default function StakingScreen(props: StakingScreenProps) {
             apy={apy}
             loading={staking.loading}
             claiming={controller.submitting}
-            onClaim={() => controller.prepare("claim", 0n)}
+            onClaim={() => !isImpersonator && !isTrezor && !unavailableBunker && controller.prepare("claim", 0n)}
+            claimDisabled={isImpersonator || isTrezor || unavailableBunker}
           />
 
           <HStack
@@ -164,7 +172,7 @@ export default function StakingScreen(props: StakingScreenProps) {
             previewAmount={staking.state?.previewAmount ?? null}
             sliderValue={sliderValue}
             insufficient={insufficient}
-            disabled={controller.submitting || isImpersonator || isTrezor}
+            disabled={controller.submitting || isImpersonator || isTrezor || unavailableBunker}
             onAmountChange={(value) => {
               setIsMaxMode(false);
               setAmount(value);
@@ -189,6 +197,8 @@ export default function StakingScreen(props: StakingScreenProps) {
               </Text>
             </HStack>
           )}
+
+          {unavailableBunker && <Text fontSize="xs" color="fg.secondary">Staking requires a Bunker on Base.</Text>}
 
           {staking.error && (
             <Box px={3} py={2.5} bg="status.error.bg" color="status.error.fg" border="1px solid" borderColor="status.error.border" borderRadius="lg">
@@ -220,6 +230,7 @@ export default function StakingScreen(props: StakingScreenProps) {
           <Button
             variant="brand"
             onClick={() => parsedAmount && controller.prepare(mode, parsedAmount)}
+            isLoading={controller.submitting}
             isDisabled={!canReview}
           >
             {!amount ? "Enter an amount" : `Review ${mode}`}

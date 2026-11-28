@@ -42,7 +42,7 @@ test("request skeleton exposes one accessible loading status", () => {
   assert.match(skeletonSource, /aria-label="Loading request"/);
   assert.match(
     skeletonSource,
-    /<VisuallyHidden>Loading request<\/VisuallyHidden>/,
+    /title={title}/,
   );
   assert.match(skeletonSource, /aria-hidden="true"/);
 });

@@ -37,13 +37,15 @@ export function OnboardingHint({ children, icon, color = "status.warning.emphasi
 function ProgressRail({
   currentStep,
   onStepClick,
+  steps = SETUP_STEPS,
 }: {
   currentStep: number;
+  steps?: readonly { title: string }[];
   onStepClick?: (step: number) => void;
 }) {
   return (
     <VStack align="stretch" spacing={1} mt={10} aria-label="Wallet setup progress">
-      {SETUP_STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const isComplete = index < currentStep;
         const isActive = index === currentStep;
         const canNavigate = isComplete && !!onStepClick;
@@ -68,7 +70,7 @@ function ProgressRail({
             _hover={canNavigate ? { bg: "surface.raisedHover", color: "fg.primary" } : undefined}
             _focusVisible={canNavigate ? { boxShadow: "focus" } : undefined}
             _after={
-              index < SETUP_STEPS.length - 1
+              index < steps.length - 1
                 ? {
                     content: '""',
                     position: "absolute",
@@ -112,12 +114,13 @@ export function OnboardingFrame({
   children,
   currentStep,
   onStepClick,
-  morph = false,
+  morph = false, steps,
 }: {
   children: ReactNode;
   currentStep?: number;
   onStepClick?: (step: number) => void;
   morph?: boolean;
+  steps?: readonly { title: string }[];
 }) {
   const showProgress = currentStep !== undefined;
   const reducedMotion = useReducedMotion();
@@ -177,7 +180,7 @@ export function OnboardingFrame({
                     </Text>
                   </VStack>
                 </HStack>
-                <ProgressRail currentStep={currentStep} onStepClick={onStepClick} />
+                <ProgressRail steps={steps} currentStep={currentStep} onStepClick={onStepClick} />
               </Box>
 
             </Flex>
@@ -231,7 +234,7 @@ export function OnboardingCanvas({
   footer,
   currentStep,
   onStepClick,
-  morph,
+  morph, steps,
 }: {
   children: ReactNode;
   header?: ReactNode;
@@ -239,9 +242,10 @@ export function OnboardingCanvas({
   currentStep?: number;
   onStepClick?: (step: number) => void;
   morph?: boolean;
+  steps?: readonly { title: string }[];
 }) {
   return (
-    <OnboardingFrame currentStep={currentStep} onStepClick={onStepClick} morph={morph}>
+    <OnboardingFrame steps={steps} currentStep={currentStep} onStepClick={onStepClick} morph={morph}>
       {header}
       <Box flex="1" minH={0} overflowY="auto" px={{ base: 5, sm: 7 }} py={6}>
         <Box w="full" maxW="600px" mx="auto">

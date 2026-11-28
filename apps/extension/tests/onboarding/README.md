@@ -8,3 +8,10 @@
 
 These tests cover fresh-wallet initialization only. Upgrade compatibility for
 existing vault formats belongs with the owning vault, mnemonic, or auth suite.
+
+bunkerSubmission.test.ts covers master-only credential ordering, phrase-only
+persistence, selected Bunker identity/chain validation, completion and rollback,
+without ordinary EOA creation or deployment. initialization.test.ts verifies
+Bunker-only source/binding/journal completeness and non-destructive rollback
+after commit. UI hook/component regressions cover cancellation across lock or
+unmount and partial network/import results using the shared selector.

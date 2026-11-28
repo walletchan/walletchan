@@ -2,7 +2,7 @@ const PAYMASTER_TOKEN_COLLECTION_FAILURE =
   /AA50 postOp reverted 0x7939f424/i;
 
 export const INSUFFICIENT_REMAINING_FEE_TOKEN_ERROR =
-  "This transaction would leave too little of the selected token for the network fee. Reduce the amount or choose another fee token.";
+  "Not enough tokens left for gas. Reduce the amount or change gas token.";
 export const INSUFFICIENT_REMAINING_USDC_ERROR =
   INSUFFICIENT_REMAINING_FEE_TOKEN_ERROR;
 

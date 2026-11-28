@@ -30,6 +30,7 @@ const ROUTER_MESSAGE_MANIFESTS = {
   "privacyRecoveryRouter.ts": "BACKGROUND_PRIVACY_RECOVERY_MESSAGE_TYPES",
   "providerRpcRouter.ts": "BACKGROUND_PROVIDER_RPC_MESSAGE_TYPES",
   "resetRouter.ts": "BACKGROUND_RESET_MESSAGE_TYPES",
+  "safeBunkerRouter.ts": "BACKGROUND_SAFE_BUNKER_MESSAGE_TYPES",
   "safeAccountRouter.ts": "BACKGROUND_SAFE_ACCOUNT_MESSAGE_TYPES",
   "safeProposalRouter.ts": "BACKGROUND_SAFE_PROPOSAL_MESSAGE_TYPES",
   "secretManagementRouter.ts": "BACKGROUND_SECRET_MANAGEMENT_MESSAGE_TYPES",
@@ -153,8 +154,12 @@ test("every background router dispatch exactly matches its reviewed message mani
       ROUTER_MESSAGE_MANIFESTS[
         routerName as keyof typeof ROUTER_MESSAGE_MANIFESTS
       ];
+    const manifestSource = routerName === "safeBunkerRouter.ts"
+      ? await source(new URL("safeBunkerMessageTypes.ts", BACKGROUND_ROOT))
+      : routerSource;
+    if (routerName === "safeBunkerRouter.ts") assert.match(routerSource, /export \{ BACKGROUND_SAFE_BUNKER_MESSAGE_TYPES \} from "\.\/safeBunkerMessageTypes"/);
     const manifestDeclarations = [
-      ...routerSource.matchAll(
+      ...manifestSource.matchAll(
         /export const (BACKGROUND_[A-Z0-9_]+_MESSAGE_TYPES)\s*=/g,
       ),
     ].map((match) => match[1]);
@@ -168,7 +173,7 @@ test("every background router dispatch exactly matches its reviewed message mani
       /[.*+?^${}()|[\]\\]/g,
       "\\$&",
     );
-    const manifestMatch = routerSource.match(
+    const manifestMatch = manifestSource.match(
       new RegExp(
         `export const ${escapedManifestName}\\s*=\\s*\\[([\\s\\S]*?)\\]\\s*as const`,
       ),

@@ -198,13 +198,17 @@ export const BASE_RECONCILIATION_RPCS = [
   "https://base.drpc.org",
 ] as const;
 
+// Retired shipped defaults recognized only for exact legacy-default upgrades.
+export const RETIRED_SEPOLIA_RPC_URL = "https://sepolia.drpc.org";
+export const RETIRED_TEMPO_RPC_URL = "https://rpc.presto.tempo.xyz";
+
 // Built-in chain endpoints; chainRegistry.ts owns capabilities and metadata.
 export const BUILT_IN_CHAIN_URLS = {
   1: { rpc: "https://eth.drpc.org", explorer: ETHERSCAN_URL },
   2741: { rpc: "https://api.mainnet.abs.xyz", explorer: "https://abscan.org" },
   42161: { rpc: "https://arb1.arbitrum.io/rpc", explorer: "https://arbiscan.io" },
   43114: { rpc: "https://api.avax.network/ext/bc/C/rpc", explorer: "https://snowtrace.io" },
-  8453: { rpc: BASE_RECONCILIATION_RPCS[1], explorer: BASESCAN_URL },
+  8453: { rpc: BASE_RECONCILIATION_RPCS[0], explorer: BASESCAN_URL },
   80094: { rpc: "https://rpc.berachain.com", explorer: "https://berascan.com" },
   81457: { rpc: "https://rpc.blast.io", explorer: "https://blastscan.io" },
   56: { rpc: "https://bsc-dataseed.binance.org", explorer: "https://bscscan.com" },
@@ -221,11 +225,11 @@ export const BUILT_IN_CHAIN_URLS = {
   4663: { rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com" },
   534352: { rpc: "https://rpc.scroll.io", explorer: "https://scrollscan.com" },
   146: { rpc: "https://rpc.soniclabs.com", explorer: "https://sonicscan.org" },
-  4217: { rpc: "https://rpc.presto.tempo.xyz", explorer: "https://explore.mainnet.tempo.xyz" },
+  4217: { rpc: "https://rpc.tempo.xyz", explorer: "https://explore.mainnet.tempo.xyz" },
   130: { rpc: "https://mainnet.unichain.org", explorer: "https://uniscan.xyz" },
   480: { rpc: "https://worldchain-mainnet.g.alchemy.com/public", explorer: "https://worldscan.org" },
   324: { rpc: "https://mainnet.era.zksync.io", explorer: "https://explorer.zksync.io" },
-  11155111: { rpc: "https://sepolia.drpc.org", explorer: SEPOLIA_ETHERSCAN_URL },
+  11155111: { rpc: SEPOLIA_FALLBACK_RPC_URL, explorer: SEPOLIA_ETHERSCAN_URL },
   560048: { rpc: "https://rpc.hoodi.ethpandaops.io", explorer: "https://hoodi.etherscan.io" },
   11124: { rpc: "https://api.testnet.abs.xyz", explorer: "https://sepolia.abscan.org" },
   421614: { rpc: "https://arbitrum-sepolia.drpc.org", explorer: "https://sepolia.arbiscan.io" },

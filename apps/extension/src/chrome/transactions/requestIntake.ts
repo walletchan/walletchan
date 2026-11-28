@@ -1,3 +1,5 @@
+import { enqueueBunkerRequest } from "../safeBunker/inbox";
+import { normalizeBunkerIngressTransaction } from "../safeBunker/ingress";
 import type { TransactionParams } from "../bankr/submission";
 import { CHAIN_NAMES } from "../../constants/networks";
 import { CHAIN_REGISTRY } from "../../constants/chainRegistry";
@@ -52,6 +54,12 @@ export function handleTransactionRequest(
         error: "No active account",
       });
       return;
+    }
+    if (activeAccount.type === "safeBunker") {
+      const calls = normalizeBunkerIngressTransaction(activeAccount, tx);
+      await enqueueBunkerRequest({ accountId: activeAccount.id, chainId: tx.chainId, id: txId, calls,
+        routes: [{ kind: "injected", origin: senderOrigin ?? origin, tabId, frameId, requestId: txId }] });
+      clearProviderRequestSurfaceHint(senderWindowId); openExtensionPopup(senderWindowId); return;
     }
     if (activeAccount.type === "safe") {
       requireSafeFeature("injectedDapp");
@@ -188,6 +196,7 @@ export function handleSignatureRequest(
       return;
     }
 
+    if (activeAccount.type === "safeBunker") throw new Error("Bunker message signing is unsupported");
     if (activeAccount.type === "safe") requireSafeFeature("injectedDapp");
     const signerParam = extractSignerParam(
       signature.method,

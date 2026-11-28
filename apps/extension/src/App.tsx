@@ -1,3 +1,5 @@
+import { BunkerAppSurface } from "@/app/BunkerAppSurfaces";
+import { useBunkerNavigation } from "@/app/hooks/useBunkerNavigation";
 import { useResolvedTransactionNavigation } from "@/app/hooks/useResolvedTransactionNavigation";
 import { useSafeRequestNavigation } from "@/app/hooks/useSafeRequestNavigation";
 import { loadInitialSafeProposals } from "@/app/initialSafeRequests";
@@ -134,7 +136,8 @@ import {
 } from "@/app/unlockRouting";
 import { SafeApprovalsSurface, SafeFeatureUnavailable, SafeHomeActivity, SafeHomeApprovalRail, SafeHomeQuickActions } from "@/app/SafeAppSurfaces";
 import { toLegacyAccountType } from "@/app/safeAccountType";
-import { HomeBackupReminder } from "@/app/home/HomeBackupReminder";
+import { SeedGroupBackupSurface } from "@/app/SeedGroupBackupSurface";
+import { HomeAccountReminders } from "@/app/home/HomeBackupReminder";
 import { PrivatePortfolioHome, useWalletHomeMode, WalletModeToggle } from "@/app/home";
 import type { UnshieldOperation } from "@/components/Shield/model/unshield";
 import PrivacyActionRoute from "@/app/screens/PrivacyActionRoute";
@@ -147,6 +150,7 @@ function App() {
   const { networksInfo, reloadRequired, setReloadRequired } = useNetworks();
   const { mode: walletHomeMode, setMode: setWalletHomeMode, privateHomeEnabled } = useWalletHomeMode();
   const [view, setView] = useState<AppView>("main");
+  const [backupGroupId, setBackupGroupId] = useState<string | null>(null);
   const hardwareSetupProviderRef = useRef(getHardwareSetupProvider(window.location.search));
   const batchRequestSoundGateRef = useRef(createBatchRequestSoundGate());
   const [isLoading, setIsLoading] = useState(true);
@@ -230,7 +234,7 @@ function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccount, setActiveAccount] = useState<Account | null>(null);
   const [settingsAccount, setSettingsAccount] = useState<Account | null>(null);
-  const [accountSettingsReturnTarget, setAccountSettingsReturnTarget] = useState<"home" | "settingsAccounts" | "backup">("home");
+  const [accountSettingsReturnTarget, setAccountSettingsReturnTarget] = useState<"home" | "settingsAccounts" | "backup" | "bunkerRotation">("home");
   const [isAccountPickerOpen, setIsAccountPickerOpen] = useState(false);
   const [accountSettingsInitialView, setAccountSettingsInitialView] =
     useState<AccountSettingsSubView>("settings");
@@ -240,7 +244,7 @@ function App() {
   const unlockRouteHandledRef = useRef(false);
   const isWalletUnlockedRef = useRef(isWalletUnlocked);
   const selectedChain = getResolvedChainByName(chainName, networksInfo);
-  const visibleChains = getVisibleChains(networksInfo, activeAccount?.type);
+  const visibleChains = getVisibleChains(networksInfo, activeAccount?.type, activeAccount?.type === "safeBunker" ? activeAccount.chainId : undefined);
   const activeSafeChainIds = useActiveSafeChainIds(activeAccount);
 
   const openAccountSettingsView = (account: Account, returnTarget: "home" | "settingsAccounts") => { setAccountSettingsReturnTarget(returnTarget); setAccountSettingsInitialView("settings"); setAccountSettingsApiKeyDraft(null); setSettingsAccount(account); setView("accountSettings"); };
@@ -1689,6 +1693,10 @@ function App() {
     setView("main");
   }, [holdingsTabTrigger]);
 
+  const { bunkerRequestAccount, bunkerRequestId, bunkerInitialView, bunkerInitialError, pendingBunkerRequests, openPendingBunker, openBunker, handleBunkerSubmitted, bunkerSwapResume, handleBunkerSwapRefresh } = useBunkerNavigation({
+    unlocked: isWalletUnlocked, accounts, view, setView, onSelectAccount: handleAccountSwitch,
+    onActivity: () => { setWalletHomeMode("public"); returnToActivity(); },
+  });
   // Before rejection, move to Activity for replacements or an adjacent prompt.
   // This prevents prompt removal from briefly leaving an invalid selection.
   const navigateToAdjacentRequest = useCallback(() => {
@@ -2336,6 +2344,7 @@ function App() {
     );
   }
 
+  if (view === "seedGroupBackup" && backupGroupId) return <SeedGroupBackupSurface seedGroupId={backupGroupId} fullscreen={isFullscreenTab} onBack={() => setView("main")} />;
   // Account Settings view
   if (view === "accountSettings") {
     return (
@@ -2357,9 +2366,10 @@ function App() {
                 setAccountSettingsInitialView("settings");
                 setAccountSettingsApiKeyDraft(null);
                 if (accountSettingsReturnTarget === "settingsAccounts") { setSettingsInitialTab("accounts"); setView("settings"); }
-                else { setIsAccountPickerOpen(accountSettingsReturnTarget !== "backup"); setView("main"); }
+                else { setIsAccountPickerOpen(accountSettingsReturnTarget === "home"); setView("main"); }
               }}
               onAccountUpdated={loadAccounts}
+              onBunkerSubmitted={handleBunkerSubmitted}
               accounts={accounts}
               initialView={accountSettingsInitialView}
               onSessionExpired={handleAccountSettingsSessionExpired}
@@ -2428,35 +2438,23 @@ function App() {
   // Add Account view
   if (view === "addAccount") {
     return (
-      <Box bg="bg.base" h="100%" display="flex" flexDirection="column">
-        <Box
-          maxW={isFullscreenTab ? "480px" : "100%"}
-          mx="auto"
-          w="100%"
-          h="100%"
-          display="flex"
-          flexDirection="column"
-        >
-          <Suspense fallback={<LoadingFallback />}>
+      <AppFeatureFrame isFullscreenTab={isFullscreenTab}>
             <AddAccount onBack={() => setView("main")}
               onOpenBiometricSettings={() => { setSettingsInitialTab("biometricUnlock"); setView("settings"); }}
-              onAccountAdded={async () => {
-                // Account creation makes the new account the global default.
-                // Adopt it only in the tab where the user completed the flow;
-                // every other established tab keeps its own binding.
-                const addedAccount = await sendMessageWithRetry<Account | null>({
-                  type: "getActiveAccount",
-                });
+              onAccountAdded={async (addedAccount) => {
+                // Adopt the exact created account in this tab. A concurrent refresh
+                // can restore this tab's old global selection before this callback.
                 if (addedAccount) await handleAccountSwitch(addedAccount);
                 await loadAccounts(true);
-                setView("main");
+                if (addedAccount?.type === "safeBunker") { setWalletHomeMode("public"); returnToActivity(); }
+                else setView("main");
               }}
             />
-          </Suspense>
-        </Box>
-      </Box>
+      </AppFeatureFrame>
     );
   }
+
+  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} isPopup={!isInSidePanel && !isFullscreenTab} initialRequestId={bunkerRequestId} initialView={bunkerInitialView} initialError={bunkerInitialError} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} onRefreshSwap={(context) => handleBunkerSwapRefresh(account, context)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
 
   // Safe approvals view
   if (view === "safeApprovals") {
@@ -2503,10 +2501,11 @@ function App() {
   if (view === "swap") {
     return (
       <AppFeatureFrame isFullscreenTab={isFullscreenTab}>
-            <SwapView
+            <SwapView key={bunkerSwapResume?.requestId ?? "swap"} resumeSwap={bunkerSwapResume && bunkerSwapResume.accountId === activeAccount?.id ? bunkerSwapResume : undefined}
               fromAddress={address}
               accountId={activeAccount?.id}
               accountType={activeAccount?.type || "bankr"}
+              bunkerAccount={activeAccount?.type === "safeBunker" ? activeAccount : undefined} isPopup={!isInSidePanel && !isFullscreenTab} onRefreshBunkerSwap={activeAccount?.type === "safeBunker" ? context => handleBunkerSwapRefresh(activeAccount, context) : undefined}
               selectableChainIds={activeSafeChainIds ?? undefined}
               chainId={activeSafeChainIds?.values().next().value ?? selectedChain?.chainId ?? 8453}
               chainName={chainName || "Base"}
@@ -2519,13 +2518,13 @@ function App() {
               onSwapInitiated={() => {
                 setSwapInitialBuyToken(undefined);
                 setSwapInitialSellToken(undefined);
-                setView("main");
-                setActivityTabTrigger((t) => t + 1);
+                setWalletHomeMode("public");
+                returnToActivity();
               }}
               onSafeProposalCreated={(proposalId) => {
                 setSwapInitialBuyToken(undefined);
                 setSwapInitialSellToken(undefined);
-                openSafeApprovals(proposalId);
+                if (activeAccount?.type === "safeBunker") openBunker(activeAccount, proposalId); else openSafeApprovals(proposalId);
               }}
               onChainChange={(name) => {
                 setChainName(name);
@@ -2542,14 +2541,13 @@ function App() {
     return (
       <AppFeatureFrame isFullscreenTab={isFullscreenTab}>
             <StakingScreen
+              bunkerAccount={activeAccount?.type === "safeBunker" ? activeAccount : undefined} isPopup={!isInSidePanel && !isFullscreenTab}
               fromAddress={address}
               accountId={activeAccount?.id}
               accountType={activeAccount?.type || "bankr"}
               onBack={() => setView("more")}
               onTransactionInitiated={() => {
-                setView("main");
-                setActivityTabTrigger((value) => value + 1);
-                setHoldingsTabTrigger((value) => value + 1);
+                setWalletHomeMode("public"); returnToActivity();
               }}
             />
       </AppFeatureFrame>
@@ -2696,7 +2694,7 @@ function App() {
               signatureRequests={pendingSignatureRequests}
               permissionRequests={pendingErc7715PermissionRequests}
               batchRequests={pendingBatchRequests}
-              crossDappBatch={crossDappBatch}
+              crossDappBatch={crossDappBatch} bunkerRequests={pendingBunkerRequests} onSelectBunker={openPendingBunker}
               onBack={() => setView("main")}
               onSelectTx={(tx) => {
                 setSelectedTxRequest(tx);
@@ -3386,14 +3384,15 @@ function App() {
             )}
 
             <PendingTxBanner
-              txCount={pendingRequests.length}
+              txCount={pendingRequests.length + pendingBunkerRequests.length}
               signatureCount={pendingSignatureRequests.length}
               permissionCount={pendingErc7715PermissionRequests.length}
               batchCount={pendingBatchRequests.length}
               crossDappBatchCount={crossDappBatch?.entries.length ?? 0}
               onClickTx={() => {
+                if (!pendingRequests.length && pendingBunkerRequests.length) { openPendingBunker(); return; }
                 const onlyOneTx =
-                  pendingRequests.length === 1 &&
+                  pendingRequests.length === 1 && pendingBunkerRequests.length === 0 &&
                   pendingSignatureRequests.length === 0 &&
                   pendingErc7715PermissionRequests.length === 0 &&
                   pendingBatchRequests.length === 0 &&
@@ -3477,7 +3476,7 @@ function App() {
               onAccountPickerOpenChange={setIsAccountPickerOpen}
               onAccountsReordered={setAccounts}
             />}
-            <HomeBackupReminder accounts={accounts} onBackup={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("backup"); setAccountSettingsInitialView("revealSeedPhrase"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} />
+            <HomeAccountReminders account={activeAccount} onRotate={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("bunkerRotation"); setAccountSettingsInitialView("rotateBunkerOwner"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} onBackupGroup={(id) => { setBackupGroupId(id); setView("seedGroupBackup"); }} accounts={accounts} onBackup={(account) => { setSettingsAccount(account); setAccountSettingsReturnTarget("backup"); setAccountSettingsInitialView("revealSeedPhrase"); setAccountSettingsApiKeyDraft(null); setView("accountSettings"); }} />
 
             {walletHomeMode === "public" && activeAccount?.type === "safe" && (
               <SafeHomeApprovalRail
@@ -3509,7 +3508,7 @@ function App() {
                   activeAccount?.type !== "safe" ? (
                     <HomeQuickActions
                       hasConnectedApps={walletConnectSessionCount > 0}
-                      onSend={() => { setTransferToken(resolveSendEntryToken(null, networksInfo)); setView("transfer"); }}
+                      onSend={() => { setTransferToken(resolveSendEntryToken(null, networksInfo, activeAccount?.type === "safeBunker" ? activeAccount.chainId : undefined)); setView("transfer"); }}
                       onSwap={() => { setSwapInitialBuyToken(undefined); setSwapInitialSellToken(undefined); setView("swap"); }}
                       onShield={privateHomeEnabled && activeAccount && isPrivacyPoolsMutationAccount(activeAccount) ? () => openPrivacyAction("shield") : undefined}
                       onMore={() => setView("more")}

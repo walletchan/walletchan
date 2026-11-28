@@ -24,6 +24,7 @@ export function AccountTypeStep({ onChoose, onBack }: {
     { title: "Seed Phrase", type: "seedPhrase", group: "Import", icon: <SeedIcon boxSize="20px" /> },
     { title: "Private Key", type: "privateKey", group: "Import", icon: <KeyIcon boxSize="20px" /> },
     { title: "View-only", type: "viewOnly", group: "Import", icon: <EyeIcon boxSize="20px" /> },
+    { title: "Safe Bunker", type: "safeBunker", group: "Import", icon: <SafeIcon boxSize="24px" color="accent.highlight" /> },
   ] as const;
   return (
     <OnboardingCanvas morph currentStep={0} header={<OnboardingHeader onBack={onBack} step={0} />}>

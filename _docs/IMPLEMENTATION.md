@@ -1290,7 +1290,7 @@ trusted `confirmSignatureRequest` route.
   Trezor Suite origin/transport markers in every JavaScript artifact.
 - **Production budgets and packaging:** the generated background bundle
   receives syntax-only Terser compaction with `compress: false` and
-  `mangle: false` before the existing fixed 4 MiB budget runs. This removes
+  `mangle: false` before the 4.25 MiB combined Safe Bunker/Trezor budget runs. This removes
   whitespace and comments without optimizer or identifier-rewrite semantics.
   Release scripts delete the exact same-version Chrome or Firefox ZIP before
   writing it, preventing `zip -r` from retaining stale chunks. Firefox removes
@@ -2675,7 +2675,7 @@ Production Chromium background builds explicitly compact formatting with
 Terser because Vite skips its minifier for ES library output. Compression and
 name mangling remain disabled; function/class names and license comments are
 retained. Development output remains readable, and the existing privacy
-worker-boundary scan and 4 MiB background budget still run after formatting.
+worker-boundary scan and 4.25 MiB background budget still run after formatting.
 Gateway DNR construction is shared across families while retaining existing
 rule IDs, priorities, patterns, and tab-scoped bypass behavior.
 WNS gateway interception is enabled only for local-gateway routing and goes
@@ -7672,6 +7672,115 @@ explains that Safe message signing is unsupported. Generic direct-signer
 preflight and signature release still reject Safe records. WalletConnect does
 not advertise unsupported Safe signature methods.
 
+## Safe Bunker
+
+The required Safe4337Module configuration, self-funded native/ERC-20 execution,
+payer defaults and module-required v3 deployments are specified in
+[SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). That specification supersedes
+the older no-module/external-payer-only descriptions below.
+
+
+The current flow and runtime are documented in
+[SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md); the frozen
+path/salt/CREATE2 contract is in
+[SAFE_BUNKER_DERIVATION.md](./SAFE_BUNKER_DERIVATION.md).
+
+A standard Safe 1.4.1 has one owner/threshold one and executes user CALLs plus an
+atomic final owner swap. One normal source phrase derives one Bunker per chain,
+with different hardened signer branches and different Safe addresses across
+chains. Each account supports only its bound chain. All source access, management,
+review/signing, retry and recovery require master authority; agent execution and
+extra stored signing/phrase capabilities are absent.
+
+### Creation and rediscovery
+
+Add account → Safe Bunker → intro → saved seed phrases → network page. Source
+cards are fully clickable rows with icon/name/known-chain logos together and a
+right-edge chevron. Chain tooltips retain hover names; the row owns keyboard focus. Create/import saves a normal phrase group without adding an EOA. The normal
+backup reminder/reveal covers zero-EOA groups too. The selected source name appears
+in the header, with a flow-local superscript new badge for a phrase created or imported here.
+
+The network page offers Deploy on and, before selecting a chain, an explicit
+Find already deployed Bunkers action. Discovery never runs automatically. Unknown
+or failed probes do not disable a chain; known deployed/pending chains do.
+Add existing uses verified checkbox rows and sends no transaction or rotation.
+No Safe address/deployment hash is requested from the user.
+
+Choosing a chain determines the address and immediately shows the shared
+payer/gas/Deploy footer on the same page. The search alternative disappears.
+The default hidden name is SafeBunker - <chainName>. There is no separate
+name/deployment/review page or Continue setup list. Internal preparation is not
+an account. Broadcast publishes/selects a pending account and opens Home Activity;
+three-confirmation canonical verification enables execution afterward.
+
+### Requests and signing
+
+Provider, internal Send, ERC-5792, WalletConnect and supported same-chain swap
+CALLs queue unsigned provenance-bound intents, then drain into encrypted journals.
+Home uses the ordinary pending banner/list and toolbar badge. Navigation preloads
+UI code plus a fresh public view before opening confirmation; seeded mounts skip
+duplicate reads, and lock/account changes invalidate late opens. Gas/simulation
+loaders remain within their sections. Snapshots never authorize signing.
+
+Deployment and transaction payers share PayerFields/DecisionAccountSelector and
+one chain-bound native-balance hook. The square amber default-payer checkbox is
+per Bunker account. The worker persists that choice with exact outer bytes before
+broadcast. Without an explicit UI override, the selector follows the operation's
+payer or latest saved default; refresh preserves a deliberate selection.
+
+Review verifies pinned infrastructure and owner authority, prepares gas and binds
+calls/routes, chain, nonce, owner/successor indices, payer, gas and expiry in a
+digest. Public RPC work is outside long-held secret locks; latest claims merge
+prepared fields into freshly loaded state. The inner signature is persisted
+before signed RPC. Payer signing is followed by a fresh block-pinned authority
+check and exact gas-capped simulation, then durable outer bytes/hash and release.
+Auth, reset, route and expiry gates apply at the final boundary, including after
+hardware approval. Ambiguity retries identical outer bytes only.
+
+Submitted transactions immediately leave approvals and stay in Activity. FIFO
+blocks later owner execution until reconciliation. Unsigned Reject commits before
+result delivery and does not await fee RPC; durable outbox flags retry delivery.
+Late reviews cannot resurrect rejected requests. Signed exposure cannot be canceled
+by dismissing UI. Canonical receipt/hash/owner-change evidence advances the owner;
+reorgs and unknown exposure preserve recovery requirements. A canonically confirmed
+revert settles as `reverted`, keeps the owner unchanged and permits new requests
+using the same n → n+1 successor. Home shows “Last Tx reverted, Rotate owner” in
+a red backup-style banner linking to Settings → Rotate owner. A successful
+confirmed rotation, manual or part of another transaction, clears the warning.
+The shared browser badge shows a red dot while any live Bunker has the warning;
+approval counts remain visible on the red badge when requests also exist.
+
+### Storage, history and settings
+
+Public source/chain headers are safeBunkerBindingsV2; encrypted state/exposure/
+signatures are safeBunkerJournalsV2. The original phrase remains in mnemonicVault.
+The unsigned inbox and notification index grant no authority. Full formats and
+ownership are in [STORAGE.md](./STORAGE.md). No dedicated-phrase alpha reader exists;
+regular wallet data remains data-preserving.
+
+Both deployment and execution publish Safe and gas-payer Activity rows, with public
+user-call/rotation metadata and correct external gas attribution. Raw bytes and
+signatures remain encrypted. The deployment hash/raw transaction are still needed
+for verification, exact retry, integrity and history repair; no separate display-
+only recovery-details record exists.
+
+Settings owns name/network/last verified owner, phrase reveal, refresh, explicit
+owner rotation and guarded removal. There is no recovery-details export or public-
+metadata backup requirement. Manual recovery matches the current owner in bounded
+local derivation pages without a genesis log scan. Add existing preserves known
+exposure and does not force a rotation. Removal requires phrase-backup acknowledgment
+through the shared AccountRemovalModal and live master access, refuses
+last-account/unresolved effects, repairs selection,
+then deletes the account, binding and journal atomically. Sync failure preserves identity
+for retry. Shared seed cleanup counts both regular and Bunker accounts: the last
+account removal clears its phrase, seed group and leftover Bunker records; other
+accounts keep the phrase available. Activity history remains independent.
+
+All target chains must pass the frozen canonical EVM profile/EIP-1559 checks;
+zkSync Era is excluded. Provider signatures, EOA delegation/permissions, Shield,
+sponsorship/force inclusion and cross-chain bridges are unsupported. External Safe
+clients can bypass rotation; no post-quantum guarantee is claimed. See the detailed
+implementation reference for owner files, exact checks and validation boundaries.
 ### Send ENS change history
 
 Send mounts `Transfer/EnsRecipientHistoryNotice.tsx` only for a successfully
@@ -7704,6 +7813,72 @@ Tests: `tests/ensBrowsing/recipientHistory.test.ts`,
 script uses synthetic resolution/history and covers all four signing account
 props, both themes, narrow layout, unavailable and stale responses; it does not
 replace live subgraph verification or real Ledger signing QA.
+
+### Safe Bunker and Trezor integration build allowance
+
+Combining the Bunker runtime with Trezor produces a syntax-compacted background
+bundle of approximately 4.08 MiB. The background-only release budget is 4.25 MiB
+(4,456,448 bytes); prover, artifact and total-build limits remain unchanged.
+Bunker payer eligibility uses the shared `safe/accountTypePolicy.ts` executor
+policy, including Trezor. `signPreparedTrezorTransaction` signs the exact reviewed
+EIP-1559 envelope without RPC field preparation or broadcast, verifies the device
+bytes and recovered signer, and returns to the Bunker final authority/persistence
+gate. Device ID/path are revalidated after approval; each Trezor attempt uses a
+fresh opaque SDK operation ID.
+
+Bunker post-sign fee-check recovery is owned by safeBunker/feeExpiry.ts and
+reconciliation.ts. Expired signed reviews never trigger renderer re-estimation.
+See SAFE_BUNKER_4337.md for confirmed-expiry and unchanged-authority requirements.
+
+Bunker gas preparation preserves ERC-7677 paymaster postOp limits and the
+paymaster verification-gas floor. Account/verification/pre-verification budgets
+include proportional headroom. A realistic public dummy ECDSA signature avoids
+underpricing compressed L1 signature bytes on L2s. Native operations omit
+paymaster-only zero fields. ERC-20 reviews validate the completed paymaster
+envelope while still unsigned; a gas increase triggers fresh sponsorship
+before review, with bounded retries for the selected token only. Bounded
+approval and maximum token cost are recomputed from the final envelope. The
+signed preflight retains gas caps and reports the exact field and numeric
+required/reviewed limits without exposing signatures or calldata. No gas field
+is mutated after owner signing.
+
+
+Bunker self-payment submission makes exactly one send attempt after durably
+saving its hash/signature. Only an acknowledgement matching that deterministic
+hash becomes pending; transport failures, explicit rejections and hash mismatches
+remain ambiguous. `feeSubmission.ts` preserves bounded HTTP/RPC/AA-code diagnostics
+without reflecting provider text, URLs, error.data or signed bytes. Failed sends
+are surfaced to confirmation and Activity; ambiguous history uses the existing
+broadcastUncertain/error fields and “Verifying broadcast” label. No automatic
+replacement or re-signing occurs.
+
+Reconciliation can resolve submitted, pending and ambiguous expired SafeOps after
+a confirmed canonical block is strictly past validUntil, with the expected current
+owner and both Safe/EntryPoint nonces unchanged at that block. A consumed nonce
+blocks expiry even when the bundler reports no receipt. The canonical expiry
+anchor, original hash/signature and exposed-successor reservations are retained.
+Expired rows become dropped, and dapp/batch results report invalidation rather
+than user rejection. EntryPoint event lookup over at most 10,000 blocks from the
+saved signing block provides a chain-verified receipt fallback when the bundler
+receipt service is unavailable. Older stuck rows repair through the same startup/
+alarm reconciliation. No storage schema or key changes are required.
+
+
+Bunker completion is owned by BunkerAccountScreen, which retains the current
+confirmation during an in-flight action and deduplicates release observations.
+Sidepanel/fullscreen completion selects the Bunker and Public Activity. Popup
+acknowledgement reuses TransactionSentScreen and closes after one second; uncertain
+releases route to Activity without a success animation. useBunkerNavigation cancels
+stale preloads before completion navigation. Production self-payment also requires
+the hosted Pimlico proxy's Safe signature verifier deployment, independently of
+the extension build (see SAFE_BUNKER_4337.md).
+
+Bunker gas option/quote routes preserve fixed `bunkerPolicyMessage` and
+`bunkerStepMessage` diagnostics. The shared recognized paymaster postOp token
+collection failure remains a safe policy message across the fee-payment step
+and background response, explaining insufficient tokens remaining after the
+transaction. Unknown provider text/data remains redacted; failed quote
+preparation never signs or submits. See `tests/safeBunker/feeQuoteErrors.test.ts`.
 
 ### Signed message history and activity export
 
@@ -7783,3 +7958,177 @@ growth, copy failure, stale-source precedence and malformed rows. The production
 `--expect-quota-error` against an old build, then verifies migration, account
 selection, injected account reads and explicit connection approval in an isolated
 Chromium profile against the candidate. It never signs or submits.
+
+### Direct in-wallet Bunker swaps
+
+Swap retains the real safeBunker account type rather than mapping it to imported
+Safe. Preparation stages unsigned same-chain calls via the existing trusted,
+master-gated createSafeBunkerRequest route. That inline route suppresses only
+the automatic request-open broadcast; it retains the normal encrypted journal and
+pending badge. Other ingress keeps its default notification behavior. No message
+shape, storage key or persisted schema changes.
+
+BunkerSwapConfirmation adapts the ordinary embedded swap overview to the shared
+BunkerAccountScreen/BunkerTransactionConfirmation. Review content is ephemeral
+and scoped to the exact request ID; it grants no execution authority. The
+Bunker coordinator still owns fee review, simulation, payer defaults, signing,
+rotation and settlement. Firm-quote impact acknowledgement gates the actual
+Bunker confirm handler. Cancel/Back rejects the unsigned staged request; signed
+requests keep the existing status/recovery controls. Completion retains normal
+Activity/popup behavior. Imported multisig Safes keep proposal creation, and
+Bunker bridges remain unsupported.
+
+Bunker in-wallet swap preparation carries the existing SwapMeta token-pair/logo
+snapshot through createSafeBunkerRequest into the encrypted operation journal.
+The optional metadata is strictly bounded, allowed only for internal wallet
+transactions, and immutable when a request ID is reused. History projection
+reuses normal swapMeta and repairs missing public metadata from authenticated
+journals. Activity prefers explicit swap presentation over generic Bunker call
+decoding. Older records without a saved pair retain their generic presentation;
+receipt transfers alone do not establish swap intent.
+
+Swap submission completion uses the shared returnToActivity navigation helper,
+which advances Activity above both the previous Activity and Assets counters.
+It also explicitly selects Public mode and clears swap-entry tokens. Incrementing
+Activity alone can leave Assets selected after repeated navigation.
+
+### Bunker internal Send and staking parity
+
+Internal Send derives optional `transferMeta` from a canonical native/ERC-20
+transfer and token metadata in the background, then queues the authenticated
+Bunker journal directly. Activity projects the normal Send recipient/token row.
+Custom calldata remains a generic Bunker action. No metadata is guessed for old
+entries that never retained it.
+
+Native Send MAX carries a bounded `nativeMax.limit` intent. While unsigned,
+review recomputes the amount up to that cap. Self-paid ETH reserves the maximum
+EntryPoint prefund shortfall plus 10% headroom, accounting for an existing
+EntryPoint deposit; at most three estimation passes rebuild the exact Safe
+calls and owner rotation. An EOA payer or ERC-20 gas token uses the available
+amount up to the cap. The final amount is shown and simulated before signing.
+Signed calls are immutable, and MAX requests cannot be grouped.
+
+Built-in Base staking stages approval/deposit, redeem, or claim calls through
+`createSafeBunkerRequest` and the shared Bunker confirmation. It never calls the
+EOA staking executors. A synchronous preparation claim prevents duplicate
+requests. Other-chain Bunkers cannot start Base staking. Deployment and execution
+fee displays share `useNativePriceUsd`; unavailable fiat prices remain omitted.
+
+Bunker home Send initializes its native token on the account's deployed chain;
+ordinary home Send retains the Ethereum default and asset-row Send keeps the
+clicked token. Swap also pins initial source/destination chains to the Bunker
+chain, including unsupported swap networks, which stay unavailable instead of
+silently falling back to Ethereum. Cached swap-token selection remains restricted
+to the account's selectable chains.
+
+Bunker confirmation reuses the standard EOA revert presentation and controls:
+`SimulationRevertedBanner` above request details, `RevertWarning` for a failed gas
+review on a known reverting request, `RequestRetryNotice` for other preparation
+errors, and `SimulationFailureConfirmButton` with the shared failure predicate
+and acknowledgement dialog. `BunkerAssetPreview` forwards the existing loading,
+revert and unavailability callbacks without a separate completion lifecycle.
+Gas review proceeds independently, as on the EOA surface. Confirm waits for
+preview completion and a valid authoritative review; a known revert uses the
+shared acknowledgement instead of a separate unconditional block. Safe4337 still
+requires valid bundler/paymaster preparation and exact execution validation;
+acknowledgement cannot bypass either. MAX re-simulation preserves its prepared
+review while keeping Confirm disabled until the adjusted preview finishes.
+Already signed/submitted lifecycle errors retain their normal retry/status
+presentation. Swap places the warning outside its collapsed transactions and
+omits an extra Request details heading.
+
+### Resumable Bunker swap reviews and refresh
+
+Internal swap staging saves optional bounded `swapContext` beside `swapMeta`:
+sell/buy token identities, amounts in base units, display prices/logos and
+slippage. No acknowledgement is persisted. `useBunkerSwapPresentation` reconstructs
+the existing embedded `SwapConfirmation`, `SwapPriceImpactNotice` and shared
+price-impact decision on reopened requests. Legacy unsigned swaps without enough
+context require recreation instead of a generic confirmation bypass.
+
+Inline and resumed reviews refresh through the existing error Retry controls;
+a fresh review has no persistent refresh button. ERC-20 quote failures use the
+shared fee selector's optional request-refresh callback. The request coordinator
+first rejects the exact unsigned intent using the existing locked rejection
+route; a signed-race failure reloads status and never starts another quote. On
+success, `useBunkerNavigation` selects/revalidates the pinned account and opens
+the ordinary Swap flow with the saved inputs. `useResumeSwapReview` waits for
+normal form readiness and calls existing firm-quote preparation once. Account
+changes, lock and newer requests invalidate delayed navigation. Each new quote
+gets a new request ID and acknowledgement state; no signed payload is rewritten.
+
+Group members retain optional swap/send metadata and swap context. Groups with
+swaps require the existing separation action before execution, preserving each
+swap's own review/acknowledgement. Saved payer projections validate ID, address
+and current executor capability. Missing/ineligible defaults and unsigned stale
+payer reviews fall back to self; signed reviews retain their exact identity.
+Native MAX now uses the same bounded reservation loop with custom calldata,
+which is never rewritten. Zero-value calldata calls remain ordinary requests.
+
+### Safe Bunker recovery and journal capacity
+
+`reconciliationPage.ts` selects at most five operations in round-robin order,
+initially prioritizing submitted hashes. Each attempt checkpoints the optional
+encrypted `reconcileAfter` ID before RPC work, independently of unverified
+settlement changes, so provider errors and service-worker restarts cannot strand
+later recoveries. This scheduling metadata is excluded from review snapshots and
+public views; canonical receipt/owner checks still own settlement.
+
+`callValidation.ts` shares canonical CALL/count/aggregate-calldata validation
+between unsigned inbox intake, journal intake and the journal decoder. Oversized
+new requests fail before acknowledgment. Older accepted inbox entries can still
+be read and invalid CALLs receive terminal rejection through normal publication.
+Inbox-only rejection uses the existing confirmation command and commits optional
+`rejection: "user" | "invalid"` before result delivery. Pending hints omit these
+records; authenticated reconciliation/draining retries delivery before removal.
+The locked handoff rechecks live inbox membership so a stale drain cannot recreate
+a rejected request. Auth/RPC/capacity failures remain retryable; signed journal
+operations retain the existing rejection prohibition.
+
+Safe Bunker recovery and journal capacity are owned by `recoveryAnchor.ts` and
+`journalCapacity.ts`. Ordinary reads still reject an orphaned verification
+anchor. Explicit master recovery alone may verify the full pinned configuration
+at a new confirmed block, recheck its hash, and commit a replacement anchor with
+`exposureUnknown` and a bounded owner scan. Invalidated signatures become
+outstanding again; exact signatures, envelopes and successor reservations remain.
+Spending stays blocked until a confirmed explicit recovery rotation.
+
+Every journal write compacts fully published terminal operations by serialized
+byte size as well as count. Ten recent receipts are preferred; byte pressure may
+remove older receipts while retaining the latest receipt, current revert warning,
+undelivered results and unresolved signatures (including expired signatures under
+the current owner). The existing 512 KiB bound reserves 32 KiB for recovery and
+the future serialized EOA envelope of reviewed/signed operations. Oversized live
+intent fails before signature release. No storage key or schema changes.
+
+### Safe Bunker onboarding import
+
+Import or connect now includes a dedicated Safe Bunker choice under Import.
+Its seed-entry step reuses SeedPhraseSetup in phrase-only collection mode:
+validate the original 12-word phrase, skip ordinary derivation/account selection,
+then reuse PasswordStep. Regular seed import and fresh wallet creation are
+unchanged. The Bunker branch has four setup steps, using the existing shell's
+optional step labels.
+
+The existing owned initialization establishes master credentials and calls
+saveSeedPhraseOnly. The controller clears phrase/password form state once the
+phrase is encrypted, then waits for selection through
+useBunkerOnboardingSelection. Discovery reuses useBunkerDiscovery and the shared
+BunkerExistingImport list, which is also used by the in-wallet Bunker flow.
+Only verified existing deployments are imported via addExistingSafeBunker; this
+path creates no EOA and never submits deployment or rotation transactions.
+Independent network failures do not block selecting successful results.
+
+Partial import failures retain already committed accounts, allow retry, and
+provide Continue with imported accounts. Back is disabled during import and once
+an account commits. Cancel/lock/unmount invalidates delayed discovery selection
+and invokes the existing owned rollback; structurally complete accounts are
+preserved. A Bunker-only wallet is complete only when its source group, mnemonic,
+matching binding and journal exist alongside credentials. Status inspection also
+recognizes unmarked Bunker records as authoritative recovery material. Normal
+completion validates the selected account/source/chain and reuses existing
+account selection, onboarding completion and wallet-opening behavior.
+
+During Bunker setup, pagehide requests best-effort owner-bound rollback. The
+existing initialization-marker recovery remains the fallback after a crash or
+closed page; committed accounts remain protected by structural completeness.

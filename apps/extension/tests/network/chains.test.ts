@@ -391,3 +391,12 @@ test("swap support matches the API allowlist and 0x deprecations", () => {
     "Mode is cross-chain-only in 0x docs",
   );
 });
+
+
+test("Bunker chain visibility follows its bound chain, including hidden testnets", () => {
+  for (const chainId of [84532, 11155111, 8453, 1]) {
+    assert.deepEqual(getVisibleChains(undefined, "safeBunker", chainId).map(chain => chain.chainId), [chainId]);
+  }
+  assert.deepEqual(getVisibleChains(undefined, "safeBunker"), []);
+  assert.deepEqual(getVisibleChains(undefined, "safeBunker", 999999999), []);
+});

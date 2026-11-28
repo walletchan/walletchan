@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import type { SafeBunkerAccount } from "@/chrome/types";
 import type { useSwapPriceImpactDecision } from "./useSwapPriceImpactDecision";
 import type { PortfolioToken } from "@/chrome/portfolio/api";
 import type { SwapQuoteResponse, TokenInfo } from "@/chrome/swapApi";
@@ -10,7 +12,8 @@ export type SwapAccountType =
   | "ledger"
   | "trezor"
   | "impersonator"
-  | "safe";
+  | "safe"
+  | "safeBunker";
 
 export type PreparedSwapTxEntry = Omit<SwapTxEntry, "tx"> & {
   tx: Omit<SwapTxEntry["tx"], "to" | "data" | "value"> & {
@@ -21,6 +24,12 @@ export type PreparedSwapTxEntry = Omit<SwapTxEntry, "tx"> & {
 };
 
 export interface SwapConfirmationProps {
+  /** Render only the shared swap overview and calls inside a Bunker review. */
+  embedded?: boolean;
+  transactionDetails?: ReactNode;
+  onRefreshBunkerSwap?: (context: import("@/chrome/safeBunker/swapContext").BunkerSwapContext) => void;
+  bunkerAccount?: SafeBunkerAccount;
+  isPopup?: boolean;
   impactReview: ReturnType<typeof useSwapPriceImpactDecision>;
   requestId: string;
   transactions: PreparedSwapTxEntry[];
@@ -105,6 +114,10 @@ export interface SwapConfirmationProps {
 }
 
 export interface SwapViewProps {
+  resumeSwap?: import("./useBunkerSwapPresentation").BunkerSwapResume;
+  onRefreshBunkerSwap?: (context: import("@/chrome/safeBunker/swapContext").BunkerSwapContext) => void;
+  bunkerAccount?: SafeBunkerAccount;
+  isPopup?: boolean;
   fromAddress: string;
   /** Active account ID used to resolve EIP-7702 support for local accounts. */
   accountId?: string;

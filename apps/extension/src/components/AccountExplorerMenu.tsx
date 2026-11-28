@@ -23,13 +23,20 @@ import type { ResolvedChain } from "@/lib/chains";
 interface AccountExplorerMenuProps {
   address: string;
   chains: ResolvedChain[];
+  boundChainId?: number;
 }
 
 export default function AccountExplorerMenu({
   address,
   chains,
+  boundChainId,
 }: AccountExplorerMenuProps) {
-  const explorerChains = chains.filter((chain) => Boolean(chain.explorer));
+  const explorerChains = chains.filter((chain) => Boolean(chain.explorer) &&
+    (boundChainId === undefined || chain.chainId === boundChainId));
+  const boundChain = boundChainId === undefined ? undefined : explorerChains[0];
+  const defaultExplorerUrl = boundChainId === undefined
+    ? getDefaultAccountExplorerUrl(address)
+    : boundChain ? getDefaultAccountExplorerUrl(address, boundChain.explorer) : undefined;
   const dashboardLinks = getAccountDashboardLinks(address);
 
   return (
@@ -44,10 +51,11 @@ export default function AccountExplorerMenu({
       <PopoverTrigger>
         <IconButton
           as="a"
-          href={getDefaultAccountExplorerUrl(address)}
+          href={defaultExplorerUrl}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="View active address on Etherscan; hover for other explorers"
+          aria-label={boundChainId === undefined ? "View active address on Etherscan; hover for other explorers"
+            : boundChain ? `View active address on ${boundChain.name} explorer` : "No explorer available for this account"}
           icon={<ExternalLinkIcon />}
           size="xs"
           minW="24px"
@@ -139,7 +147,7 @@ export default function AccountExplorerMenu({
                 <Button
                   key={chain.chainId}
                   as="a"
-                  href={`${chain.explorer.replace(/\/+$/, "")}/address/${address}`}
+                  href={getDefaultAccountExplorerUrl(address, chain.explorer)}
                   target="_blank"
                   rel="noopener noreferrer"
                   variant="ghost"

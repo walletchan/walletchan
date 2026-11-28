@@ -46,6 +46,7 @@ export function useActiveSafeChainIds(
     };
   }, [account]);
 
+  if (account?.type === "safeBunker") return new Set([account.chainId]);
   if (account?.type !== "safe") return null;
   return state?.accountId === account.id ? state.chainIds : EMPTY_CHAIN_IDS;
 }

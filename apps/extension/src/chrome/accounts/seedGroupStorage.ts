@@ -73,6 +73,9 @@ export async function removeSeedGroup(
   expectedAuthEpoch?: string,
 ): Promise<void> {
   await withStorageLock(SEED_GROUPS_LOCK_KEY, async () => {
+    const { loadBunkerDraftVault } = await import("../safeBunker/repository");
+    if ((await loadBunkerDraftVault()).entries.some(entry => entry.header.seedGroupId === seedGroupId))
+      throw new Error("This seed phrase is used by Safe Bunker accounts");
     const groups = await getSeedGroups();
     const filtered = groups.filter((group) => group.id !== seedGroupId);
     assertAccountStorageAuthorized(expectedAuthEpoch);

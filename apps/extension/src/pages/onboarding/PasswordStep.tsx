@@ -21,7 +21,7 @@ import {
 type Errors = { password?: string; confirmPassword?: string };
 
 export function PasswordStep({
-  createNewWallet = false,
+  createNewWallet = false, steps,
   password,
   confirmPassword,
   showPassword,
@@ -35,6 +35,7 @@ export function PasswordStep({
   onContinue,
 }: {
   createNewWallet?: boolean;
+  steps?: readonly { title: string }[];
   password: string;
   confirmPassword: string;
   showPassword: boolean;
@@ -52,10 +53,10 @@ export function PasswordStep({
   };
 
   return (
-    <OnboardingCanvas
+    <OnboardingCanvas steps={steps}
       currentStep={createNewWallet ? undefined : 2}
       onStepClick={isSubmitting ? undefined : onProgressStepClick}
-      header={<OnboardingHeader onBack={isSubmitting ? undefined : onBack} step={createNewWallet ? undefined : 2} />}
+      header={<OnboardingHeader totalSteps={steps?.length ?? 3} onBack={isSubmitting ? undefined : onBack} step={createNewWallet ? undefined : 2} />}
       footer={
         <OnboardingFooter>
           <Button

@@ -12,10 +12,7 @@ import { useCachedAvatarMap } from "@/hooks/useCachedAvatarSrc";
 import {
   isPrivacyShieldLifecycleState,
 } from "@/lib/privacyShieldLifecycle";
-import {
-  decodeErc7821Batch,
-  looksLikeErc7821SelfBatch,
-} from "@/lib/erc7821Decode";
+import { getHistoryCalls } from "./historyCallModel";
 import { getEthShLabels } from "@/lib/ethShLabelsCache";
 import TxDetailView, {
   type TxDetailPresentation,
@@ -26,6 +23,7 @@ import BridgeSummary from "./BridgeSummary";
 import ClearSigningSummary from "./ClearSigningSummary";
 import DecodedFunctionSummary from "./DecodedFunctionSummary";
 import StatusHeader from "./StatusHeader";
+import BunkerOwnerRotation from "./BunkerOwnerRotation";
 import SwapSummary from "./SwapSummary";
 import TransactionMeta from "./TransactionMeta";
 import TransactionError from "./TransactionError";
@@ -85,11 +83,7 @@ export function TxDetailController({
       (url && cachedLogoMap.get(url)) || url || undefined,
     [cachedLogoMap],
   );
-  // Decode atomic ERC-7821 self-calls back into their per-call list.
-  const batchCalls = useMemo(() => {
-    if (!looksLikeErc7821SelfBatch(detailTx.tx)) return null;
-    return decodeErc7821Batch(detailTx.tx.data);
-  }, [detailTx.tx]);
+  const batchCalls = useMemo(() => getHistoryCalls(detailTx), [detailTx]);
   const hasBatchCalls = !!batchCalls && batchCalls.length > 0;
   const delegationMeta = tx.delegation7702Meta;
   const hasDelegation = !!delegationMeta;
@@ -136,7 +130,7 @@ export function TxDetailController({
     !!tx.bridge ||
     !!privacyShieldMeta;
   const [errorExpanded, setErrorExpanded] = useState(false);
-  const semanticFunctionName = tx.safeExecutionMeta ? `Execute Safe Tx #${tx.safeExecutionMeta.nonce}` : tx.functionName;
+  const semanticFunctionName = tx.safeDeploymentMeta ? "Deploy Safe Bunker" : tx.safeExecutionMeta ? `Execute Safe Tx #${tx.safeExecutionMeta.nonce}` : tx.safeBunkerMeta?.kind === "recovery" ? "Owner rotation" : tx.functionName;
   const [decodedFunctionName, setDecodedFunctionName] = useState<string | undefined>(
     semanticFunctionName,
   );
@@ -144,8 +138,8 @@ export function TxDetailController({
     setDecodedFunctionName(semanticFunctionName);
   }, [semanticFunctionName, tx.id]);
   const handleDecodedFunctionName = useCallback((name: string) => {
-    if (!tx.safeExecutionMeta) setDecodedFunctionName((current) => (current === name ? current : name));
-  }, [tx.safeExecutionMeta]);
+    if (!tx.safeDeploymentMeta && !tx.safeExecutionMeta && tx.safeBunkerMeta?.kind !== "recovery") setDecodedFunctionName((current) => (current === name ? current : name));
+  }, [tx.safeDeploymentMeta, tx.safeExecutionMeta, tx.safeBunkerMeta?.kind]);
   const [isRebroadcasting, setIsRebroadcasting] = useState(false);
   const {
     sourceAssetChanges,
@@ -285,6 +279,8 @@ export function TxDetailController({
           explorerBase={explorerBase}
           onViewExplorer={handleViewOnExplorer}
         />
+
+        <BunkerOwnerRotation tx={tx} explorer={explorerBase} />
 
         {canReplace && (
           <PendingTransactionActions

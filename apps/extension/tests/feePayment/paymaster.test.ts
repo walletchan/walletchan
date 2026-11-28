@@ -4,6 +4,7 @@ import { decodeFunctionData, erc20Abi, maxUint256 } from "viem";
 
 import {
   addBoundedUsdcApproval,
+  addBoundedTokenApproval,
   createDummyUsdcApprovalCall,
   getMaxTokenCost,
   getUserOperationMaxGas,
@@ -95,4 +96,16 @@ test("rejects a substituted quote token", () => {
       }),
     /does not match the selected fee token/,
   );
+});
+
+test("replaces a nonzero insufficient allowance through zero for USDT-compatible approvals", () => {
+  const result = addBoundedTokenApproval([{ to: TARGET, value: 0n, data: "0x" }], {
+    token: USDC, quote, estimatedUserOperation: userOperation, currentAllowance: 1n,
+  });
+  assert.equal(result.approvalAdded, true);
+  assert.equal(result.calls.length, 3);
+  const reset = decodeFunctionData({ abi: erc20Abi, data: result.calls[0].data! });
+  const approval = decodeFunctionData({ abi: erc20Abi, data: result.calls[1].data! });
+  assert.equal(reset.args![1], 0n);
+  assert.equal(approval.args![1], result.maximumTokenCost);
 });

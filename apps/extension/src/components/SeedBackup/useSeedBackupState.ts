@@ -24,7 +24,7 @@ export function useSeedBackupState(seedGroupId?: string) {
       }
     };
     const onStorage = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area === "local" && changes.seedGroups) void refresh();
+      if (area === "local" && (changes.seedGroups)) void refresh();
     };
     const onMessage = (message: { type?: string }) => {
       if (message.type === "accountsUpdated") void refresh();

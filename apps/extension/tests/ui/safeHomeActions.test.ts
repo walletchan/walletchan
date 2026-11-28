@@ -479,11 +479,13 @@ test("Safe request review uses the standard confirmation grammar without passwor
 
 test("Safe signer and executor account menu is height-bounded and scrollable", async () => {
   const decision = await readFile(safeDecisionSummaryUrl, "utf8");
+  const selector = await readFile(new URL("../../src/components/RequestConfirmation/DecisionAccountSelector.tsx", import.meta.url), "utf8");
+  assert.match(decision, /<DecisionAccountSelector/);
 
-  assert.match(decision, /<MenuList[\s\S]*maxW="calc\(100vw - 32px\)"/);
-  assert.match(decision, /<MenuList[\s\S]*maxH="320px"/);
-  assert.match(decision, /<MenuList[\s\S]*overflowY="auto"/);
-  assert.match(decision, /<MenuList[\s\S]*overscrollBehavior="contain"/);
+  assert.match(selector, /<MenuList[\s\S]*maxW="calc\(100vw - 32px\)"/);
+  assert.match(selector, /<MenuList[\s\S]*maxH="320px"/);
+  assert.match(selector, /<MenuList[\s\S]*overflowY="auto"/);
+  assert.match(selector, /<MenuList[\s\S]*overscrollBehavior="contain"/);
 });
 
 test("terminal Safe Activity details cannot inherit live request behavior", async () => {

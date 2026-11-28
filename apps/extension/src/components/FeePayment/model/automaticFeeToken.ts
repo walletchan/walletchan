@@ -7,7 +7,8 @@ export function automaticFeeToken(
   nativeInsufficient: boolean,
   disabled: boolean,
 ): FeePaymentTokenId | null {
-  if (!nativeInsufficient || disabled) return null;
+  const knownInsufficient = nativeInsufficient || options.some(option => option.id === "native" && option.insufficientBalance === true);
+  if (!knownInsufficient || disabled) return null;
   return options.find((option) => {
     if (option.id === "native" || !option.available || !option.balance) return false;
     try {

@@ -31,3 +31,15 @@ must point directly into this domain. URL validation must remain at final egress
 as well as configuration time; redirects, ambient credentials/referrers,
 unbounded bodies, unconfigured provider targets, and remote-to-private pivots
 fail closed.
+
+The shared `lib/builtInRpcDefaults.ts` compatibility helper upgrades exact retired
+shipped RPC defaults during `normalizeNetworksInfo`. Current case: Ethereum Sepolia
+dRPC → PublicNode. Background reads resolve it immediately; the existing locked
+`ensureNetworksInfo` path persists it idempotently. Custom endpoints and history
+are preserved. Do not add a separate Bunker-only endpoint override or fallback.
+
+`secureHttpTransport` keeps block-height compatibility on the selected endpoint:
+failed `eth_blockNumber` reads use `eth_getBlockByNumber("latest", false)` and
+validate its number. Explicit state pinning and all safety checks are unchanged.
+This is method compatibility, not endpoint failover. `rpcDiagnostics.ts` owns
+fixed public error categories; Bunker UI errors never include raw RPC text.

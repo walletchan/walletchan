@@ -9,7 +9,9 @@
 - `PrivateKeyAccountSection.tsx` connects private-key entry to the externally
   placed backup acknowledgment without owning persistence.
 - `SeedPhraseAccountSection.tsx` presents saved seed groups and delegates
-  passkey-gated derive actions back to the composition root.
+  passkey-gated derive actions back to the composition root. The root derives a
+  public `safeBunkerCount` from loaded accounts; the section shows “1 safe bunker”
+  or “N safe bunkers” below the regular account count, keeping the counts separate.
 - `LegacyBiometricUpgradeNotice.tsx` is a presentation-only guard shown before
   private keys or seed phrases can be entered, generated, or derived with a
   signing-only legacy biometric session.
@@ -25,3 +27,7 @@
 The background remains authoritative for authentication and secret storage.
 This feature only projects `getPasskeyUnlockStatus` into an early, secret-free
 renderer guard and delegates navigation back to the App composition root.
+
+Safe Bunker selects the separate `SafeBunkerDraftScreen` for local draft creation
+and reveal only. It does not call onAccountAdded or enter normal signer setup.
+The account-type title map lives in `model/accountTypeTitles.ts`.

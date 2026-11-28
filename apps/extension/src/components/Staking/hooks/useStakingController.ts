@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { buildSafeSwapProposalCalls } from "@/components/Swap/safeSwapProposal";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { encodeBatchCalls } from "@/chrome/batchTxHandlers";
 import type { GasEstimate } from "@/chrome/gasEstimation";
 import { useThemedToast } from "@/hooks/useThemedToast";
@@ -11,9 +12,11 @@ export function useStakingController(input: {
   accountId?: string;
   accountType: StakingAccountType;
   state: StakingState | null;
+  bunkerChainId?: number;
   onTransactionInitiated: () => void;
 }) {
   const toast = useThemedToast();
+  const preparing = useRef(false);
   const [plan, setPlan] = useState<PreparedStakingPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [delegate, setDelegate] = useState<PreparedStakingPlan["delegation"]>(null);
@@ -36,8 +39,8 @@ export function useStakingController(input: {
     );
   }, [input.accountId, input.accountType]);
 
-  const prepare = useCallback((action: PreparedStakingPlan["action"], amount: bigint) => {
-    if (!input.state || input.accountType === "impersonator") return;
+  const prepare = useCallback(async (action: PreparedStakingPlan["action"], amount: bigint) => {
+    if (!input.state || input.accountType === "impersonator" || submitting || preparing.current) return;
     const transactions = buildStakingTransactions({
       action,
       amount,
@@ -49,7 +52,24 @@ export function useStakingController(input: {
       transactionCount: transactions.length,
       hasDelegate: Boolean(delegate),
     });
+    let bunkerRequestId: string | undefined;
+    if (input.accountType === "safeBunker") {
+      if (!input.accountId || input.bunkerChainId !== STAKING_CHAIN_ID) return;
+      preparing.current = true;
+      setSubmitting(true);
+      try {
+        bunkerRequestId = crypto.randomUUID();
+        const response = await chrome.runtime.sendMessage({ type: "createSafeBunkerRequest", accountId: input.accountId,
+          chainId: STAKING_CHAIN_ID, id: bunkerRequestId,
+          calls: buildSafeSwapProposalCalls(transactions as import("@/components/Swap/swapViewTypes").PreparedSwapTxEntry[], STAKING_CHAIN_ID) });
+        if (!response?.success) throw new Error(response?.error || "Could not prepare Bunker staking");
+      } catch (error) {
+        toast({ title: "Staking unavailable", description: error instanceof Error ? error.message : "Could not prepare staking", status: "error" });
+        return;
+      } finally { preparing.current = false; setSubmitting(false); }
+    }
     setPlan({
+      bunkerRequestId,
       action,
       amount,
       transactions,
@@ -63,14 +83,14 @@ export function useStakingController(input: {
       delegation: canBatch && input.accountType !== "bankr" ? delegate : null,
       gasEstimates: null,
     });
-  }, [delegate, input.accountType, input.owner, input.state]);
+  }, [delegate, input.bunkerChainId, input.accountId, input.accountType, input.owner, input.state, submitting, toast]);
 
   const setGasEstimates = useCallback((gasEstimates: GasEstimate[]) => {
     setPlan((current) => current ? { ...current, gasEstimates } : current);
   }, []);
 
   const confirm = useCallback(async () => {
-    if (!plan || input.accountType === "impersonator") return;
+    if (!plan || input.accountType === "impersonator" || input.accountType === "safeBunker") return;
     setSubmitting(true);
     const common = {
       originalTransactions: plan.transactions,

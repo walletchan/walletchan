@@ -16,6 +16,7 @@ function harness(accountType = "privateKey", isBridge = false) {
   let executions = 0;
   let proposals = 0;
   let preparations = 0;
+  let bunkerRequests = 0;
   let failRefresh = false;
   let buyAmount = "80";
   let sellAmount = "100";
@@ -48,7 +49,7 @@ function harness(accountType = "privateKey", isBridge = false) {
     "./prepareSameChainSwap": { prepareSameChainSwap: prepare },
     "./prepareBridgeSwap": { prepareBridgeSwap: prepare },
     "./executePreparedSwap": { executePreparedSwap: async () => { executions++; return true; } },
-    "./safeSwapProposal": { createSafeSwapProposal: async () => { proposals++; return "proposal"; } },
+    "./safeSwapProposal": { createBunkerSwapRequest: async (_input: unknown, id: string) => { bunkerRequests++; return id; }, createSafeSwapProposal: async () => { proposals++; return "proposal"; } },
   };
   function load(name: string) {
     const exports = {};
@@ -65,7 +66,7 @@ function harness(accountType = "privateKey", isBridge = false) {
     return exports as any;
   }
   mocks["./useSwapPriceImpactDecision"] = load("useSwapPriceImpactDecision");
-  const { usePreparedSwap } = load("usePreparedSwap");
+  const { usePreparedSwap: prepareSwapController } = load("usePreparedSwap");
   const options = {
     sellToken: { contractAddress: "native", decimals: 0, priceUsd: 1 },
     buyTokenInfo: { decimals: 0 }, buyTokenPriceUsd: 1,
@@ -80,7 +81,7 @@ function harness(accountType = "privateKey", isBridge = false) {
     let result: any;
     do {
       cursor = 0; dirty = false;
-      result = usePreparedSwap(options);
+      result = prepareSwapController(options);
     } while (dirty);
     return result;
   };
@@ -89,6 +90,7 @@ function harness(accountType = "privateKey", isBridge = false) {
     quote(buy: string, sell = "100") { buyAmount = buy; sellAmount = sell; },
     failRefresh() { failRefresh = true; },
     counts: () => ({ executions, proposals, preparations }),
+    bunkerRequests: () => bunkerRequests,
   };
 }
 
@@ -180,3 +182,17 @@ for (const [account, bridge] of [["ledger", false], ["trezor", false], ["imperso
     assert.deepEqual(h.counts(), { executions: 0, proposals: 0, preparations: 0 });
   });
 }
+
+
+test("Bunker review stages one unsigned request and never uses Safe proposals or EOA submission", async () => {
+  const h = harness("safeBunker");
+  await h.render().stagePlan();
+  let review = h.render();
+  assert.equal(review.showConfirmation, true);
+  assert.equal(h.bunkerRequests(), 1);
+  assert.equal(review.impactReview.decision.blocked, true);
+  review.impactReview.decision.setAcknowledged(true);
+  review = h.render();
+  await review.confirm("native", null);
+  assert.equal(h.counts().proposals + h.counts().executions, 0, "only Bunker confirmation may release a signature");
+});

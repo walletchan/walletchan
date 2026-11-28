@@ -36,3 +36,10 @@ not alter any message or storage schema.
 to the mnemonic persistence boundary with the marker ID; that boundary rechecks
 owner/master authority and creates pending-backup metadata before encrypted keys.
 It returns only the public account and cannot mutate an already populated wallet.
+
+Bunker-only import reuses this lifecycle and existing master credentials.
+Structural completeness includes Bunker source-group/mnemonic and V2
+binding/journal references; status recognizes unmarked Bunker records as
+protected recovery data. No marker/key shape changes are introduced. Once a
+Bunker account commits, cancellation/rollback preserves it like other complete
+wallet identities.

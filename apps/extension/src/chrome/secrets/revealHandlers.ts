@@ -127,6 +127,10 @@ export async function handleRevealPrivateKey(
         return;
       }
 
+      if (accountId.startsWith("bunker-draft:")) {
+        sendResponse({ success: false, error: "Bunker owner private keys cannot be revealed" });
+        return;
+      }
       let privateKey = getPrivateKeyFromCache(accountId);
       let decryptedVault: Awaited<ReturnType<typeof decryptAllKeys>> | null = null;
       if (!privateKey) {

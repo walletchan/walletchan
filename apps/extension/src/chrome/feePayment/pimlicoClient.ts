@@ -300,6 +300,7 @@ export class PimlicoClient {
 
   async estimateUserOperationGas(
     userOperation: PackedUserOperationV07,
+    safePrefundPreview = false,
   ): Promise<UserOperationGasEstimate> {
     // A dummy authorization cannot recover to the real sender. Simulate a
     // fresh EOA with only WalletChan's exact official delegation designator,
@@ -310,7 +311,7 @@ export class PimlicoClient {
             code: WALLETCHAN_OFFICIAL_DELEGATION_CODE,
           },
         }
-      : undefined;
+      : safePrefundPreview ? { [userOperation.sender]: { balance: "0xffffffffffffffffffffffffffffffff" } } : undefined;
     return parseGasEstimate(
       await this.request("eth_estimateUserOperationGas", [
         userOperation,

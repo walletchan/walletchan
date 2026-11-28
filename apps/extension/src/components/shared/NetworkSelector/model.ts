@@ -5,6 +5,7 @@ export interface NetworkSelectorOption {
   balanceUsd?: number;
   isFunded?: boolean;
   isSelectable?: boolean;
+  unavailableReason?: string;
   iconUrl?: string;
   iconBg?: string;
 }

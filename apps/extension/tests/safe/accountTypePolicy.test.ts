@@ -20,6 +20,7 @@ const accountTypes: AccountType[] = [
   "ledger",
   "trezor",
   "impersonator",
+  "safeBunker",
   "safe",
 ];
 

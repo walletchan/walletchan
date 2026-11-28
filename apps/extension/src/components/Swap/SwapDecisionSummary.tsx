@@ -27,7 +27,7 @@ interface SwapDecisionSummaryProps {
   transactions: SwapGasTransaction[];
   fromAddress: string;
   accountId?: string;
-  accountType: SwapAccountType;
+  accountType: Exclude<SwapAccountType, "safeBunker">;
   chainId: number;
   isBatched: boolean;
   batchedTx?: { to: string; data: string; value: string };

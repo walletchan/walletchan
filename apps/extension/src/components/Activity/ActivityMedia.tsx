@@ -39,6 +39,7 @@ function ActivityIcon({
     .slice(0, 3)
     .toUpperCase();
   const imageSrc =
+    tx.safeDeploymentMeta || tx.safeBunkerMeta?.kind === "recovery" ||
     tx.origin === "WalletChan" ||
     tx.origin === "BankrWallet" ||
     tx.origin === "Cross-Dapp Batch"
@@ -64,7 +65,7 @@ function ActivityIcon({
           ? googleFaviconUrl(originHostname)
           : undefined)
       }
-      alt={internalSendSymbol || "favicon"}
+      alt={tx.safeDeploymentMeta || tx.safeBunkerMeta?.kind === "recovery" ? "WalletChan" : internalSendSymbol || "favicon"}
       boxSize={originHostname ? "28px" : "20px"}
       objectFit="cover"
       fallback={

@@ -184,7 +184,7 @@ export function NetworkSelectorScreen({
                 <ListItemContent>
                   <ListItemTitle>{network.name}</ListItemTitle>
                   {!isSelectable ? (
-                    <ListItemDescription>Safe not deployed</ListItemDescription>
+                    <ListItemDescription>{network.unavailableReason ?? "Safe not deployed"}</ListItemDescription>
                   ) : network.nativeSymbol ? (
                     <ListItemDescription>
                       Native token · {network.nativeSymbol}

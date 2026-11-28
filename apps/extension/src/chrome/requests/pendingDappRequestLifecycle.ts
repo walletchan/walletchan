@@ -39,6 +39,8 @@ export async function cancelPendingRequestsForDappOrigin(
 ): Promise<void> {
   const origin = normalizeDappOrigin(rawOrigin);
   if (!origin) return;
+  const { cancelBunkerInboxRequests } = await import("../safeBunker/inbox");
+  await cancelBunkerInboxRequests({ origin });
 
   const [transactions, signatures, batches, permissions] = await Promise.all([
     getPendingTxRequests(),

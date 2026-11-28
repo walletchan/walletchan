@@ -31,6 +31,8 @@ export interface FeePaymentOption {
   unavailableReason?: string;
   oneTimeUpgrade?: boolean;
   balance?: string;
+  /** Known inability to cover a positive fee, independent of a provider quote. */
+  insufficientBalance?: boolean;
   stablecoin?: boolean;
   logoUrl?: string;
 }

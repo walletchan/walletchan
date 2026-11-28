@@ -10,6 +10,7 @@ import {
   getOrCreateOnboardingOwnerId,
   isArcBrowser,
 } from "./onboardingEnvironment";
+import { useBunkerOnboardingSelection, BunkerOnboardingCancelled } from "./useBunkerOnboardingSelection";
 import { submitOnboardingAccount } from "./onboardingSubmission";
 import type { SafeOnboardingSelection } from "./safeOnboarding";
 import { ACCOUNT_SETUP_STEPS } from "./onboardingTypes";
@@ -20,6 +21,7 @@ import type {
 } from "./onboardingTypes";
 
 export function useOnboardingController() {
+  const bunkerImport = useBunkerOnboardingSelection();
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [createNewWallet, setCreateNewWallet] = useState(false);
   const submittingRef = useRef(false);
@@ -130,6 +132,17 @@ export function useOnboardingController() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (accountTypeChoice !== "safeBunker" || !isSubmitting) return;
+    const abandon = () => {
+      bunkerImport.cancel();
+      void chrome.runtime.sendMessage({ type: "rollbackOnboardingInitialization", initializationId: onboardingOwnerIdRef.current }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", abandon);
+    return () => window.removeEventListener("pagehide", abandon);
+  // Owner-bound rollback is idempotent and preserves accounts that already committed.
+  }, [accountTypeChoice, isSubmitting, bunkerImport]);
 
   const resolveAddress = async (input: string): Promise<string | null> => {
     if (isAddress(input)) return input;
@@ -280,6 +293,7 @@ export function useOnboardingController() {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setIsSubmitting(true);
+    const selectBunkers = bunkerImport.request();
     try {
       await submitOnboardingAccount({
         createNewWallet,
@@ -300,6 +314,10 @@ export function useOnboardingController() {
         ledgerSelection,
         trezorSelection, safeSelection,
         resolveAddress,
+        importBunkers: async group => {
+          setCollectedMnemonic(""); setPassword(""); setConfirmPassword(""); setStep("bunkerDiscovery");
+          return selectBunkers(group);
+        },
       });
       setApiKey("");
       setPrivateKey("");
@@ -312,6 +330,13 @@ export function useOnboardingController() {
       setCollectedSeedIndices([0]);
       setStep("success");
     } catch (error) {
+      if (accountTypeChoice === "safeBunker") {
+        setCollectedMnemonic(""); setPassword(""); setConfirmPassword("");
+        const status = await chrome.runtime.sendMessage({ type: "getOnboardingInitializationStatus", initializationId: onboardingOwnerIdRef.current }).catch(() => null);
+        if (status?.configured) { clearCollectedSecrets(); setStep("success"); return; }
+        setStep(error instanceof BunkerOnboardingCancelled ? "accountType" : "safeBunker");
+        if (error instanceof BunkerOnboardingCancelled) { clearCollectedSecrets(); setErrors({}); return; }
+      }
       setErrors({
         password:
           error instanceof Error
@@ -325,7 +350,7 @@ export function useOnboardingController() {
   }
 
   return {
-    step, setStep, createNewWallet, handleCreateNew, handleChooseExisting, isCheckingSetup, accountTypeChoice, setAccountTypeChoice,
+    bunkerImport, step, setStep, createNewWallet, handleCreateNew, handleChooseExisting, isCheckingSetup, accountTypeChoice, setAccountTypeChoice,
     apiKey, setApiKey, showApiKey, setShowApiKey, privateKey, setPrivateKey,
     derivedAddress, pkDisplayName, setPkDisplayName, walletAddress,
     setWalletAddress, bankrDisplayName, setBankrDisplayName, password,

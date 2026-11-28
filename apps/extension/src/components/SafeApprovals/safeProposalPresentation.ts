@@ -27,8 +27,8 @@ function addressName(
   return labels?.get(value.toLowerCase()) ?? shortAddress(value);
 }
 
-function requestAction(
-  item: SafeProposalRecord,
+export function getSafeRequestAction(
+  item: Pick<SafeProposalRecord, "purpose" | "calls"> & { transaction: { nonce: number } },
   nativeSymbol: string,
   nativeDecimals: number,
   addressLabels: ReadonlyMap<string, string> | undefined,
@@ -203,7 +203,7 @@ export function getSafeProposalPresentation(
     decodedFunctionNames?: Readonly<Record<number, string>>;
   },
 ): SafeProposalPresentation {
-  const action = requestAction(
+  const action = getSafeRequestAction(
     item,
     options.nativeSymbol ?? "ETH",
     options.nativeDecimals ?? 18,

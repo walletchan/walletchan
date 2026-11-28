@@ -1,3 +1,4 @@
+import { startBunkerReconciliation } from "../../safeBunker/reconciliation";
 import { migrateTabAccountStorage } from "../../accounts/tabSelectionRepository";
 /** Chrome listener registration and immediate startup composition. */
 
@@ -84,6 +85,7 @@ export function registerBackgroundLifecycle(
     console.warn("[WalletChan] Tab selection migration deferred", error),
   );
   startSafeSync();
+  startBunkerReconciliation();
   registerStorageAuthLockLifecycle({
     storageOnChanged: chrome.storage.onChanged as any,
     autoLockStorageKey: AUTO_LOCK_STORAGE_KEY,

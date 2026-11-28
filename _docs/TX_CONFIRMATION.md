@@ -54,6 +54,67 @@ estimates the exact envelope again and refuses execution above the reviewed limi
 It passes those exact native overrides through normal Safe execution. This does
 not change gas behavior on single, batch, cross-dapp, or swap/bridge surfaces.
 
+## Safe Bunker
+
+The required Safe4337Module configuration, self-funded native/ERC-20 execution,
+payer defaults and module-required v3 deployments are specified in
+[SAFE_BUNKER_4337.md](./SAFE_BUNKER_4337.md). That specification supersedes
+the older no-module/external-payer-only descriptions below.
+ confirmation
+
+See [SAFE_BUNKER_IMPLEMENTATION.md](./SAFE_BUNKER_IMPLEMENTATION.md) for the
+current flow, coordinator and settlement rules. Bunker requests use
+BunkerTransactionConfirmation as an adapter to the shared ConfirmationScreen;
+they do not become ordinary imported-Safe proposals or generic EOA signing prompts.
+
+- Navigation preloads UI code and a fresh public view together. Confirmation opens
+  with that view; gas and asset simulation have section loaders. An unseeded or
+  settings-recovery entry may still use the shared initial loading fallback.
+- Internal Send, injected, ERC-5792, WalletConnect, grouped intents and supported
+  same-chain swap CALLs converge on safeBunker/operations.ts. Cross-chain bridges
+  and unsupported signature/EOA-authority methods have no Bunker execution path.
+- Deployment and transaction footers share PayerFields, DecisionAccountSelector,
+  native-balance reads, GasFeeLoading and compact editable fee controls. Menu
+  balances use the request's chain; failed reads show a dash, never a false zero.
+- Payer eligibility comes from safe/accountTypePolicy.ts. Bunkers, imported Safes,
+  view-only and Bankr records cannot be execution payers here. Actual implemented
+  payer paths are private-key, seed-phrase, Ledger and Trezor.
+- A square amber checkbox offers a default payer for this Bunker account only.
+  Explicit selection clears the unsaved checkbox. The worker commits a remembered
+  preference with the outer envelope before broadcast. UI refresh hydrates a saved
+  default only when no deliberate override exists; operation-bound payers win.
+- An unavailable asset preview uses the shared informational simulation warning
+  from ordinary transaction confirmation. It requires no acknowledgment checkbox
+  and does not block Confirm; exact execution preflight still runs before broadcast.
+- Payer/gas changes invalidate review. Review binds exact calls/provenance,
+  chain/configuration/nonce, owner/successor indices, payer, gas, digest and expiry.
+  Idle expiration refreshes review; failures offer Retry. No preview authorizes
+  signing. Native MAX uses the Safe balance without reserving externally paid gas.
+- Confirm derives/signs only with live master authority, persists the Safe signature
+  before signed RPC, signs the external payer envelope, then performs one fresh
+  block-pinned authority check and exact gas-capped simulation. Reviewed gas/fees
+  cannot be silently replaced. Ledger/Trezor approval precedes the same final gate.
+- Fixed phase hints show Signing / Checking / Broadcasting for the exact request.
+  Submission selects the Bunker and opens Activity immediately. Submitted outer
+  transactions leave approval navigation; a later request waits for prior rotation
+  settlement. Phase hints and preloaded snapshots grant no authority.
+- Reject is available only for unsigned intents and commits before result delivery,
+  independently of stalled fee preview. Late review responses cannot restore it.
+  Back from unsigned settings owner rotation rejects that exact intent; ordinary
+  transaction Back preserves it. Signed/ambiguous effects require exact retry or
+  exposure-aware recovery, never a new signature hidden behind Retry.
+
+Owner-rotation review uses the shared old/new owner card and Remove owner / Set
+owner rows from exact prepared metadata. The Safe-owned user-call asset preview
+can require an explicit unavailable acknowledgment; background simulation checks
+both calls and rotation. Errors expose only fixed policy/step diagnostics, never
+signed calldata, transport URLs, credentials or raw RPC errors.
+
+Creation uses the same network-selection page through deployment. Selecting a
+network reveals Pay for deployment using and Deploy, plus automatic payer-bound
+fees; there is no separate deployment/review screen. Pending deployment management
+remains in settings. Add existing is verification/account-add only, with no fee
+payer, transaction or forced recovery rotation.
 ## RPC review retry
 
 Single transaction requests place Retry beside footer errors and unavailable
@@ -67,3 +128,35 @@ on gas-estimation errors across single, batch, cross-dapp, swap/bridge, and Safe
 execution reviews. Loading reports invalid gas until estimation completes;
 read-only/submitting surfaces disable Retry. Existing fee-token quote Retry
 continues through the quote owner.
+
+In-wallet Bunker swaps stage unsigned intent during Review Swap and open one
+Confirm Swap surface combining the shared overview/call disclosures with Bunker
+payer/token/fee controls. There is no multisig proposal screen or second manual
+review step. The real Bunker simulation remains mounted, firm-quote impact
+acknowledgement gates confirmation, and Cancel/Back rejects the unsigned request.
+
+### Bunker internal Send and staking
+
+Bunker staking uses the shared Bunker request confirmation and completion path,
+including payer choice, fee token, exact simulation and owner rotation. Built-in
+staking is Base-only. Native Send MAX is finalized in review: reserve ETH prefund
+only for Bunker/native payment, retain the full cap for EOA or ERC-20 payment,
+and refresh the displayed calls and asset preview whenever review changes the
+amount. Signed requests are never repriced by changing their calls. Deployment
+and execution share native USD pricing and omit fiat when unavailable.
+
+Bunker transaction, swap and staking confirmations reuse the EOA revert banner
+above request details, `RevertWarning`/`RequestRetryNotice` for gas errors, and
+`SimulationFailureConfirmButton` for warning icons and explicit acknowledgement.
+The preview forwards the standard simulation callbacks; no separate completion
+gate or revert-only confirmation block is maintained. Valid gas preparation and
+exact Safe execution checks remain mandatory. Swap's warning stays outside the
+collapsed details without adding a Request details heading. MAX re-simulation
+retains its gas review but blocks Confirm while its adjusted preview is loading.
+
+Bunker swap review context survives popup close/lock and restores the existing
+Swap confirmation/price-impact components. Refresh rejects only the unsigned
+request before using the normal firm-quote flow; signed-race failures reload
+status. Grouped swaps require separation before individual review. Missing saved
+payers fall back to self for unsigned requests. Native MAX with custom calldata
+uses the same reservation, preview and final-signing rules as plain Send.

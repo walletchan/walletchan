@@ -1,5 +1,6 @@
 import { applyCowSignatureScenario } from "./cowOrderFixtures";
-import type { Account } from "@/chrome/types";
+import type { Account as AnyAccount } from "@/chrome/types";
+type Account = Exclude<AnyAccount, { type: "safeBunker" }>;
 import type { PendingTxRequest } from "@/chrome/requests/pendingTxStorage";
 import type { PendingSignatureRequest } from "@/chrome/requests/pendingSignatureStorage";
 import type { PendingBatchTxRequest } from "@/chrome/erc5792Types";
@@ -20,7 +21,6 @@ import { previewNetworks } from "./networkFixtures";
 import { applyPreviewBatchScenario } from "./batchScenarioFixtures";
 import { applySafeSignatureScenario } from "./safeWarningFixtures";
 import { createDefillamaSwapData, getReadmeTxOverrides } from "./readmeScenarioFixtures";
-
 export { previewNetworks, previewNetworkRpcUrls } from "./networkFixtures";
 import type { PreviewWallet, PreviewWalletType } from "./types";
 export type { PreviewWallet, PreviewWalletType } from "./types";

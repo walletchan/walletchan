@@ -8,13 +8,14 @@ export const HOME_SEND_CHAIN_ID = 1;
 export function resolveSendEntryToken(
   clickedToken: PortfolioToken | null,
   networksInfo?: NetworksInfo,
+  defaultChainId = HOME_SEND_CHAIN_ID,
 ): PortfolioToken {
   if (clickedToken) return clickedToken;
 
-  const native = getNativeAssetMeta(HOME_SEND_CHAIN_ID, networksInfo);
+  const native = getNativeAssetMeta(defaultChainId, networksInfo);
   return {
     contractAddress: "native",
-    chainId: HOME_SEND_CHAIN_ID,
+    chainId: defaultChainId,
     name: native?.name ?? "Ether",
     symbol: native?.symbol ?? "ETH",
     decimals: native?.decimals ?? 18,

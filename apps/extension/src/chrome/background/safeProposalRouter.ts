@@ -1,3 +1,5 @@
+import { getAccountById } from "../accountStorage";
+import { enqueueBunkerRequest } from "../safeBunker/inbox";
 import { prepareSafeSignAndExecute, signAndExecuteSafeProposal } from "../safe/signAndExecute";
 import { approveSafeProposalWithOwner } from "../safe/ownerAuthorization";
 import { estimateSafeExecution, executeSafeProposal, reconcileSafeExecution } from "../safe/execution";
@@ -53,7 +55,15 @@ export function routeBackgroundSafeProposalMessage(
       await syncSafeAccount(message.accountId);
       return getSafeProposals();
     }); break;
-    case "createSafeProposal": work = gated("sendProposal", () => createReviewedSafeProposal({ safeAccountId: message.safeAccountId, chainId: message.chainId, calls: message.calls, route: message.route })); break;
+    case "createSafeProposal": work = (async () => {
+      const account = await getAccountById(message.safeAccountId);
+      if (account?.type === "safeBunker") {
+        const id = crypto.randomUUID();
+        return enqueueBunkerRequest({ id, accountId: account.id, chainId: message.chainId, calls: message.calls,
+          routes: [{ kind: "wallet", origin: "WalletChan swap", requestId: id }] });
+      }
+      return gated("sendProposal", () => createReviewedSafeProposal({ safeAccountId: message.safeAccountId, chainId: message.chainId, calls: message.calls, route: message.route }));
+    })(); break;
     case "changeSafeProposalNonce": work = gated("sendProposal", () => changeSafeProposalNonce({ proposalId: message.proposalId, nonce: message.nonce })); break;
     case "appendApprovalRevokeToSafeProposal": work = gated(
       "sendProposal",

@@ -1,4 +1,6 @@
 /** Shared manifest, dependency contract, and validation for tx execution routes. */
+import { runBunkerEffect } from "../safeBunker/barrier";
+import { bunkerPolicyMessage, bunkerStepMessage } from "../safeBunker/errors";
 import type * as PendingRequestResolutionModule from "../requests/pendingRequestResolution";
 
 export type BackgroundTransactionExecutionRouteResult =
@@ -51,11 +53,17 @@ export function respondToTransactionExecution(
   return HANDLED_TRANSACTION_EXECUTION_ASYNC;
 }
 
+/** Only fixed Bunker diagnostics may cross to the renderer; remote text may contain secrets. */
+export function bunkerFeePaymentError(error: unknown, fallback: string) {
+  return { success: false, error: bunkerStepMessage(error) ?? bunkerPolicyMessage(error) ?? fallback };
+}
+
 export function getFeePaymentOptionsForMessage(
   dependencies: BackgroundTransactionExecutionDependencies,
   message: any,
 ): Promise<any> {
   const requestId = typeof message.txId === "string" ? message.txId : "";
+  if (message.requestKind === "bunker") return import("../safeBunker/feePayment").then(m => m.getBunkerFeePaymentOptions(message.accountId, requestId)).catch(error => bunkerFeePaymentError(error, "Bunker gas options unavailable. Unlock and retry."));
   if (message.requestKind === "batch") {
     return dependencies.getBatchFeePaymentOptions(requestId);
   }
@@ -82,6 +90,10 @@ export function prepareFeePaymentQuoteForMessage(
   message: any,
 ): Promise<any> {
   const requestId = typeof message.requestId === "string" ? message.requestId : "";
+  if (message.requestKind === "bunker") return runBunkerEffect(async () => {
+    const m = await import("../safeBunker/feePayment");
+    return m.prepareBunkerFeePaymentQuote(message.accountId, requestId, message.feePaymentToken);
+  }).catch(error => bunkerFeePaymentError(error, "Could not prepare the Bunker gas quote. Retry, or choose another gas token."));
   const family = message.requestKind === "batch" ? "batchTransaction"
     : message.requestKind === "crossDapp" ? "crossDappBatch"
     : message.requestKind === "safe" ? "safeExecution"

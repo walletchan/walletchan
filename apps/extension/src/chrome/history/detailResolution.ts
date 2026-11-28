@@ -16,6 +16,8 @@ export async function getTransactionCalldata(txId: string): Promise<{
 }> {
   const transaction = await getTxById(txId);
   if (!transaction) return { success: false, error: "Transaction not found" };
+  if (transaction.safeDeploymentMeta) return { success: true, data: "0x" };
+  if (transaction.safeBunkerMeta) return { success: true, data: transaction.safeBunkerMeta.calls[0]?.data ?? "0x" };
   if (transaction.tx.data) return { success: true, data: transaction.tx.data };
   if (!transaction.txHash) {
     return { success: false, error: "Calldata is unavailable for this transaction" };

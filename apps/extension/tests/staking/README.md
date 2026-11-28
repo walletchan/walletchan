@@ -11,3 +11,8 @@ Transaction planning and all wallet-type batching choices are covered in
 `tests/ui/stakingModel.test.ts`. Reset-barrier routing, Ledger device rebinding,
 and the impersonator submission block are covered by the background and
 transaction architecture suites.
+
+`bunkerController.test.ts` runs the real preparation hook with deterministic
+React slots: Bunker approval/deposit stages one shared intent, double-clicks are
+claimed synchronously, non-Base requests are blocked, and existing EOA/view-only
+routing is preserved. Device acceptance remains manual.

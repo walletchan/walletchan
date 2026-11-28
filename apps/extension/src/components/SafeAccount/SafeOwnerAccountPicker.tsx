@@ -25,10 +25,22 @@ export function SafeOwnerAccountPicker({
   accounts,
   selectedAccountId,
   onSelect,
+  title = "Choose owner account",
+  changeLabel = "Change owner account",
+  backLabel = "Back to Add Safe",
+  description = "Sent directly to Safe for this search",
+  disabled = false,
+  compact = false,
 }: {
   accounts: Account[];
   selectedAccountId: string | null;
   onSelect: (accountId: string) => void;
+  title?: string;
+  changeLabel?: string;
+  backLabel?: string;
+  description?: string;
+  disabled?: boolean;
+  compact?: boolean;
 }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -88,13 +100,15 @@ export function SafeOwnerAccountPicker({
             aria-haspopup="listbox"
             aria-expanded={isPickerOpen}
             aria-label={
-              selectedAccount ? "Change owner account" : "Choose owner account"
+              selectedAccount ? changeLabel : title
             }
+            disabled={disabled}
+            opacity={disabled ? 0.6 : 1}
             minW={0}
             flex={1}
-            minH="72px"
+            minH={compact ? "40px" : "72px"}
             px={3}
-            py={2.5}
+            py={compact ? 1 : 2.5}
             gap={3}
             align="center"
             textAlign="start"
@@ -104,7 +118,7 @@ export function SafeOwnerAccountPicker({
             _focusVisible={{
               boxShadow: "inset 0 0 0 2px var(--chakra-colors-border-focus)",
             }}
-            onClick={() => setIsPickerOpen(true)}
+            onClick={() => { if (!disabled) setIsPickerOpen(true); }}
           >
             {selectedAccount ? (
               <>
@@ -112,24 +126,24 @@ export function SafeOwnerAccountPicker({
                   <AccountAvatar
                     account={selectedAccount}
                     ensAvatar={getEnsAvatar(selectedAccount)}
-                    size={36}
+                    size={compact ? 24 : 36}
                   />
                 </ListItemMedia>
                 <ListItemContent>
                   <ListItemTitle noOfLines={1}>
                     {getDisplayName(selectedAccount)}
                   </ListItemTitle>
-                  <ListItemDescription fontFamily="mono" noOfLines={1}>
+                  {!compact && <ListItemDescription fontFamily="mono" noOfLines={1}>
                     {getSecondaryIdentity(selectedAccount)}
-                  </ListItemDescription>
-                  <Text as="span" color="fg.muted" fontSize="xs" lineHeight="1.4">
+                  </ListItemDescription>}
+                  {!compact && <Text as="span" color="fg.muted" fontSize="xs" lineHeight="1.4">
                     {getWalletTypeLabel(selectedAccount, seedGroupMap)}
-                  </Text>
+                  </Text>}
                 </ListItemContent>
               </>
             ) : (
               <ListItemContent>
-                <ListItemTitle>Choose owner account</ListItemTitle>
+                <ListItemTitle>{title}</ListItemTitle>
               </ListItemContent>
             )}
             <ChevronRightIcon boxSize={5} color="fg.muted" flexShrink={0} />
@@ -141,11 +155,14 @@ export function SafeOwnerAccountPicker({
         <FullScreenPickerLayer>
           <FullScreenPicker
             ref={pickerRef}
-            title="Choose owner account"
+            title={title}
             onBack={() => closePicker()}
-            backLabel="Back to Add Safe"
+            backLabel={backLabel}
           >
-            <FullScreenPickerGroup label="Your accounts">
+            <FullScreenPickerGroup
+              label="Your accounts"
+              description={description}
+            >
               {accounts.map((account) => (
                 <AccountPickerRow
                   key={account.id}

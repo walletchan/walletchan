@@ -8,6 +8,8 @@ import {
   parseJsonObjectBounded,
 } from "./boundedHttp";
 
+import { RpcEndpointError, rpcFailureReason } from "./rpcDiagnostics";
+
 export const DEFAULT_RPC_TIMEOUT_MS = 15_000;
 export const MAX_RPC_REQUEST_BYTES = 1_000_000;
 export const MAX_RPC_RESPONSE_BYTES = 8_000_000;
@@ -208,6 +210,13 @@ function createBoundedViemFetch(
         },
         { timeoutMs, maxBytes: MAX_RPC_RESPONSE_BYTES },
       );
+      // Some providers return JSON-RPC method errors with HTTP 400.
+      if (response.status === 400) {
+        try {
+          const envelope = JSON.parse(text);
+          if (envelope?.error?.code === -32601 || envelope?.error?.code === -32004) throw new RpcEndpointError("unsupported");
+        } catch (error) { if (error instanceof RpcEndpointError) throw error; }
+      }
       return new Response(text, {
         status: response.status,
         statusText: response.statusText,
@@ -228,7 +237,7 @@ export function secureHttpTransport(
   config: HttpTransportConfig = {},
 ): ReturnType<typeof http> {
   const endpoint = parseRpcEndpoint(rpcUrl);
-  return http(rpcUrl, {
+  const base = http(rpcUrl, {
     ...config,
     fetchFn: createBoundedViemFetch(endpoint, config.timeout),
     fetchOptions: {
@@ -236,6 +245,32 @@ export function secureHttpTransport(
       ...SECURE_RPC_FETCH_OPTIONS,
     },
   });
+  return (options) => {
+    const transport = base(options);
+    return {
+      ...transport,
+      request: (async (args, requestOptions) => {
+        if (args.method !== "eth_blockNumber") return transport.request(args, requestOptions);
+        let primaryError: unknown;
+        try { return await transport.request(args, requestOptions); }
+        catch (error) { primaryError = error; }
+        // Same configured endpoint and bounded transport. Only this idempotent read
+        // is retried through an equivalent method; submissions are never replayed.
+        let block: unknown;
+        try {
+          block = await transport.request({ method: "eth_getBlockByNumber", params: ["latest", false] }, requestOptions);
+        } catch (error) {
+          const reason = rpcFailureReason(error) ?? rpcFailureReason(primaryError);
+          throw new RpcEndpointError(reason && reason !== "unsupported" ? reason : "blockHeight");
+        }
+        const number = block && typeof block === "object" ? (block as { number?: unknown }).number : null;
+        if (typeof number !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,63})$/i.test(number)) {
+          throw new RpcEndpointError("blockHeight");
+        }
+        return number;
+      }) as typeof transport.request,
+    };
+  };
 }
 
 function boundedErrorMessage(value: unknown): string {

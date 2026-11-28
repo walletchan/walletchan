@@ -10,6 +10,7 @@ import { ACTIVITY_WALLET_UI_MESSAGE_TYPES } from "./activityMessageTypes";
  * ENS browsing messages are intentionally not listed here. They are handled
  * before the main router and enforce their own page-specific sender policy.
  */
+import { BACKGROUND_SAFE_BUNKER_MESSAGE_TYPES } from "./safeBunkerMessageTypes";
 import { PRIVACY_WALLET_UI_MESSAGE_TYPES } from "./privacyMessageTypes";
 export const PROVIDER_MESSAGE_TYPES = [
   "openProviderRequestSidePanel",
@@ -82,6 +83,8 @@ export const WALLET_UI_MESSAGE_TYPES = [
   "updateCallInCrossDappBatch",
   "rejectCrossDappBatch",
   "confirmCrossDappBatch",
+
+  ...BACKGROUND_SAFE_BUNKER_MESSAGE_TYPES,
 
   // Account and seed phrase management
   "addBankrAccount",

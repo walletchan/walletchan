@@ -72,7 +72,21 @@ never leak into either presentation. Keep implementation modules below roughly
 400 lines and place pure formatting/grouping coverage in
 `tests/ui/activityModel.test.ts`.
 
+Bunker rows retain a public user-call snapshot and reuse imported-Safe action
+naming/function resolution. The automatic owner swap is not shown as another
+user action. Gas payer rows use the existing Safe executor marker and normal
+EOA receipt/gas tracking. Transaction details use `historyCallModel.ts` to
+present the complete user-call list even after history calldata compaction.
+
 Public Portfolio Activity is wrapped by `SignatureHistory/ActivityHistory.tsx`.
 The wrapper keeps transaction state mounted while switching to Signatures and
 places supplemental Safe activity only in the Transactions view. Private Activity
 continues to use the transaction ledger directly.
+
+Explicit swapMeta takes precedence over generic Bunker call-name presentation.
+Bunker swaps reuse normal pair text and token icons; generic Bunker transactions
+continue to resolve their user-call actions. Known swap rows skip unused generic
+calldata-name discovery.
+
+Bunker rows with explicit `transferMeta` use normal Send labels and recipients,
+just as explicit `swapMeta` uses Swap labels. Both bypass generic Exec decoding.

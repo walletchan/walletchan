@@ -83,6 +83,11 @@ export function createDummyTokenApprovalCall(
   return createTokenApprovalCall(token, paymaster, maxUint256);
 }
 
+/** Explicit zero reset for tokens that reject nonzero-to-nonzero approval. */
+export function createTokenApprovalResetCall(token: Address, paymaster: Address): FeePaymentCall {
+  return { to: token, value: 0n, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [paymaster, 0n] }) };
+}
+
 export function addBoundedTokenApproval(
   calls: readonly FeePaymentCall[],
   params: {
@@ -110,6 +115,7 @@ export function addBoundedTokenApproval(
   return {
     calls: approvalAdded
       ? [
+          ...(params.currentAllowance > 0n ? [createTokenApprovalResetCall(params.token, params.quote.paymaster)] : []),
           createTokenApprovalCall(
             params.token,
             params.quote.paymaster,

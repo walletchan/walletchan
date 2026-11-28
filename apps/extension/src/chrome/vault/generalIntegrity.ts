@@ -1,3 +1,4 @@
+import { assertBunkerDraftIntegrity } from "../safeBunker/integrity";
 import {
   decrypt,
   decryptWithVaultKey,
@@ -142,6 +143,7 @@ export async function validateGeneralVaultMasterRecovery(
       return { success: false, error: "A local account is missing its private key" };
     }
 
+    await assertBunkerDraftIntegrity(vaultKey);
     return { success: true };
   } catch {
     return { success: false, error: "Wallet secrets could not be recovered" };

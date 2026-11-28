@@ -17,10 +17,10 @@ export function willDeleteSeedPhrase(
   account: Account,
   accounts: Account[],
 ): boolean {
-  return account.type === "seedPhrase" && !accounts.some(
+  return (account.type === "seedPhrase" || account.type === "safeBunker") && !accounts.some(
     (candidate) =>
       candidate.id !== account.id &&
-      candidate.type === "seedPhrase" &&
+      (candidate.type === "seedPhrase" || candidate.type === "safeBunker") &&
       candidate.seedGroupId === account.seedGroupId,
   );
 }
@@ -55,7 +55,7 @@ export function getAccountRemovalCopy(
   }
 
   const warningTitle =
-    account.type === "seedPhrase"
+    (account.type === "seedPhrase" || account.type === "safeBunker")
       ? "Make sure you have backed up your seed phrase before removing this account."
       : account.type === "privateKey"
         ? "Make sure you have backed up your private key before removing this account."

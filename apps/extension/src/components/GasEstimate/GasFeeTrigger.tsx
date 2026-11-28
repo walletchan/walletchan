@@ -46,11 +46,12 @@ export const GasFeeTrigger = forwardRef<HTMLButtonElement, GasFeeTriggerProps>(
         _focus={{ outline: "none" }}
         _focusVisible={{ boxShadow: "focus" }}
         justifyContent="space-between"
+        gap={3}
       >
         <Text fontSize="xs" color="text.secondary" fontWeight="600" flexShrink={0}>
           Gas fee
         </Text>
-        <HStack spacing={1.5} minW={0} justify="flex-end">
+        <HStack spacing={1.5} minW={0} flex="1" justify="flex-end">
           <Text
             fontSize="xs"
             fontWeight="700"
@@ -87,6 +88,7 @@ export const GasFeeTrigger = forwardRef<HTMLButtonElement, GasFeeTriggerProps>(
           )}
           <ChevronDownIcon
             boxSize={4}
+            flexShrink={0}
             color="text.tertiary"
             transform={expanded ? "rotate(180deg)" : "rotate(0deg)"}
             transitionProperty="transform"

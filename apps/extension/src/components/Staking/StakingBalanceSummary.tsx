@@ -7,12 +7,14 @@ export function StakingBalanceSummary({
   apy,
   loading,
   claiming,
+  claimDisabled,
   onClaim,
 }: {
   state: StakingState | null;
   apy: StakingApy | null;
   loading: boolean;
   claiming: boolean;
+  claimDisabled?: boolean;
   onClaim: () => void;
 }) {
   return (
@@ -72,7 +74,7 @@ export function StakingBalanceSummary({
           onClick={onClaim}
           isLoading={claiming}
           loadingText="Claim"
-          isDisabled={!state || state.earnedWeth === 0n || claiming}
+          isDisabled={claimDisabled || !state || state.earnedWeth === 0n || claiming}
         >
           Claim
         </Button>

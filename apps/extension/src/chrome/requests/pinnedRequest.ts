@@ -29,7 +29,7 @@ export {
   type DirectSigningAccount as SigningAccount,
 } from "../accounts/accountTypePolicy";
 
-export type ProviderRequestAccount = Exclude<Account, { type: "safe" }>;
+export type ProviderRequestAccount = Exclude<Account, { type: "safe" | "safeBunker" }>;
 
 type TxBase = Omit<
   PendingTxRequest,
@@ -57,7 +57,7 @@ export function pinnedTxRequest(
 }
 
 export function pinnedSignatureRequest(
-  account: Account,
+  account: Exclude<Account, { type: "safeBunker" }>,
   base: SigBase,
 ): PinnedSignatureRequest {
   return {
