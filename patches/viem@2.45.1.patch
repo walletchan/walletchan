@@ -34,7 +34,7 @@ diff --git a/utils/signature/hashTypedData.ts b/utils/signature/hashTypedData.ts
 index 52a8a8d94d2292f7fed5016be89176f7df0dd52b..393ec4c9b38b94107f23946c8c44870efd5531c3 100644
 --- a/utils/signature/hashTypedData.ts
 +++ b/utils/signature/hashTypedData.ts
-@@ -209,9 +209,8 @@ function findTypeDependencies(
+@@ -209,8 +209,7 @@ function findTypeDependencies(
    },
    results: Set<string> = new Set(),
  ): Set<string> {
@@ -45,4 +45,3 @@ index 52a8a8d94d2292f7fed5016be89176f7df0dd52b..393ec4c9b38b94107f23946c8c44870e
 +  if (results.has(primaryType) || !Object.prototype.hasOwnProperty.call(types, primaryType)) {
      return results
    }
- 
