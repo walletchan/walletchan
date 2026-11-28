@@ -7,6 +7,7 @@ export function formatEip712ValidationError(
 ): string {
   const text = (value: unknown): string | undefined =>
     typeof value === "string"
+      // eslint-disable-next-line no-control-regex -- Intentionally strip controls from untrusted diagnostic text.
       ? value.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 160)
       : typeof value === "number" && Number.isFinite(value)
         ? String(value)

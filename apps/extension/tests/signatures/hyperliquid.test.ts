@@ -7,7 +7,7 @@ import { validateEIP712TypedData } from "../../src/chrome/eip712Validator";
 import { hyperliquidApproveAgent as payload } from "./hyperliquidFixture";
 
 test("Hyperliquid namespaced types pass V3/V4 with identical signing digests", async () => {
-  const { EIP712Domain: _, ...types } = payload.types;
+  const types = Object.fromEntries(Object.entries(payload.types).filter(([name]) => name !== "EIP712Domain"));
   const expected = TypedDataEncoder.hash(payload.domain, types, payload.message);
   const signer = privateKeyToAccount(`0x${"11".repeat(32)}`);
   for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"]) {
