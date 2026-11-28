@@ -191,7 +191,7 @@ test("numeric prover budgets and distribution gates are explicit", async () => {
     cleanBuildBytes: 57_671_680,
     artifactBytes: 25_165_824,
     proverWorkerBytes: 524_288,
-    backgroundBundleBytes: 4_194_304,
+    backgroundBundleBytes: 4_980_736,
     fixedSelfTestMs: 60_000,
     restartSelfTestMs: 60_000,
     peakBrowserRssDeltaBytes: 536_870_912,

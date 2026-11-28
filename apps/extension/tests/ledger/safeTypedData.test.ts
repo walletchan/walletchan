@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parseSignature } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { TypedDataEncoder } from "ethers";
 import { createServer, type ViteDevServer } from "vite";
 import { buildSafeTransactionTypedData } from "../../src/chrome/safe/transactionHash";
 
@@ -95,6 +96,34 @@ test("the centralized Ledger EIP-712 path accepts and recovers Safe transactions
       chainId: 8453,
     });
     assert.match(signature, /^0x[0-9a-f]{130}$/i);
+
+    const namespaced = {
+      domain: {}, primaryType: "constructor:Envelope",
+      types: {
+        EIP712Domain: [],
+        "constructor:Envelope": [{ name: "children", type: "Child[]" }],
+        Child: [{ name: "value", type: "uint256" }],
+      },
+      message: { children: [] },
+    };
+    const digest = TypedDataEncoder.hash({}, {
+      "constructor:Envelope": namespaced.types["constructor:Envelope"],
+      Child: namespaced.types.Child,
+    }, namespaced.message) as `0x${string}`;
+    const canonical = parseSignature(await signer.sign({ hash: digest }));
+    Object.assign(globalThis, { __walletchanSafeLedgerSignature: {
+      r: canonical.r, s: canonical.s, v: Number(canonical.yParity),
+    } });
+    await ledgerSigning.signLedgerTypedDataForAccount({
+      opId: "namespaced", account, typedData: namespaced, chainId: 8453,
+    });
+    // A genuine account signature over another schema's digest must not escape.
+    Object.assign(globalThis, { __walletchanSafeLedgerSignature: {
+      r: signed.r, s: signed.s, v: Number(signed.yParity),
+    } });
+    await assert.rejects(ledgerSigning.signLedgerTypedDataForAccount({
+      opId: "namespaced-wrong-digest", account, typedData: namespaced, chainId: 8453,
+    }), /Ledger signed with a different account/);
 
     await assert.rejects(
       ledgerSigning.signLedgerTypedDataForAccount({

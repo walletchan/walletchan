@@ -31,6 +31,7 @@ import type { WalletKitLike } from "./protocol";
 import { createReviewedSafeProposal } from "../safe/proposalLifecycle";
 import { requireSafeFeature } from "../safe/featurePolicy";
 import { validateExternalSignatureTypedData } from "../signatures/externalTypedData";
+import { formatEip712ValidationError } from "../signatures/eip712/diagnostics";
 
 export async function createPendingTransactionRequest(
   kit: WalletKitLike,
@@ -176,7 +177,10 @@ export async function createPendingSignatureRequest(
       throw new Error(
         validation.error === RAW_ERC7710_DELEGATION_SIGNATURE_ERROR
           ? RAW_ERC7710_DELEGATION_SIGNATURE_ERROR
-          : "Data must conform to EIP-712 schema",
+          : formatEip712ValidationError(
+              validation.error, method, params[1],
+              getSessionMetadata(kit.getActiveSessions()?.[args.topic]).url,
+            ),
       );
     }
     if (validation.sanitized) params[1] = validation.sanitized;

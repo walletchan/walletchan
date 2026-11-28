@@ -90,6 +90,9 @@ export function validateEIP712TypedData(
   // Graph traversal and delegation inspection assume well-formed field objects.
   const typeDefinitions = validateEip712TypeDefinitions(data.types);
   if (!typeDefinitions.valid) return typeDefinitions;
+  if (!Object.prototype.hasOwnProperty.call(data.types, data.primaryType)) {
+    return { valid: false, error: "Missing type definition for 'primaryType'" };
+  }
   if (isRawErc7710DelegationSignatureRequest(method, data)) {
     return { valid: false, error: RAW_ERC7710_DELEGATION_SIGNATURE_ERROR };
   }

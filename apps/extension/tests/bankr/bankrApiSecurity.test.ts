@@ -135,6 +135,30 @@ test("Bankr signatures require a bounded valid response from the requested signe
   );
 });
 
+test("namespaced typed data verifies canonical remote signatures and rejects the old encoder digest", async () => {
+  const typedData = {
+    domain: {}, primaryType: "App:Envelope",
+    types: {
+      EIP712Domain: [],
+      "App:Envelope": [{ name: "children", type: "Child[]" }],
+      Child: [{ name: "value", type: "uint256" }],
+    },
+    message: { children: [] },
+  };
+  globalThis.fetch = async (_input, init) => signatureResponse(init);
+  const valid = await bankr.signMessageViaApi("test-api-key", "eth_signTypedData_v4", [signer, typedData]);
+  assert.equal(valid.signer, signer);
+  // Recorded pre-fix digest for this exact schema: its Child dependency was omitted.
+  const oldSignature = await signerAccount.sign({ hash: "0x4caa97f3843ee77c5afe048949feb7210bd9a48a729fe5e4a2737e322341cdb8" });
+  globalThis.fetch = async () => jsonResponse({
+    success: true, signature: oldSignature, signer, signatureType: "eth_signTypedData_v4",
+  });
+  await assert.rejects(
+    bankr.signMessageViaApi("test-api-key", "eth_signTypedData_v4", [signer, typedData]),
+    /signature does not belong to the reviewed account/i,
+  );
+});
+
 test("typed-data responses are cryptographically bound to the requested signer", async () => {
   const typedData = {
     domain: {

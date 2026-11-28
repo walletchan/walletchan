@@ -1371,14 +1371,29 @@ if valid: continue to normal flow
 
 ### Console Logging
 
-Failed validations log to console for debugging:
+Injected validation failures warn with the same bounded diagnostic returned to
+the requesting dapp; WalletConnect returns the shared diagnostic too. It includes
+the validator reason, method, origin, payload format, primary type, domain and
+up to eight types/eight fields per type. Strings are control-character stripped
+and capped at 160 characters; the total error is capped at 4096 characters.
+Message values, arbitrary extra payload fields, wallet state and credentials
+are excluded. Oversized strings are not parsed again for diagnostics. Raw
+ERC-7710 rejection retains its exact guidance.
 
-```
-[WalletChan] EIP-712 validation failed for https://malicious.site:
-  Type 'Attack' exceeds maximum nesting depth of 50 (found 60825)
-```
-
-This helps developers identify malicious sites attempting attacks.
+Struct names allow colon-separated identifier segments generically, without
+dapp/origin exceptions or name rewriting, including nested references and arrays.
+The primary type and referenced struct types must have own schema definitions.
+The extension pins released viem 2.58.8 without a local encoder patch. Its parser
+strips only array suffixes during dependency lookup, preserving full names rather
+than omitting child definitions or incorporating unrelated namespace prefixes.
+Existing own-property validation rejects inherited definitions. Signature
+display/hashing, local signing and hardware/remote recovery use this dependency. Regression
+tests require distinct child schemas to hash differently even with empty arrays,
+and agree with ethers and clear-signing type encoding. Remote/hardware signatures
+over an incompatible digest cannot pass pinned-account recovery. No namespaced
+compatibility restriction or duplicate hashing implementation is added to validation.
+Field-name restrictions, own-property resolution, graph/depth bounds, raw
+delegation rejection and external account-domain protection remain enforced.
 
 ---
 
@@ -1758,7 +1773,7 @@ license, endpoint, patch and bundle review. Suite is an upstream trust boundary:
 its own releases/privacy settings are outside WalletChan's bundled SDK pin.
 
 The production background build applies syntax-only Terser compaction with
-`compress: false` and `mangle: false` before its 4.25 MiB combined Safe Bunker/Trezor budget.
+`compress: false` and `mangle: false` before its 4.75 MiB background bundle budget.
 This removes comments and whitespace without optimizer or identifier-mangling
 semantics. Release scripts delete the exact same-version archive before
 invoking `zip -r`, so a prior archive cannot retain stale hashed chunks.

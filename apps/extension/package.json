@@ -111,7 +111,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "snarkjs": "0.7.5",
-    "viem": "^2.21.0"
+    "viem": "2.58.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

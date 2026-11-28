@@ -6,6 +6,14 @@ implementation mirrors `chrome/signatures/eip712/`; architecture coverage
 freezes ownership/export identity while policy coverage freezes raw-delegation
 and method-routing behavior.
 
+`eip712SigningCompatibility.test.ts` prevents the empty-array schema ambiguity by
+requiring distinct schemas to have distinct, ethers-matching digests. Nested
+namespaced references, domains and arrays are supported, prefix aliases cannot
+alter hashing, and undeclared primary types fail validation. CommonJS/ESM and
+clear-signing encodings agree. `hyperliquid.test.ts` retains the deployed-schema
+fixture; confirmation regressions exercise namespaced signing through all five
+account types. Remote signing also rejects signatures over the old incorrect digest.
+
 `accountDomainPolicy.test.ts` exercises MetaMask execution-signature phishing,
 case-insensitive V3/V4 account-domain rejection, and internal UserOperation
 compatibility. `confirmationHandlers.test.ts` uses the real confirmation policy

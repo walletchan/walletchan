@@ -3795,7 +3795,13 @@ bypasses this policy on the generic signature-request path.
 
 - Console error with details logged
 - Background writes error to `chrome.storage.local` under `sigResult:{sigId}` so the content script picks it up
-- Dapp receives: `{ success: false, error: "Data must conform to EIP-712 schema" }`
+- Injected and WalletConnect errors retain `Data must conform to EIP-712 schema`
+  and append the specific validator reason plus caller-owned request context:
+  method, origin, payload format, primary type, domain and a schema summary.
+  `signatures/eip712/diagnostics.ts` bounds each string to 160 characters,
+  summarizes at most eight types/eight fields each, and caps the whole error at
+  4096 characters. It excludes message values, extra payload fields and wallet
+  state. Raw ERC-7710 rejection keeps its exact existing guidance.
 - No popup shown
 - Request not stored in pending signature requests
 
@@ -3805,6 +3811,35 @@ split under `signatures/eip712/` across `validator.ts` (bounded orchestration),
 (internal-account verifying-contract rejection), `schemaValidation.ts` (pure
 graph/type checks), and `sanitization.ts` (schema-only projection). Request
 intake owns only the integration and durable rejection result.
+
+Struct type names accept colon-separated identifier segments, including nested
+struct references and their arrays, without dapp or origin exceptions. The
+ordinary schema checks require a declared own primary type. Identifier restrictions,
+own type references, graph/depth bounds, delegation and account-domain checks
+apply equally to ordinary and namespaced requests. No compatibility denylist,
+secondary hashing implementation or signing-payload rewriting is used.
+
+The extension pins released viem 2.58.8 without an encoder patch. Upstream fixed
+dependency parsing in 2.57.12 and colon-containing names in 2.57.17. Dependency
+resolution strips only array suffixes and preserves full struct names; wallet
+validation still requires own schema properties. Local signing, displayed viem
+digests, Trezor hashes and hardware/remote signature recovery all consume the
+same corrected encoder. Ledger's SDK uses canonical full-name schema encoding.
+Remote/hardware responses still must recover to the pinned account against the
+correct digest; an incompatible signer fails closed.
+
+The released upgrade increases the background bundle from about 4.36 MB to
+4.78 MB. Its component budget is 4.75 MiB (previously 4.25 MiB);
+the overall package, prover artifact/worker, memory, runtime and concurrency
+budgets are unchanged.
+
+The SDK-shaped Hyperliquid fixture verifies V3/V4 object/JSON requests and unchanged
+viem/ethers digests; all five signer types are covered through confirmation/release
+with mocked signer I/O and both master and agent factors. Generic regressions
+require different child schemas to hash differently even with empty arrays, and
+agree with ethers plus the clear-signing type encoding. Prefix aliases cannot
+change the digest; a remote signature over the previous incorrect digest is
+rejected. Live site and hardware acceptance require separate QA.
 
 **Files**: `eip712Validator.ts` (stable facade),
 `signatures/eip712/` (validation policy),
