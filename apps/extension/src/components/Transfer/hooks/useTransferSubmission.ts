@@ -11,6 +11,7 @@ interface UseTransferSubmissionOptions {
   accountType: TransferAccountType;
   resolvedAddress: string | null;
   tokenAmount: string;
+  isMaxSelected?: boolean;
   chainName: string;
   isNativeToken: boolean;
   trimmedHexData: string;
@@ -25,6 +26,8 @@ export function useTransferSubmission({
   fromAddress,
   resolvedAddress,
   tokenAmount,
+  isMaxSelected,
+  accountType,
   chainName,
   isNativeToken,
   trimmedHexData,
@@ -54,6 +57,7 @@ export function useTransferSubmission({
       chrome.runtime.sendMessage(
         {
           type: "initiateTransfer",
+          ...(accountType === "safeBunker" && isMaxSelected && isNativeToken && BigInt(txParts.value) > 0n ? { nativeMax: true } : {}),
           tx: {
             from: fromAddress,
             to: deployment ? null : txParts.to,

@@ -6,12 +6,12 @@ import ts from "typescript";
 import { selectBunkerRequest, isPendingBunkerRequest } from "../../src/components/SafeBunker/requestQueue";
 import { isBunkerExecutionInFlight } from "../../src/chrome/safeBunker/requestPolicy";
 
-function harness(isPopup = false) {
+function harness(isPopup = false, presentation?: any) {
   const account = { id: "bunker", bunkerId: "journal", chainId: 8453, seedGroupId: "seed", address: `0x${"11".repeat(20)}` };
   const queued = { id: "request", state: "reviewed", kind: "transaction", createdAt: 1 };
   let snapshot: any = { id: account.id, draftId: account.bunkerId, chainId: account.chainId, seedGroupId: account.seedGroupId, safeAddress: account.address, operations: [queued] };
   const slots: any[] = [], effects: Array<() => unknown> = [], cleanups: Array<() => void> = [], timers = new Map<number, { work: () => void; ms: number }>();
-  let cursor = 0, activity = 0, closed = 0, poll: (() => void) | undefined;
+  let cursor = 0, activity = 0, closed = 0, backed = 0, poll: (() => void) | undefined;
   const jsx = (type: unknown, props: any) => ({ type, props });
   const exports: any = {};
   const source = readFileSync(new URL("../../src/components/SafeBunker/BunkerAccountScreen.tsx", import.meta.url), "utf8");
@@ -33,8 +33,8 @@ function harness(isPopup = false) {
       return new Proxy({}, { get: (_target, key) => key });
     },
   });
-  const render = () => { cursor = 0; const tree = exports.BunkerAccountScreen({ account, initialRequestId: "request", initialView: snapshot, isPopup, onBack() {}, onSubmitted() { activity++; } }); effects.splice(0).forEach(work => { const cleanup = work(); if (typeof cleanup === "function") cleanups.push(cleanup as () => void); }); return tree; };
-  return { render, timers, unmount() { cleanups.splice(0).forEach(work => work()); }, get activity() { return activity; }, get closed() { return closed; }, async refresh(state: string, another = false) {
+  const render = () => { cursor = 0; const tree = exports.BunkerAccountScreen({ account, initialRequestId: "request", initialView: snapshot, isPopup, presentation, rejectOnBack: !!presentation, onBack() { backed++; }, onSubmitted() { activity++; } }); effects.splice(0).forEach(work => { const cleanup = work(); if (typeof cleanup === "function") cleanups.push(cleanup as () => void); }); return tree; };
+  return { render, timers, unmount() { cleanups.splice(0).forEach(work => work()); }, get activity() { return activity; }, get backed() { return backed; }, get closed() { return closed; }, async refresh(state: string, another = false) {
     snapshot = { ...snapshot, operations: [{ ...queued, state, userOperationHash: `0x${"22".repeat(32)}` }, ...(another ? [{ ...queued, id: "next" }] : [])] };
     poll?.(); await Promise.resolve(); await Promise.resolve();
   } };
@@ -82,4 +82,37 @@ test("a released operation that expires during confirmation still routes to Acti
 test("late completion after unmount cannot navigate or animate over a newer request", () => {
   const h = harness(true); const child = h.render(); h.unmount(); child.props.onSubmitted();
   assert.equal(h.activity, 0); assert.equal(h.timers.size, 0); assert.equal(h.closed, 0);
+});
+
+
+test("inline swap presentation is scoped to its request and cancel returns to swap form", () => {
+  const presentation = { title: "Confirm Swap", content: "swap-overview", blocked: true };
+  const h = harness(false, presentation);
+  const child = h.render();
+  assert.equal(child.props.presentation, presentation);
+  assert.equal(child.props.rejectOnBack, true);
+  child.props.onRejected(["request"]);
+  assert.equal(h.backed, 1);
+});
+
+
+test("swap completion selects Activity even when the Assets trigger is ahead", () => {
+  const source = readFileSync(new URL("../../src/App.tsx", import.meta.url), "utf8");
+  const navigate = source.match(/const returnToActivity = useCallback\((\(\) => \{[\s\S]*?\}), \[holdingsTabTrigger\]\)/)?.[1];
+  const submitted = source.match(/onSwapInitiated=\{(\(\) => \{[\s\S]*?\n\s*\})\}/)?.[1];
+  assert.ok(navigate); assert.ok(submitted);
+  for (const [activity, holdings] of [[0, 9], [4, 4], [12, 3]]) {
+    const state = { activity, view: "swap", mode: "private", buy: "USDC" as string | undefined, sell: "ETH" as string | undefined };
+    vm.runInNewContext(`const returnToActivity = ${navigate}; (${submitted})();`, {
+      holdingsTabTrigger: holdings,
+      setActivityTabTrigger: (update: (prior: number) => number) => { state.activity = update(state.activity); },
+      setView: (value: string) => { state.view = value; },
+      setWalletHomeMode: (value: string) => { state.mode = value; },
+      setSwapInitialBuyToken: (value: undefined) => { state.buy = value; },
+      setSwapInitialSellToken: (value: undefined) => { state.sell = value; },
+    });
+    assert.ok(state.activity > holdings, "Activity must win the Portfolio tab selector");
+    assert.equal(state.view, "main"); assert.equal(state.mode, "public");
+    assert.equal(state.buy, undefined); assert.equal(state.sell, undefined);
+  }
 });

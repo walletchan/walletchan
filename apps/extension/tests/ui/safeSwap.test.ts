@@ -36,6 +36,8 @@ test("swap submission keeps every wallet type on its authorized path", () => {
       accountType,
     );
   }
+  assert.equal(getSwapSubmissionKind("safeBunker", false), "bunkerExecution");
+  assert.equal(getSwapSubmissionKind("safeBunker", true), "unsupported");
   assert.equal(getSwapSubmissionKind("safe", false), "safeProposal");
   assert.equal(getSwapSubmissionKind("safe", true), "unsupported");
   assert.equal(getSwapSubmissionKind("impersonator", false), "unsupported");
@@ -83,4 +85,23 @@ test("Safe swaps create a proposal and open the shared request screen", async ()
   assert.match(preparedSwap, /createSafeSwapProposal\(\{/);
   assert.match(preparedSwap, /options\.onSafeProposalCreated\(proposalId\)/);
   assert.match(preparedSwap, /executePreparedSwap\(\{/);
+});
+
+test("Bunker staging sends only account-bound unsigned calls through its own route", async () => {
+  const { createBunkerSwapRequest } = await import("../../src/components/Swap/safeSwapProposal");
+  const previous = (globalThis as any).chrome;
+  const messages: any[] = [];
+  (globalThis as any).chrome = { runtime: { sendMessage: async (message: unknown) => {
+    messages.push(message); return { success: true, result: { id: "swap-review" } };
+  } } };
+  try {
+    assert.equal(await createBunkerSwapRequest({ safeAccountId: "bunker", chainId: 8453, transactions: [transaction()] }, "swap-review"), "swap-review");
+    assert.deepEqual(messages, [{ type: "createSafeBunkerRequest", accountId: "bunker", chainId: 8453,
+      id: "swap-review", calls: buildSafeSwapProposalCalls([transaction()], 8453) }]);
+    await assert.rejects(createBunkerSwapRequest({ safeAccountId: "bunker", chainId: 1, transactions: [transaction()] }, "bad"), /one network/);
+    assert.equal(messages.length, 1);
+    const swapMeta = { sellTokenSymbol: "ETH", sellTokenLogo: null, buyTokenSymbol: "USDC", buyTokenLogo: null };
+    await createBunkerSwapRequest({ safeAccountId: "bunker", chainId: 8453, transactions: [{ ...transaction(), swapMeta }] }, "with-metadata");
+    assert.deepEqual(messages[1].swapMeta, swapMeta);
+  } finally { (globalThis as any).chrome = previous; }
 });

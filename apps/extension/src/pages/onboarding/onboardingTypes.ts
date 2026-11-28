@@ -5,9 +5,11 @@ export type OnboardingStep =
   | "privateKey"
   | "seedPhrase"
   | "viewOnly"
+  | "safeBunker"
   | "safe"
   | "ledger"
   | "trezor"
+  | "bunkerDiscovery"
   | "password"
   | "success";
 
@@ -15,6 +17,7 @@ export type AccountTypeChoice =
   | "seedPhrase"
   | "privateKey"
   | "viewOnly"
+  | "safeBunker"
   | "safe"
   | "ledger"
   | "trezor"
@@ -31,5 +34,9 @@ export type OnboardingErrors = {
 
 export const ACCOUNT_SETUP_STEPS = {
   bankr: "bankrSetup", privateKey: "privateKey", seedPhrase: "seedPhrase",
-  viewOnly: "viewOnly", ledger: "ledger", trezor: "trezor", safe: "safe",
+  viewOnly: "viewOnly", ledger: "ledger", trezor: "trezor", safe: "safe", safeBunker: "safeBunker",
 } as const satisfies Record<AccountTypeChoice, OnboardingStep>;
+
+export const BUNKER_ONBOARDING_STEPS = [
+  { title: "Choose account" }, { title: "Add details" }, { title: "Secure wallet" }, { title: "Import Bunkers" },
+];

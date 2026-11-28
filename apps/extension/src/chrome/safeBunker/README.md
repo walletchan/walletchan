@@ -62,3 +62,19 @@ submission), feeSubmission (single-attempt acknowledgement and redacted diagnost
 unexecuted signed SafeOps, including submitted hashes, and canonical proof anchoring) and modulePolicy
 (required exact module/fallback configuration across the lifecycle). See
 _docs/SAFE_BUNKER_4337.md.
+
+`swapMetadata.ts` validates optional display-only pair/logo snapshots on internal
+swap intake and journal decode. `history.ts` projects them into normal Activity
+swapMeta and idempotently repairs public rows without altering signed intent.
+No pair is guessed for earlier transactions that lack recorded swap intent.
+
+Internal Send may carry backend-derived `transferMeta` and a native-only MAX cap.
+Unsigned review rebuilds capped MAX calls with native prefund headroom when
+needed; signed intents never change. MAX grouping is blocked. Activity reuses
+normal Send metadata. Internal staking uses the same queued-call coordinator.
+
+Optional `swapContext` retains bounded internal swap review/refresh inputs.
+Operation identity reuse compares it; public views expose it for the shared swap
+review. Group members retain validated swap/transfer metadata and context, and
+swap groups must separate before review. `payerPolicy.ts` validates saved payer
+identity/capability for unsigned fallback. Native MAX preserves custom calldata.

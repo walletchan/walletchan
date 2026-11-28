@@ -4,6 +4,7 @@ import { hasAccountTypeCapability } from "@/chrome/hardware/accountCapabilities"
 export type SwapSubmissionKind =
   | "walletExecution"
   | "safeProposal"
+  | "bunkerExecution"
   | "unsupported";
 
 /**
@@ -17,6 +18,7 @@ export function getSwapSubmissionKind(
   if (!hasAccountTypeCapability(accountType, "directSwap")) {
     return "unsupported";
   }
+  if (accountType === "safeBunker") return isBridge ? "unsupported" : "bunkerExecution";
   if (accountType === "safe") {
     return isBridge ? "unsupported" : "safeProposal";
   }

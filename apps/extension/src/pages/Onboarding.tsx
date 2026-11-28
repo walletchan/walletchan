@@ -1,3 +1,5 @@
+import { BUNKER_ONBOARDING_STEPS } from "./onboarding/onboardingTypes";
+import { BunkerOnboardingDiscoveryStep } from "./onboarding/BunkerOnboardingDiscoveryStep";
 import { SafeOnboardingStep } from "./onboarding/SafeOnboardingStep";
 import { WelcomeStep } from "./onboarding/WelcomeStep";
 import { AccountTypeStep } from "./onboarding/AccountTypeStep";
@@ -23,7 +25,7 @@ const OnboardingLayoutGroup = LayoutGroup as unknown as ComponentType<PropsWithC
 
 function Onboarding() {
   const {
-    step,
+    step, bunkerImport, accountTypeChoice,
     setStep,
     isCheckingSetup,
     createNewWallet,
@@ -133,6 +135,10 @@ function Onboarding() {
     );
   }
 
+  if (step === "safeBunker") return <SeedPhraseOnboardingStep phraseOnly error={errors.password} onBack={handleBack} onProgressStepClick={handleProgressStepClick}
+    onCollect={(mnemonic) => { setCollectedMnemonic(mnemonic); setErrors({}); setStep("password"); }} />;
+  if (step === "bunkerDiscovery") return bunkerImport.group ? <BunkerOnboardingDiscoveryStep group={bunkerImport.group} onBack={bunkerImport.cancel} onAdded={bunkerImport.finish} /> : <OnboardingLoading />;
+
   if (step === "safe") return <SafeOnboardingStep selection={safeSelection} onBack={handleBack} onProgressStepClick={handleProgressStepClick} onCollect={(selection) => { setSafeSelection(selection); setStep("password"); }} />;
 
   if (step === "ledger") {
@@ -195,7 +201,7 @@ function Onboarding() {
   }
 
   return (
-    <PasswordStep
+    <PasswordStep steps={accountTypeChoice === "safeBunker" ? BUNKER_ONBOARDING_STEPS : undefined}
       createNewWallet={createNewWallet}
       password={password}
       confirmPassword={confirmPassword}

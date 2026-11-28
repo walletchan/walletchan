@@ -84,3 +84,36 @@ and seed group. Normal Activity history remains.
 Home reuses the ordinary pending banner/list and badge. AccountIdentity supplies
 amber Safe logo plus chain badge; source name · Bunker identifies source groups
 in Choose account. Account settings remains a separate route from requests.
+
+Swap supplies request-scoped, ephemeral review presentation to BunkerAccountScreen.
+It reuses the existing swap overview and call disclosures, while the Bunker
+confirmation retains real asset simulation, fee review, impact blocking and
+signing authority. Cancel/Back rejects that unsigned intent before returning
+to the swap form; presentation never applies to another queued request.
+
+`useNativePriceUsd` supplies deployment and execution fee fiat values.
+Native MAX confirmation uses reviewed calls for the list, copy and asset preview;
+a new digest remounts the preview after the amount changes. The Bunker staking
+wrapper reuses this confirmation's payer, gas and completion behavior.
+
+`BunkerAssetPreview` forwards the standard loading, revert and unavailable
+callbacks. Confirmation reuses the EOA `SimulationRevertedBanner` in request
+context, `RevertWarning`/`RequestRetryNotice` for gas errors, and
+`SimulationFailureConfirmButton` plus its shared predicate for acknowledgement.
+It does not own a separate preview-completion lifecycle or revert-only block.
+Valid bundler/paymaster review and exact signing checks remain mandatory. Swap's
+warning stays outside collapsed transaction details; MAX re-simulation preserves
+its prepared gas review while blocking Confirm during preview loading.
+
+Reopened swaps restore the normal Swap overview and acknowledgement from public
+bounded journal context. Refresh rejects the unsigned intent before normal Swap
+navigation/preparation; signed-race failures reload status. Grouped swaps use the
+existing separation action before review. Invalid saved payer projections fall
+back to self without rewriting signed requests. MAX reuses the same value-cap
+loop for native calls carrying custom calldata.
+
+BunkerExistingImport is the shared verified-existing-account selector for the
+in-wallet Bunker setup and onboarding. It supports bounded discovery, per-network
+errors, selected imports and explicit continuation after partial success. It
+never deploys or derives EOAs. Onboarding enables automatic search and its import
+labels; the regular Bunker screen retains the manual Find/Add flow.

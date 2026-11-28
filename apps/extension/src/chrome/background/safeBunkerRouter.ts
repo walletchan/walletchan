@@ -13,12 +13,11 @@ import { discoverBunker, addExistingBunker } from "../safeBunker/discovery";
 import { saveSeedPhraseOnly } from "../mnemonic/savePhraseOnly";
 import { bunkerNetworks, bunkerClient } from "../safeBunker/network";
 import { prepareBunkerDeployment, estimateBunkerDeployment, deployBunker } from "../safeBunker/deployment";
-import { confirmBunkerOperation, rejectBunkerOperation, reviewBunkerOperation, stateForAccount } from "../safeBunker/operations";
+import { queueBunkerOperation, confirmBunkerOperation, rejectBunkerOperation, reviewBunkerOperation, stateForAccount } from "../safeBunker/operations";
 import { reconcileBunker, retryBunkerOperation } from "../safeBunker/reconciliation";
 import { continueBunkerRecovery, createBunkerRecoveryOperation } from "../safeBunker/recovery";
 import { synchronizeBunkerPendingIndex, findPendingBunkerAccount, drainBunkerInbox, findBunkerRequestAccount, projectBunkerView } from "../safeBunker/view";
 import { readBunkerState } from "../safeBunker/stateRepository";
-import { enqueueBunkerRequest } from "../safeBunker/inbox";
 import { groupBunkerOperations, separateBunkerOperation, removeBunkerAccount, mutateBunker } from "../safeBunker/management";
 import { validateSafeGasOverrides } from "../safe/executionGas";
 
@@ -42,7 +41,9 @@ export function routeBackgroundSafeBunkerMessage(message: any, sender: chrome.ru
   if (!isTrustedWalletUiSender(sender)) { reply({ success: false, error: "Unauthorized" }); return { handled: true, keepChannelOpen: false }; }
   void runBunkerEffect(async () => {
     try {
-      exactRecord(message, ["type", ...FIELDS[message.type as keyof typeof FIELDS]]);
+      exactRecord(message, ["type", ...FIELDS[message.type as keyof typeof FIELDS],
+        ...(message.type === "createSafeBunkerRequest" && message.swapMeta !== undefined ? ["swapMeta"] : []),
+        ...(message.type === "createSafeBunkerRequest" && message.swapContext !== undefined ? ["swapContext"] : [])]);
       if (!getCachedVaultKey() || !getPasswordType()) await resolvePasswordType(handleUnlockWallet);
       const current = captureBunkerAccess(); current();
       let result: unknown;
@@ -70,8 +71,11 @@ export function routeBackgroundSafeBunkerMessage(message: any, sender: chrome.ru
           result = { view: await projectBunkerView(state) }; break;
         }
         case "getSafeBunkerRequestAccount": result = { account: await findBunkerRequestAccount(message.requestId) }; break;
-        case "createSafeBunkerRequest": result = { result: await enqueueBunkerRequest({ id: message.id, accountId: message.accountId, chainId: message.chainId, calls: message.calls,
-          routes: [{ kind: "wallet", origin: "WalletChan", requestId: message.id }] }) }; break;
+        case "createSafeBunkerRequest": {
+          const operation = await queueBunkerOperation({ id: message.id, swapMeta: message.swapMeta, swapContext: message.swapContext, accountId: message.accountId, chainId: message.chainId, calls: message.calls,
+            routes: [{ kind: "wallet", origin: "WalletChan", requestId: message.id }] }, { notifyRenderer: false });
+          result = { result: { id: operation.id } }; break;
+        }
         case "reviewSafeBunkerRequest":
           await reviewBunkerOperation(message.accountId, message.requestId, message.payerId, await clientForMessage(message), message.gas ?? undefined);
           result = { view: await projectBunkerView(await stateForAccount(message.accountId)) }; break;

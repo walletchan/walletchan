@@ -64,3 +64,24 @@ is launched by these Node/Anvil tests.
 through step and transport error normalization, precise auth/pending/configuration
 messages, and redaction of unrelated RPC text without falsely claiming insufficient
 funds.
+
+`execution.integration.test.ts` verifies inline staging preserves durable unsigned
+intent and permits immediate rejection without automatic navigation. Normal
+request creation still notifies and account/chain mismatches remain rejected. UI swap tests cover the separate Bunker route
+and preserve ordinary EOA, Safe proposal, hardware and view-only dispatch.
+
+`swapMetadata.test.ts` checks additive old/new journal compatibility, bounds and
+internal provenance. History tests retain pair/icons through compaction, and the
+UI row regression ensures a decoded Exec call cannot override the swap label.
+
+`transferMetadata.test.ts` covers native/ERC-20 Send snapshots, recipient/value
+binding, optional journal decoding, native CALL caps and prefund/deposit math.
+The real EntryPoint integration also executes a native MAX transfer after
+review reduces its amount, proving final signed simulation and rotation succeed.
+
+`swapContext.test.ts` covers optional review context, exact bounded decoding,
+internal provenance, group member metadata and saved-payer identity/capability.
+The local contract integration verifies group/separate preservation, unsigned
+stale-payer projection, and native MAX calldata execution through Safe4337Module.
+UI regressions cover restored overview/acknowledgement, once-only refresh,
+reject-before-refresh and lock/signed-race navigation barriers.

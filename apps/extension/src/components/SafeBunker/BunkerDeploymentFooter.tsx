@@ -1,3 +1,4 @@
+import { useNativePriceUsd } from "./useNativePriceUsd";
 import { useEffect, useRef, useState } from "react";
 import { Button, Text, VStack } from "@chakra-ui/react";
 import { StickyActionBar } from "@/components/ui";
@@ -13,6 +14,7 @@ export function BunkerDeploymentFooter({ view, chainId, onViewChange, onActivate
   view: BunkerAccountView | null; chainId: number; onViewChange: (view: BunkerAccountView) => void;
   onActivated: (accountId: string) => void; disabled?: boolean; preparing?: boolean; onBusyChange?: (busy: boolean) => void;
 }) {
+  const nativePriceUsd = useNativePriceUsd(chainId);
   const [payer, setPayer] = useState("");
   const [gas, setGas] = useState<GasOverrides | null>(null), [gasPayer, setGasPayer] = useState("");
   const [estimating, setEstimating] = useState(false), [estimateError, setEstimateError] = useState("");
@@ -69,7 +71,7 @@ export function BunkerDeploymentFooter({ view, chainId, onViewChange, onActivate
   return <StickyActionBar summary={<VStack align="stretch" spacing={2}>
     <PayerFields chainId={chainId} compact deployment value={payer} onChange={next => { if (next === payer) return; setPayer(next); setGas(null); setEstimateError(""); setError(""); }} remember={false} onRemember={() => {}} disabled={busy || disabled || !!view?.deploymentHash} />
     {payer && (preparing || needsEstimate) && (estimating || !gas && !estimateError) && <GasFeeLoading />}
-    {gas && (!needsEstimate || gasReady) && <BunkerGasFields symbol={view?.nativeCurrencySymbol ?? ""} compact key={`${id}:${payer}:${estimateRevision}`} value={gas} onChange={setGas} disabled={busy || disabled || !!view?.deploymentHash} />}
+    {gas && (!needsEstimate || gasReady) && <BunkerGasFields nativePriceUsd={nativePriceUsd} symbol={view?.nativeCurrencySymbol ?? ""} compact key={`${id}:${payer}:${estimateRevision}`} value={gas} onChange={setGas} disabled={busy || disabled || !!view?.deploymentHash} />}
     {estimateError && needsEstimate && <VStack align="stretch" spacing={2}>
       <Text role="alert" color="status.error.emphasis" fontSize="sm">{estimateError}</Text>
       <Button size="sm" variant="secondary" isDisabled={busy || estimating} onClick={() => setEstimateRevision(n => n + 1)}>Retry gas estimate</Button>

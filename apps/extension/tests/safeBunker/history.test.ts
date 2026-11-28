@@ -85,3 +85,21 @@ test("deployment history keeps both ownership projections and semantic identity 
     assert.equal(entry.safeBunkerMeta, undefined);
   }
 });
+
+
+test("Bunker swap history retains the normal token pair and icons across compaction", async () => {
+  const { getActivityPresentation } = await import("../../src/components/Activity/activityModel");
+  const swapMeta = { sellTokenSymbol: "ETH", sellTokenLogo: "https://example.com/eth.png", buyTokenSymbol: "USDC", buyTokenLogo: null };
+  const entry = compactHistoryTransaction(buildBunkerHistory(state, { ...op, swapMeta })!).transaction;
+  assert.deepEqual(entry.swapMeta, swapMeta);
+  assert.equal(getActivityPresentation(entry).intent, "Swap ETH → USDC");
+  assert.equal(entry.safeBunkerMeta?.calls.length, calls.length, "user calls and rotation context remain available");
+});
+
+
+test("Bunker transfer metadata survives Activity history compaction", () => {
+  const transferMeta = { recipient, amount: "0.001", symbol: "ETH", tokenLogo: null };
+  const entry = buildBunkerHistory(state, { ...op, transferMeta })!;
+  assert.deepEqual(entry.transferMeta, transferMeta);
+  assert.deepEqual(compactHistoryTransaction(entry).transaction.transferMeta, transferMeta);
+});

@@ -70,6 +70,8 @@ const POLICY_MESSAGES = new Set([
   "Gas payer has insufficient native balance",
   "Bunker has insufficient native balance",
   "Review this Bunker operation again",
+  "Review MAX transfers separately",
+  "Separate grouped swaps before execution",
   "Earlier Bunker requests must settle first",
   "Waiting for the previous transaction to confirm.",
   "Resolve the current signed operation first",

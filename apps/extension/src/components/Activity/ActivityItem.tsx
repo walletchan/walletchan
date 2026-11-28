@@ -38,14 +38,14 @@ export default function ActivityItem({
   const iconChipBg = useIconChipBg();
   const { themeId } = useTheme();
   const isDarkTheme = isDarkThemeId(themeId);
-  const calls = tx.safeBunkerMeta?.calls;
+  const calls = tx.swapMeta || tx.transferMeta ? undefined : tx.safeBunkerMeta?.calls;
   const names = useSafeProposalFunctionNames(tx.id, calls ?? EMPTY_CALLS);
   const presentation = getActivityPresentation(
     tx,
     addressLabels,
     originDisplay?.resolvedName,
   );
-  if (tx.safeBunkerMeta?.kind === "transaction") {
+  if (tx.safeBunkerMeta?.kind === "transaction" && !tx.swapMeta && !tx.transferMeta) {
     const action = getSafeRequestAction({ calls: calls ?? [], transaction: { nonce: 0 } }, "ETH", 18, addressLabels, names);
     presentation.intent = action.intent;
     presentation.context = [action.counterparty, originDisplay?.label ?? presentation.originHostname].filter(Boolean).join(" · ") || tx.chainName;

@@ -2240,3 +2240,11 @@ appears only for WalletConnect and internal requests (2026-11-27).
 Per-account signature details omit account identity and account type. Source is
 shown only for WalletConnect or internal requests; injected dapps already have
 their origin in the header (2026-11-27).
+
+### Direct Bunker swap confirmation
+
+In-wallet Bunker swaps go from Review Swap to Confirm Swap using the existing
+swap overview/call disclosures and shared Bunker confirmation footer. Retain
+Warm Midnight/Bauhaus tokens, compact amount/fiat rows, gas payer and fee-token
+selectors, and one Cancel/Confirm Swap action pair. Multisig Safe proposals stay
+separate. No new visual system or motion is introduced.

@@ -1,14 +1,20 @@
+import { useBunkerSwapPresentation } from "@/components/Swap/useBunkerSwapPresentation";
+import type { BunkerSwapContext } from "@/chrome/safeBunker/swapContext";
+import { useNativePriceUsd } from "./useNativePriceUsd";
 import { FeePaymentSelector, type FeePaymentQuoteSummary } from "@/components/FeePayment/FeePaymentSelector";
 import type { FeePaymentTokenId } from "@/chrome/feePayment/tokens";
 import { formatTokenAmount } from "@/components/feePaymentUi";
 import { formatWeiToUsd } from "@/lib/gasFormatUtils";
-import { SimulationUnavailableBanner } from "@/components/AssetChangesDisplay";
+import { SimulationRevertedBanner, SimulationUnavailableBanner } from "@/components/AssetChangesDisplay";
 import { BunkerRotationCalls, BunkerRotationPreview } from "./BunkerRotationReview";
 import { CHAIN_REGISTRY } from "@/constants/chainRegistry";
-import { RepeatIcon } from "@chakra-ui/icons";
+import { RevertWarning } from "@/components/GasEstimate/RevertWarning";
+import { RequestRetryNotice } from "@/components/RequestConfirmation/RequestRetryNotice";
+import { SimulationFailureConfirmButton } from "@/components/RequestConfirmation/SimulationFailureConfirmButton";
+import { shouldConfirmSimulationFailure } from "@/components/RequestConfirmation/simulationFailure";
 import { isBunkerExecutionInFlight } from "@/chrome/safeBunker/requestPolicy";
 import type { BunkerExecutionPhase } from "@/chrome/safeBunker/progress";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react";
 import { numberToHex } from "viem";
 import type { Account, SafeBunkerAccount } from "@/chrome/types";
@@ -29,12 +35,20 @@ import { BunkerGasFields } from "./GasFields";
 import { PayerFields } from "./PayerFields";
 import { bunkerCommand } from "./transport";
 
+export interface BunkerReviewPresentation {
+  title: string; content: (estimatedChanges: ReactNode) => ReactNode; notice?: (busy: boolean) => ReactNode; blocked: boolean;
+  confirmLabel: string; rejectLabel: string;
+}
+
 /** Bunker execution adapter for the same confirmation composition used by imported Safes. */
-export function BunkerTransactionConfirmation({ account, view, operation, onBack, onSubmitted, onConfirming, onReload, queue, onSelect, onRejected }: {
+export function BunkerTransactionConfirmation({ account, view, operation, onBack, onSubmitted, onConfirming, onReload, queue, onSelect, onRejected, presentation: suppliedPresentation, onRefreshSwap, rejectOnBack = false }: {
+  onRefreshSwap?: (context: BunkerSwapContext) => void; presentation?: BunkerReviewPresentation; rejectOnBack?: boolean;
   account: SafeBunkerAccount; view: BunkerAccountView; operation: BunkerOperationSummary;
   queue: BunkerOperationSummary[]; onSelect: (id: string) => void; onRejected: (ids: string[]) => void;
   onBack: () => void; onSubmitted: (acknowledged?: boolean) => void; onConfirming?: (active: boolean) => void; onReload: () => Promise<void>;
 }) {
+  const restoredPresentation = useBunkerSwapPresentation(account, view, operation);
+  const presentation = suppliedPresentation ?? restoredPresentation;
   const { bg: stripBg, fg: stripFg } = useStripTokens();
   const earlier = earlierBunkerRequest(queue, operation);
   const index = queue.findIndex((item) => item.id === operation.id);
@@ -52,8 +66,7 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
   const [remember, setRemember] = useState(false);
   const [gas, setGas] = useState<GasOverrides | null>(null);
   const [review, setReview] = useState<BunkerOperationSummary | null>(null);
-  const [nativePrice, setNativePrice] = useState<{ chainId: number; usd: number } | null>(null);
-  const nativePriceUsd = nativePrice?.chainId === view.chainId ? nativePrice.usd : null;
+  const nativePriceUsd = useNativePriceUsd(view.chainId);
   const nativeFeeFiat = review?.maxFee ? formatWeiToUsd(review.maxFee, nativePriceUsd) : null;
   const [revision, setRevision] = useState(0);
   const [preparing, setPreparing] = useState(false);
@@ -63,7 +76,8 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
   const [phase, setPhase] = useState<BunkerExecutionPhase>("signing");
   const submittedOnce = useRef(false);
   const [error, setError] = useState("");
-  const [previewValid, setPreviewValid] = useState(false);
+  const [previewReverted, setPreviewReverted] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(true);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [now, setNow] = useState(Date.now());
   const claim = useRef<Action | null>(null), alive = useRef(true);
@@ -78,18 +92,6 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
   let hostname: string | null = null;
   try { hostname = new URL(origin).hostname; } catch { /* Internal wallet origin. */ }
 
-  useEffect(() => {
-    let cancelled = false;
-    setNativePrice(null);
-    chrome.runtime.sendMessage({ type: "fetchNativePrice", chainId: view.chainId }, (response) => {
-      if (cancelled || chrome.runtime.lastError) return;
-      const usd = Number(response?.priceUsd);
-      if (response?.success && Number.isFinite(usd) && usd > 0) {
-        setNativePrice({ chainId: view.chainId, usd });
-      }
-    });
-    return () => { cancelled = true; };
-  }, [view.chainId]);
 
   useEffect(() => { alive.current = true; const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => { alive.current = false; clearInterval(timer); };
@@ -122,8 +124,9 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
     }
   }, [retainedFeeReview, review, fresh, busy, preparing, error, canPrepare, rejecting]);
   const rotation = fresh ? review?.rotation : undefined;
+  const displayedOperation = operation.nativeMax && fresh && review ? { ...operation, calls: review.calls } : operation;
   const explorer = CHAIN_REGISTRY.find((chain) => chain.chainId === view.chainId)?.explorer;
-  const blocked = selfPaid && (review?.feePayment?.sufficientBalance !== true || feeToken !== "native" && !feeQuote?.quoteId && !retryable) || !!earlier || !fresh || preparing || busy || operation.calls.length > 0 && !previewValid || !canPrepare;
+  const blocked = operation.requiresSwapSeparation || unsigned && !!operation.swapMeta && !operation.swapContext && !suppliedPresentation || presentation?.blocked || selfPaid && (review?.feePayment?.sufficientBalance !== true || feeToken !== "native" && !feeQuote?.quoteId && !retryable) || !!earlier || !fresh || preparing || busy || operation.calls.length > 0 && previewLoading || !canPrepare;
   const run = async (work: () => Promise<void>, nextAction: Action = "status") => {
     if (claim.current) return;
     claim.current = nextAction; setAction(nextAction); setError("");
@@ -137,7 +140,7 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
     if (leave) onBack(); else onRejected([operation.id]);
   }, "reject");
   const back = () => {
-    if (operation.kind === "recovery" && unsigned) void reject(true);
+    if ((operation.kind === "recovery" || rejectOnBack) && unsigned) void reject(true);
     else onBack();
   };
   const finishSubmission = (acknowledged = true) => {
@@ -168,7 +171,17 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
     else { setReview(null); await onReload(); setRevision((v) => v + 1); }
   }, "confirm");
 
-  return <ConfirmationScreen title={operation.kind === "recovery" ? "Rotate owner" : "Transaction request"}
+  const revertWarning = unsigned && previewReverted ? <SimulationRevertedBanner borders={tokens.borders} /> : null;
+  const reviewError = error || operation.error;
+  const refreshSwap = unsigned && operation.swapContext && onRefreshSwap ? () => void run(async () => {
+    try { await bunkerCommand({ type: "rejectSafeBunkerRequest", accountId: account.id, requestId: operation.id }); }
+    catch (caught) { await onReload().catch(() => {}); throw caught; }
+    onRefreshSwap(operation.swapContext!);
+  }, "reject") : undefined;
+  const retryReview = !signedFeeWaiting && !busy && !preparing && canPrepare && payer && !fresh && error && error !== "Gas payer has insufficient native balance"
+    ? refreshSwap ?? (() => { setError(""); setRevision((v) => v + 1); }) : undefined;
+
+  return <ConfirmationScreen title={presentation?.title ?? (operation.kind === "recovery" ? "Rotate owner" : "Transaction request")}
     onBack={back} isBackDisabled={busy}
     navigation={<QueueNavigation currentIndex={index} totalCount={queue.length} stripBg={stripBg} stripFg={stripFg} isDisabled={busy}
       onNavigate={(direction) => { const next = queue[index + (direction === "next" ? 1 : -1)]; if (next) onSelect(next.id); }}
@@ -177,15 +190,21 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
         try { for (const item of queue) { await bunkerCommand({ type: "rejectSafeBunkerRequest", accountId: account.id, requestId: item.id }); rejected.push(item.id); } }
         finally { if (rejected.length) onRejected(rejected); }
       }, "rejectAll") : undefined} />}
-    trailing={<CopyButton label="Copy transaction JSON" value={JSON.stringify(operation.calls, null, 2)} />}
+    trailing={<CopyButton label="Copy transaction JSON" value={JSON.stringify(displayedOperation.calls, null, 2)} />}
     outcome={<RequestIdentity origin={origin} originHostname={hostname} favicon={null} iconChipBg={iconChipBg}
       isInternalWalletChan={operation.kind === "recovery" || origin === "WalletChan"} labelOverride={operation.kind === "recovery" ? "Owner rotation" : undefined} originInitials="SAFE" />}
-    financialImpactTitle={<EstimatedChangesHeading chainId={view.chainId} chainName={view.chainName} />}
-    financialImpact={operation.calls.length ? <Box px={3} bg="surface.raised" border="1px solid" borderColor="border.subtle" borderRadius="lg">
-      <BunkerAssetPreview chainId={view.chainId} chainName={view.chainName} key={operation.id} safe={view.safeAddress} operation={operation} onValidityChange={setPreviewValid} onUnavailableChange={setPreviewUnavailable} />
-    </Box> : <BunkerRotationPreview chainId={view.chainId} rotation={rotation} explorer={explorer} loading={preparing} />}
-    context={<VStack align="stretch" spacing={3}>
-      {operation.calls.length > 0 && <BatchCallsList chainId={view.chainId} calls={operation.calls.map((call) => ({ to: call.to, value: numberToHex(BigInt(call.value)), data: call.data }))} />}
+    financialImpactTitle={presentation ? null : <EstimatedChangesHeading chainId={view.chainId} chainName={view.chainName} />}
+    financialImpact={presentation?.content(<VStack align="stretch" spacing={3}>
+      <EstimatedChangesHeading chainId={view.chainId} chainName={view.chainName} />
+      <BunkerAssetPreview chainId={view.chainId} chainName={view.chainName} key={operation.nativeMax ? review?.reviewDigest ?? operation.id : operation.id} safe={view.safeAddress} operation={displayedOperation} onLoadingChange={setPreviewLoading} onUnavailableChange={setPreviewUnavailable} onRevertedChange={setPreviewReverted} />
+      {previewUnavailable && <SimulationUnavailableBanner borders={tokens.borders} />}
+    </VStack>) ?? (operation.calls.length ? <Box px={3} bg="surface.raised" border="1px solid" borderColor="border.subtle" borderRadius="lg">
+      <BunkerAssetPreview chainId={view.chainId} chainName={view.chainName} key={operation.nativeMax ? review?.reviewDigest ?? operation.id : operation.id} safe={view.safeAddress} operation={displayedOperation} onLoadingChange={setPreviewLoading} onUnavailableChange={setPreviewUnavailable} onRevertedChange={setPreviewReverted} />
+    </Box> : <BunkerRotationPreview chainId={view.chainId} rotation={rotation} explorer={explorer} loading={preparing} />)}
+    contextTitle={presentation ? null : undefined}
+    context={presentation ? revertWarning ?? undefined : <VStack align="stretch" spacing={3}>
+      {revertWarning}
+      {operation.calls.length > 0 && <BatchCallsList chainId={view.chainId} calls={displayedOperation.calls.map((call) => ({ to: call.to, value: numberToHex(BigInt(call.value)), data: call.data }))} />}
       {operation.calls.length > 0 && previewUnavailable && <SimulationUnavailableBanner borders={tokens.borders} />}
       {operation.kind === "recovery" && <BunkerRotationCalls chainId={view.chainId} rotation={rotation} explorer={explorer} />}
       {operation.origins.length > 1 && <Text color="fg.secondary" fontSize="sm">{operation.origins.join(", ")}</Text>}
@@ -193,9 +212,13 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
       {operation.txHash && <Text fontSize="xs" fontFamily="mono" overflowWrap="anywhere">{operation.txHash}</Text>}
     </VStack>}
     actionSummary={<VStack align="stretch" spacing={2}>
+      {operation.requiresSwapSeparation && <Button variant="secondary" isDisabled={busy} onClick={() => void run(async () => {
+        await bunkerCommand({ type: "separateSafeBunkerRequest", accountId: account.id, requestId: operation.id }); await onReload();
+      })}>Separate to review swaps</Button>}
+      {unsigned && operation.swapMeta && !operation.swapContext && !suppliedPresentation && <Text role="alert" color="status.error.emphasis" fontSize="xs">Recreate this swap to review a fresh quote.</Text>}
       <PayerFields chainId={view.chainId} bunkerAccount={account} compact defaultAccountId={view.defaultPayer?.id} onAccountChange={setPayerAccount} value={payer} onChange={(id) => { setPayer(id); setGas(null); setReview(null); setFeeToken("native"); setFeeQuote(null); setError(""); }} remember={remember} onRemember={setRemember} disabled={busy || !canPrepare || retryable && !!operation.feePayment} />
       {signedFeeWaiting && <Text role="status" fontSize="sm" color="fg.secondary">This request was signed but not submitted. Check status to release it after its signature expires.</Text>}
-      {selfPaid && !signedFeeWaiting && <FeePaymentSelector txId={operation.id} chainId={view.chainId} requestKind="bunker" accountId={account.id}
+      {selfPaid && !signedFeeWaiting && <FeePaymentSelector txId={operation.id} chainId={view.chainId} requestKind="bunker" accountId={account.id} onQuoteErrorRetry={refreshSwap}
         value={feeToken} quote={feeQuote} disabled={busy || !canPrepare || retryable} onChange={token => { setFeeToken(token); setReview(null); setFeeQuote(null); setError(""); }}
         nativeSummary={feeToken === "native" && review?.feePayment ? { amount: `${formatTokenAmount(review.maxFee ?? "0", 18)} ${view.nativeCurrencySymbol}`,
           fiat: nativeFeeFiat, balance: formatTokenAmount(review.feePayment.tokenBalance, 18), insufficient: !review.feePayment.sufficientBalance } : null}
@@ -224,18 +247,21 @@ export function BunkerTransactionConfirmation({ account, view, operation, onBack
         <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => void run(async () => { await bunkerCommand({ type: "reconcileSafeBunker", id: account.bunkerId }); await onReload(); })}>Check status</Button></>}
       {earlier && <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => onSelect(earlier.id)}>Review earlier request</Button>}
     </VStack>}
-    actionNotice={(error || operation.error) ? <HStack align="center" spacing={3} minW={0}>
-      <Text role="alert" color="status.error.emphasis" fontSize="sm" flex="1" minW={0} overflowWrap="anywhere">{error || operation.error}</Text>
-      {!signedFeeWaiting && !busy && !preparing && canPrepare && payer && !fresh && error && error !== "Gas payer has insufficient native balance" && <Button
-        flexShrink={0} size="sm" variant="secondary" bg="surface.raisedHover" leftIcon={<RepeatIcon boxSize={3.5} />}
-        onClick={() => { setError(""); setRevision((v) => v + 1); }}>Retry</Button>}
-    </HStack> : undefined}
+    actionNotice={presentation?.notice || reviewError ? <>{presentation?.notice?.(busy)}{reviewError && (
+      unsigned && previewReverted ? <RevertWarning shortError="Execution reverted during simulation." fullError={reviewError} onRetry={retryReview} isDisabled={busy || preparing} />
+        : <RequestRetryNotice error={reviewError} onRetry={retryReview} isDisabled={busy || preparing} />
+    )}</> : undefined}
     confirmAction={signedFeeWaiting ? <Button variant="brand" isLoading={action === "status"} isDisabled={busy} onClick={() => void run(async () => {
       await bunkerCommand({ type: "reconcileSafeBunker", id: account.bunkerId }); await onReload();
     })}>Check status</Button> : submitted && retryable ? <Button variant="brand" isLoading={action === "retry"} onClick={() => void run(async () => {
       await bunkerCommand(operation.userOperationHash ? { type: "reconcileSafeBunker", id: account.bunkerId } : { type: "retrySafeBunkerRequest", accountId: account.id, requestId: operation.id }); onSubmitted();
-    }, "retry")}>{operation.userOperationHash ? "Check status" : "Retry exact transaction"}</Button> : canPrepare || earlier || waitingForExecution ? <Button variant="brand" loadingText={action === "confirm" ? phase === "checking" ? "Checking…" : phase === "broadcasting" || phase === "submitted" ? "Broadcasting…" : "Signing…" : undefined} isLoading={action === "confirm" || preparing && !rejecting} isDisabled={blocked} onClick={() => void confirm()}>Confirm</Button>
+    }, "retry")}>{operation.userOperationHash ? "Check status" : "Retry exact transaction"}</Button> : canPrepare || earlier || waitingForExecution ? <SimulationFailureConfirmButton requestKind={operation.calls.length > 1 ? "batch" : "transaction"}
+      simulationFailed={shouldConfirmSimulationFailure({ simulationReverted: previewReverted })}
+      label={presentation?.confirmLabel ?? "Confirm"} isDisabled={blocked}
+      disabledReason={!fresh && !preparing ? "A valid gas review is required before confirming this transaction." : undefined}
+      loadingText={action === "confirm" ? phase === "checking" ? "Checking…" : phase === "broadcasting" || phase === "submitted" ? "Broadcasting…" : "Signing…" : undefined}
+      isLoading={action === "confirm" || preparing && !rejecting} onConfirm={() => void confirm()} />
       : <Button variant="secondary" onClick={back}>Back to wallet</Button>}
-    rejectAction={unsigned ? <Button variant="secondary" isLoading={action === "reject"} loadingText="Rejecting…" isDisabled={busy} onClick={() => void reject()}>Reject</Button> : signedFeeWaiting ? <Button variant="secondary" isDisabled={busy} onClick={onBack}>Back to wallet</Button> : undefined}
+    rejectAction={unsigned ? <Button variant="secondary" isLoading={action === "reject"} loadingText="Rejecting…" isDisabled={busy} onClick={() => void reject()}>{presentation?.rejectLabel ?? "Reject"}</Button> : signedFeeWaiting ? <Button variant="secondary" isDisabled={busy} onClick={onBack}>Back to wallet</Button> : undefined}
   />;
 }

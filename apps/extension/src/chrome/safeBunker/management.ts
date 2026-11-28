@@ -19,11 +19,12 @@ export async function groupBunkerOperations(accountId: string, ids: string[]) {
   if (!Array.isArray(ids) || ids.length < 2 || new Set(ids).size !== ids.length) throw new Error("Choose distinct unsigned requests");
   return mutateBunker(accountId, async (state) => {
     const ops = ids.map((id) => state.operations.find((o) => o.id === id));
+    if (ops.some(op => op?.nativeMax)) throw new Error("Review MAX transfers separately");
     if (ops.some((o) => !o || o.signature || o.kind !== "transaction" || !["queued", "reviewed"].includes(o.state))) throw new Error("Only unsigned requests can be grouped");
     const calls = ops.flatMap((o) => o!.calls), routes = ops.flatMap((o) => o!.routes);
     if (calls.length > 99 || routes.length > 99) throw new Error("Grouped Bunker call limit exceeded");
     state.operations = state.operations.filter((o) => !ids.includes(o.id));
-    state.operations.unshift({ id: crypto.randomUUID(), kind: "transaction", calls, routes, members: ops.map((o) => ({ id: o!.id, calls: o!.calls, routes: o!.routes, createdAt: o!.createdAt })), state: "queued", createdAt: Math.min(...ops.map((o) => o!.createdAt)) });
+    state.operations.unshift({ id: crypto.randomUUID(), kind: "transaction", calls, routes, members: ops.map((o) => ({ id: o!.id, calls: o!.calls, routes: o!.routes, createdAt: o!.createdAt, ...(o!.swapMeta ? { swapMeta: o!.swapMeta } : {}), ...(o!.transferMeta ? { transferMeta: o!.transferMeta } : {}), ...(o!.swapContext ? { swapContext: o!.swapContext } : {}) })), state: "queued", createdAt: Math.min(...ops.map((o) => o!.createdAt)) });
   });
 }
 export async function separateBunkerOperation(accountId: string, id: string) {

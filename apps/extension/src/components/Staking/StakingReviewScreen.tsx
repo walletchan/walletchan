@@ -13,6 +13,7 @@ import { STAKING_CHAIN_ID, STAKING_CHAIN_NAME } from "./constants";
 import type { PreparedStakingPlan, StakingAccountType } from "./types";
 
 export function StakingReviewScreen(props: {
+  embedded?: boolean;
   plan: PreparedStakingPlan;
   owner: string;
   accountType: StakingAccountType;
@@ -38,9 +39,9 @@ export function StakingReviewScreen(props: {
     : null;
 
   return (
-    <AppScreen stickyActionClearance="118px">
-      <AppHeader title={`Review ${props.plan.action}`} onBack={props.onBack} isBackDisabled={props.submitting} />
-      <ScreenBody pt={4}>
+    <AppScreen h={props.embedded ? "auto" : undefined} stickyActionClearance={props.embedded ? "none" : "118px"}>
+      {!props.embedded && <AppHeader title={`Review ${props.plan.action}`} onBack={props.onBack} isBackDisabled={props.submitting} />}
+      <ScreenBody pt={props.embedded ? 0 : 4}>
         <VStack align="stretch" spacing={4}>
           <Box bg="surface.raised" border="1px solid" borderColor="border.default" borderRadius="lg" overflow="hidden">
             <VStack align="stretch" spacing={1} px={3} py={3}>
@@ -74,7 +75,7 @@ export function StakingReviewScreen(props: {
 
           <Box>
             <Text mb={2} fontSize="xs" color="fg.secondary" fontWeight="600">
-              Transactions{props.plan.batchTx ? " · atomic batch" : props.plan.transactions.length > 1 ? " · sequential" : ""}
+              Transactions{props.plan.batchTx || props.accountType === "safeBunker" ? " · atomic batch" : props.plan.transactions.length > 1 ? " · sequential" : ""}
             </Text>
             <VStack align="stretch" spacing={0} bg="surface.raised" border="1px solid" borderColor="border.default" borderRadius="lg" overflow="hidden">
               {props.plan.transactions.map((entry, index) => (
@@ -97,7 +98,7 @@ export function StakingReviewScreen(props: {
             </Text>
           )}
 
-          <MultiTxGasEstimateDisplay
+          {!props.embedded && props.accountType !== "safeBunker" && <MultiTxGasEstimateDisplay
             transactions={props.plan.transactions.map((entry) => ({
               tx: {
                 ...entry.tx,
@@ -107,19 +108,19 @@ export function StakingReviewScreen(props: {
               },
               label: entry.origin,
             }))}
-            accountType={props.accountType === "safeBunker" ? "safe" : props.accountType}
+            accountType={props.accountType}
             batchedTx={batchedTx ? { tx: { ...batchedTx, from: props.owner, chainId: STAKING_CHAIN_ID }, label: "Staking batch" } : undefined}
             eip7702Delegate={props.plan.delegation?.needsAuth ? props.plan.delegation.delegate : undefined}
             onGasEstimates={props.onGasEstimates}
             onValidityChange={setGasValid}
-          />
+          />}
         </VStack>
       </ScreenBody>
-      <StickyActionBar primaryAction={
+      {!props.embedded && <StickyActionBar primaryAction={
         <Button variant="brand" onClick={props.onConfirm} isLoading={props.submitting} loadingText="Submitting…" isDisabled={!gasValid || props.submitting}>
           Confirm {props.plan.action}
         </Button>
-      } />
+      } />}
     </AppScreen>
   );
 }

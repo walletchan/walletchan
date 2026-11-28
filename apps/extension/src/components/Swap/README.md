@@ -98,3 +98,20 @@ branches when changing this domain.
 
 UI architecture tests live under `tests/ui/`; transaction behavior remains
 covered by the existing swap, batch, local-signing, and security suites.
+
+- BunkerSwapConfirmation combines the embedded SwapConfirmation body with the
+  existing BunkerAccountScreen controller. SwapConfirmationActions owns the
+  ordinary EOA/multisig footer; it never owns Bunker signing. Preparation stages
+  one unsigned Bunker intent, preserving the actual account type and firm-quote
+  impact guard. Shared Bunker controls handle gas, rotation and completion.
+  Inline creation retains pending metadata without triggering generic navigation.
+
+Estimated changes for Bunker swaps live inside the shared Transactions collapse.
+The collapse keeps children mounted while closed so simulation still drives the
+Bunker confirmation guard. No separate Request details section is rendered.
+
+`useBunkerSwapPresentation.tsx` reconstructs a reopened Bunker swap using the
+existing SwapConfirmation/price-impact components. It also owns the one-shot
+resume trigger after normal form readiness. Durable context contains inputs,
+never acknowledgement state. Inline and restored Refresh use the same pinned
+account navigation and ordinary firm-quote preparation after unsigned rejection.

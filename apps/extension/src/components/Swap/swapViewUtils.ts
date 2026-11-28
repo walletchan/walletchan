@@ -40,7 +40,9 @@ export function pickDefaultSwapSellToken(
 export function resolveInitialSwapChainId(
   initialChainId: number,
   initialSellToken?: PortfolioToken,
+  bunkerChainId?: number,
 ): number {
+  if (bunkerChainId !== undefined) return bunkerChainId;
   if (
     initialSellToken &&
     SWAP_SUPPORTED_CHAIN_IDS.has(initialSellToken.chainId)

@@ -108,6 +108,8 @@ export async function hasStructurallyCompleteWallet(): Promise<boolean> {
       "pkVault",
       "mnemonicVault",
       "seedGroups",
+      "safeBunkerBindingsV2",
+      "safeBunkerJournalsV2",
     ]),
   ]);
   if (accounts.length === 0) return false;
@@ -124,6 +126,8 @@ export async function hasStructurallyCompleteWallet(): Promise<boolean> {
   const pkIds = stringIds(stored.pkVault?.entries);
   const mnemonicIds = stringIds(stored.mnemonicVault?.entries);
   const seedGroupIds = stringIds(stored.seedGroups);
+  const bunkerBindings = Array.isArray(stored.safeBunkerBindingsV2?.entries) ? stored.safeBunkerBindingsV2.entries : [];
+  const bunkerJournals = stringIds(stored.safeBunkerJournalsV2?.entries);
 
   for (const account of accounts) {
     if (
@@ -139,6 +143,12 @@ export async function hasStructurallyCompleteWallet(): Promise<boolean> {
     ) {
       return false;
     }
+    if (account.type === "safeBunker" && (
+      !seedGroupIds.has(account.seedGroupId) || !mnemonicIds.has(account.seedGroupId) ||
+      stored.safeBunkerBindingsV2?.version !== 2 || stored.safeBunkerJournalsV2?.version !== 2 ||
+      !bunkerBindings.some((entry: any) => entry.header?.id === account.bunkerId && entry.header?.seedGroupId === account.seedGroupId && entry.header?.chainId === account.chainId) ||
+      !bunkerJournals.has(account.bunkerId)
+    )) return false;
     if (
       account.type === "bankr" &&
       !stored.encryptedApiKeyVault &&

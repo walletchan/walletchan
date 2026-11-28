@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useMemo, useEffect, useRef, useState } from "react";
 import { NATIVE_TOKEN_ADDRESS } from "@/chrome/swapApi";
 import type { PortfolioToken } from "@/chrome/portfolio/api";
 import { SWAP_SUPPORTED_CHAIN_IDS } from "@/constants/chainRegistry";
@@ -7,6 +7,7 @@ import { useNetworks } from "@/contexts/NetworksContext";
 import { getNativeAssetMeta, getResolvedChainById } from "@/lib/chains";
 import BridgeChainTokenModal from "./BridgeChainTokenModal";
 import SwapConfirmation from "./SwapConfirmation";
+import { BunkerSwapConfirmation } from "./BunkerSwapConfirmation";
 import { SwapFormScreen } from "./SwapFormScreen";
 import { getExecutableBridgeRoute } from "./bridgeRouteUtils";
 import type { SwapViewProps } from "./swapViewTypes";
@@ -16,12 +17,14 @@ import { useImpersonatedSwapPolicy } from "./useImpersonatedSwapPolicy";
 import { usePreparedSwap } from "./usePreparedSwap";
 import { useSellTokenData } from "./useSellTokenData";
 import { useSwapAmount } from "./useSwapAmount";
+import { bunkerSwapSellToken, useResumeSwapReview } from "./useBunkerSwapPresentation";
+import { formatUnits } from "viem";
 import { useSwapQuotes } from "./useSwapQuotes";
 import { useSwapSlippage } from "./useSwapSlippage";
 import { getSwapSubmissionKind } from "./swapSubmissionModel";
 import { useSwapPriceImpactDecision } from "./useSwapPriceImpactDecision";
 function SwapView({
-  fromAddress, accountId, accountType, selectableChainIds,
+  resumeSwap, onRefreshBunkerSwap, fromAddress, accountId, accountType, selectableChainIds, bunkerAccount, isPopup,
   chainId: initialChainId,
   chainName: initialChainName,
   onBack,
@@ -31,10 +34,12 @@ function SwapView({
   // global/per-tab dapp chain. Keep this prop for the stable public shape.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onChainChange: _onChainChange,
-  initialBuyToken,
-  initialSellToken,
+  initialBuyToken: providedInitialBuyToken,
+  initialSellToken: providedInitialSellToken,
 }: SwapViewProps) {
-  const initialSwapChainId = resolveInitialSwapChainId(initialChainId, initialSellToken);
+  const initialSellToken = useMemo(() => resumeSwap ? bunkerSwapSellToken(resumeSwap.context, resumeSwap.chainId) : providedInitialSellToken, [resumeSwap, providedInitialSellToken]);
+  const initialBuyToken = useMemo(() => resumeSwap ? { ...resumeSwap.context.buy, logoURI: resumeSwap.context.buy.logo ?? undefined } : providedInitialBuyToken, [resumeSwap, providedInitialBuyToken]);
+  const initialSwapChainId = resolveInitialSwapChainId(initialChainId, initialSellToken, bunkerAccount?.chainId);
   const [sellChainId, setSellChainId] = useState(initialSwapChainId);
   const [buyChainId, setBuyChainId] = useState(initialSwapChainId);
   const [picker, setPicker] = useState<{
@@ -69,13 +74,13 @@ function SwapView({
     setBuyChainId(cachedTopToken.chainId);
     setSellToken(cachedTopToken);
   }, [holdingsAllChains, initialSellToken, selectableChainIds, sellToken, setSellToken]);
-  const amount = useSwapAmount(sellToken);
+  const amount = useSwapAmount(sellToken, resumeSwap ? formatUnits(BigInt(resumeSwap.context.sell.amount), resumeSwap.context.sell.decimals) : undefined);
   const buyToken = useBuyTokenData({
     buyChainId,
     holdingsAllChains,
     initialBuyToken,
   });
-  const { slippageBps, setSlippageBps } = useSwapSlippage();
+  const { slippageBps, setSlippageBps } = useSwapSlippage(resumeSwap?.context.slippageBps);
   const quotes = useSwapQuotes({
     sellToken,
     buyTokenAddress: buyToken.buyTokenAddress,
@@ -202,6 +207,7 @@ function SwapView({
     onSwapInitiated,
     onSafeProposalCreated,
   });
+  useResumeSwapReview(resumeSwap, canSwap, prepared.stagePlan);
   if (
     prepared.showConfirmation &&
     prepared.preparedRequestId &&
@@ -210,8 +216,9 @@ function SwapView({
     buyToken.buyTokenInfo &&
     prepared.preparedQuote
   ) {
+    const Review = accountType === "safeBunker" ? BunkerSwapConfirmation : SwapConfirmation;
     return (
-      <SwapConfirmation
+      <Review onRefreshBunkerSwap={onRefreshBunkerSwap} bunkerAccount={bunkerAccount} isPopup={isPopup} onSwapInitiated={onSwapInitiated}
         requestId={prepared.preparedRequestId} key={prepared.preparedRequestId}
         transactions={prepared.preparedTransactions}
         sellToken={sellToken}

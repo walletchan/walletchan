@@ -1,4 +1,4 @@
-import type { Account } from "@/chrome/types";
+import type { Account, SafeBunkerAccount } from "@/chrome/types";
 import type { GasEstimate } from "@/chrome/gasEstimation";
 import type { SwapTxEntry } from "@/chrome/txHandlers";
 
@@ -22,6 +22,7 @@ export interface StakingState {
 }
 
 export interface PreparedStakingPlan {
+  bunkerRequestId?: string;
   action: "stake" | "unstake" | "claim";
   amount: bigint;
   transactions: SwapTxEntry[];
@@ -35,6 +36,8 @@ export interface PreparedStakingPlan {
 }
 
 export interface StakingScreenProps {
+  bunkerAccount?: SafeBunkerAccount;
+  isPopup?: boolean;
   fromAddress: string;
   accountId?: string;
   accountType: StakingAccountType;

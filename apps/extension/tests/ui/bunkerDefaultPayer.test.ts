@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
+import { shouldConfirmSimulationFailure } from "../../src/components/RequestConfirmation/simulationFailure";
 
 // Render the real confirmation with deterministic hook slots. Network/effect
 // scheduling is omitted: these regressions concern hydration on prop refresh.
@@ -27,6 +28,9 @@ function harness() {
     exports, URL, Date,
     require(name: string) {
       if (name === "react") return hooks;
+      if (name.endsWith("useBunkerSwapPresentation")) return { useBunkerSwapPresentation: () => undefined };
+      if (name.endsWith("/simulationFailure")) return { shouldConfirmSimulationFailure };
+      if (name === "./useNativePriceUsd") return { useNativePriceUsd: () => null };
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
       if (name === "@/theme") return { useTheme: () => ({ tokens: { borders: { medium: "1px solid" } } }), useStripTokens: () => ({}), useIconChipBg: () => "surface.raised" };
       if (name === "@/constants/chainRegistry") return { CHAIN_REGISTRY: [] };

@@ -79,7 +79,7 @@ export async function getBunkerFeePaymentOptions(accountId: string, requestId: s
   const spend = op.calls.reduce((sum, call) => sum + BigInt(call.value), 0n);
   gate(); current();
   return { success: true, options: [{ id: "native", symbol: client.chain?.nativeCurrency.symbol ?? "Native", decimals: 18, available: true,
-    balance: nativeBalance?.toString(), insufficientBalance: nativeBalance !== undefined && deposit !== undefined && nativeBalance <= spend && deposit === 0n },
+    balance: nativeBalance?.toString(), insufficientBalance: nativeBalance !== undefined && deposit !== undefined && (op.nativeMax ? nativeBalance === 0n : nativeBalance <= spend) && deposit === 0n },
     ...buildFundedFeePaymentTokenOptions({ feeTokens: tokens, balances, eligibility: { available: true } })] };
 }
 export async function prepareBunkerFeePaymentQuote(accountId: string, requestId: string, tokenId: unknown) {

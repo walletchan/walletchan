@@ -18,6 +18,8 @@ export function buildBunkerHistory(state: BunkerState, op: BunkerOperation): Com
     completedAt: op.receipt?.timestamp, status: op.state === "confirmed" ? "success" : op.state === "reverted" ? "failed" : op.state === "invalidated" ? "dropped" : "pending",
     origin: op.routes.map((r) => r.origin).join(", ").slice(0, 512), favicon: null,
     txHash: hash, userOperationHash: op.userOperationHash,
+    ...(op.swapMeta ? { swapMeta: op.swapMeta } : {}),
+    ...(op.transferMeta ? { transferMeta: op.transferMeta } : {}),
     ...(op.review?.feePayment && op.review.feePayment.tokenId !== "native" ? { feePaymentToken: op.review.feePayment.tokenId, erc20FeePayment: { token: op.review.feePayment.tokenId } } : {}),
     accountId: state.accountId, broadcastUncertain: op.state === "ambiguous", error: op.error,
     functionName: op.kind === "recovery" ? "Owner rotation" : undefined,
@@ -32,6 +34,10 @@ export async function ensureBunkerHistory(state: BunkerState, op: BunkerOperatio
   const entry = buildBunkerHistory(state, op);
   if (!entry) return;
   const stored = await addTxToHistoryIfAbsent(entry);
+  if (entry.transferMeta && JSON.stringify(stored.transferMeta) !== JSON.stringify(entry.transferMeta)) await updateTxInHistory(entry.id, { transferMeta: entry.transferMeta });
+  if (entry.swapMeta && JSON.stringify(stored.swapMeta) !== JSON.stringify(entry.swapMeta)) {
+    await updateTxInHistory(entry.id, { swapMeta: entry.swapMeta });
+  }
   if (JSON.stringify(stored.safeBunkerMeta) !== JSON.stringify(entry.safeBunkerMeta) || stored.functionName !== entry.functionName) {
     await updateTxInHistory(entry.id, { safeBunkerMeta: entry.safeBunkerMeta, functionName: entry.functionName });
   }

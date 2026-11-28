@@ -3375,3 +3375,68 @@ copy read-only for one release cycle. Copy failure cannot delete the source.
 Reset and fresh-onboarding cleanup include both storage areas. This migration
 creates no origin permission, signing capability or pending-request authority;
 exact-origin visibility and pinned-account signing gates remain independent.
+
+### Inline Bunker swap review
+
+The trusted master-only createSafeBunkerRequest route stages unsigned calls
+without broadcasting an automatic renderer-navigation hint. This suppression
+is an internal per-call option, never persisted or caller-controlled by a dapp;
+the same account/chain validation, reset barrier, durable journal and pending index
+remain. External ingress still notifies normally. A swap presentation is scoped
+to its staged request and cannot replace background-authorized calls or fees.
+Its current firm-quote impact decision gates the signing button and handler;
+only the existing Bunker coordinator can sign/submit/rotate. Cancel and Back
+reject unsigned intent before leaving; signed evidence follows normal recovery.
+
+Bunker swapMeta is display-only data from the trusted master-only internal
+staging route. Exact field/size validation applies during intake and journal
+decode; external/recovery provenance and metadata changes under a reused request
+ID are rejected. It grants no signing authority and does not replace exact-call
+or fee verification. Public history receives only the existing symbol/logo
+snapshot, never quotes, signing keys, signatures or serialized envelopes.
+
+### Bunker internal Send MAX and staking review
+
+Only trusted internal Send derives transfer metadata from canonical calldata;
+external requests cannot add it. Metadata is display-only. Native MAX caps are
+validated by the journal codec and queue, restricted to one internal native CALL (with or without calldata),
+and never authorize a value above the user-selected cap. Review may reduce only
+unsigned calls, rebuilds the Safe hash and full owner-rotation payload, binds the
+actual amount to the digest, and persists it under the existing freshness and
+authentication gates. Native prefund includes the EntryPoint deposit and bounded
+headroom; final exact validation remains mandatory. MAX grouping is rejected.
+Staking uses the shared Bunker coordinator and rotation rather than an EOA
+executor; Base chain pinning remains enforced in the background.
+
+### Bunker review restoration and quote refresh
+
+Only trusted internal swap staging accepts bounded `swapContext`; symbols must
+match its swap metadata and the journal codec rejects external provenance.
+Context is display/refresh input, not execution authority. Restored reviews use
+the existing price-impact acknowledgement, which is never persisted or restored.
+Refreshing commits the existing unsigned rejection before normal firm-quote
+preparation. Signed operations cannot be rejected/replaced; failure reloads
+status. Account selection is generation-, unlock- and identity-checked before
+navigation. Grouped swaps cannot obtain a gas review until separated for their
+individual swap review. Group members retain validated metadata on separation.
+Payer fallback applies only to defaults/unsigned reviews; signed authority stays
+pinned. MAX may adjust native value with calldata, preserving calldata, recipient,
+operation type and maximum spend under the existing review/final checks.
+
+### Bunker-only onboarding
+
+The dedicated import branch validates a 12-word source phrase, initializes the
+existing owner-bound master credential, and uses the existing master-only
+saveSeedPhraseOnly and verified discovery/import routes. No new signing account
+type, provider message, secret-bearing storage key or deployment path is added.
+The mnemonic is collected only in onboarding memory and saved through trusted
+wallet-UI transport; phrase/password form state is cleared before discovery.
+
+Pending selection is generation-bound and rejected on lock/cancel/unmount,
+including when an older credential request finishes after the page closes.
+Partial imports are not silently discarded: committed Bunker accounts survive
+the existing structural-completion rollback barrier. Bunker-only structural
+completeness additionally requires the source group/mnemonic and matching V2
+binding/journal; unmarked incomplete Bunker records trigger recovery instead of
+being treated as an empty wallet. Final selection must match the imported source
+and chain. Existing wallet types retain their existing onboarding handlers.

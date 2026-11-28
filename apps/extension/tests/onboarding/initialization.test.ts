@@ -667,6 +667,26 @@ test("onboarding initialization preserves existing wallet data and recovers only
         recoveryRequired: true,
       });
     });
+    await t.test("Bunker-only onboarding requires its phrase, binding and journal and preserves committed imports", async () => {
+      reset();
+      const bunkerId = "bunker-source:8453:0x1111111111111111111111111111111111111111";
+      local.encryptedApiKey = encrypted;
+      local.accounts = [{ id: "bunker", type: "safeBunker", address: "0x2222222222222222222222222222222222222222", chainId: 8453, bunkerId, seedGroupId: "source", derivationVersion: 2, createdAt: 1 }];
+      local.seedGroups = [{ id: "source", name: "Seed", accountCount: 0, createdAt: 1 }];
+      local.mnemonicVault = { version: 1, entries: [{ id: "source", keystore: encrypted }] };
+      local.safeBunkerBindingsV2 = { version: 2, entries: [{ header: { id: bunkerId, seedGroupId: "source", chainId: 8453 } }] };
+      local.safeBunkerJournalsV2 = { version: 2, entries: [{ id: bunkerId, revision: 1, cipher: { iv: "iv", ciphertext: "cipher" } }] };
+      assert.equal((await onboarding.getOnboardingInitializationStatus()).configured, true);
+      for (const key of ["seedGroups", "mnemonicVault", "safeBunkerBindingsV2", "safeBunkerJournalsV2"]) {
+        const saved = local[key]; delete local[key];
+        const status = await onboarding.getOnboardingInitializationStatus();
+        assert.equal(status.configured, false, key); assert.equal(status.recoveryRequired, true, key);
+        local[key] = saved;
+      }
+      local.onboardingInitialization = marker("bunker-import");
+      assert.equal((await onboarding.rollbackOnboardingInitialization("bunker-import")).success, false);
+      assert.equal(local.accounts[0].id, "bunker", "a cancelled later network cannot erase the committed import");
+    });
   } finally {
     if (originalChrome) {
       Object.defineProperty(globalThis, "chrome", originalChrome);

@@ -63,17 +63,18 @@ test("Swap uses a compact amber wallet-sized intent form", async () => {
   assert.match(confirmation, /as="h2"[\s\S]*?\{overviewLabel\}[\s\S]*?Swap summary card/u);
   assert.doesNotMatch(confirmation, /Confirmation banner/u);
   assert.match(confirmation, /You get \(est\.\)/u);
-  assert.match(confirmation, /<Button[\s\S]*?variant="brand"[\s\S]*?\{titleLabel\}/u);
-  assert.match(confirmation, /<StickyActionBar/u);
-  assert.match(confirmation, /<SwapDecisionSummary/u);
+  assert.match(await readSwapSource("SwapConfirmationActions.tsx"), /<Button[\s\S]*?variant="brand"[\s\S]*?\{titleLabel\}/u);
+  assert.match(await readSwapSource("SwapConfirmationActions.tsx"), /<StickyActionBar/u);
+  assert.match(await readSwapSource("SwapConfirmationActions.tsx"), /<SwapDecisionSummary/u);
   assert.match(confirmation, /const \[transactionsExpanded, setTransactionsExpanded\] = useState\(false\)/u);
+  assert.match(confirmation, /in=\{transactionsExpanded\}[\s\S]*?unmountOnExit=\{false\}[\s\S]*?\{transactionDetails\}[\s\S]*?transactions\.map/u);
   assert.match(
     confirmation,
     /aria-controls="swap-transactions"[\s\S]*?<Collapse[\s\S]*?id="swap-transactions"[\s\S]*?in=\{transactionsExpanded\}/u,
   );
   assert.match(
     confirmation,
-    /px=\{3\}[\s\S]*?pt="clamp\(24px, min\(12vh, 24vw\), 96px\)"[\s\S]*?pb=\{3\}/u,
+    /px=\{embedded \? 0 : 3\}[\s\S]*?pt=\{embedded \? 0 : "clamp\(24px, min\(12vh, 24vw\), 96px\)"\}[\s\S]*?pb=\{3\}/u,
   );
   assert.doesNotMatch(confirmation, />\s*ATOMIC\s*</u);
   assert.doesNotMatch(confirmation, />\s*SEQUENTIAL\s*</u);
@@ -97,7 +98,7 @@ test("Swap uses a compact amber wallet-sized intent form", async () => {
 });
 
 test("view-only Swap stages review and gates execution on the selected developer RPC", async () => {
-  const [view, preparation, confirmation, policy] = await Promise.all([
+  const [view, preparation, , policy] = await Promise.all([
     readSwapSource("SwapView.tsx"),
     readSwapSource("usePreparedSwap.ts"),
     readSwapSource("SwapConfirmation.tsx"),
@@ -112,7 +113,7 @@ test("view-only Swap stages review and gates execution on the selected developer
     /accountType === "impersonator"[\s\S]*?!canSendImpersonatedTransaction/u,
   );
   assert.match(
-    confirmation,
+    await readSwapSource("SwapConfirmationActions.tsx"),
     /isConfirmDisabled \|\|[\s\S]*?feePaymentToken === "native" && !isNativeGasValid[\s\S]*?feePaymentToken !== "native"/u,
   );
   assert.match(policy, /allowsImpersonatedTransactions\(chainId, rpcUrl\)/u);
@@ -140,7 +141,7 @@ test("Swap keeps custom slippage behind a compact settings control", async () =>
   assert.match(bridgeQuote, /<Collapse in=\{isOpen\}/u);
   assert.match(bridgeQuote, /Minimum received/u);
   assert.match(bridgeQuote, /formatQuoteSummaryAmount\(minBuyAmount\)/u);
-  assert.match(preference, /useState\(DEFAULT_SLIPPAGE_BPS\)/u);
+  assert.match(preference, /useState\(initialSlippageBps \?\? DEFAULT_SLIPPAGE_BPS\)/u);
   assert.match(
     preference,
     /chrome\.storage\.sync\.get\("swapSlippageBps"[\s\S]*?setSlippageBpsState\(stored\)/u,
@@ -190,7 +191,7 @@ test("Swap initializes a generic entry from the cached top portfolio token", asy
   assert.match(view, /pickDefaultSwapSellToken\([\s\S]*?holdingsAllChains,[\s\S]*?selectableChainIds/u);
   assert.match(view, /setSellChainId\(cachedTopToken\.chainId\)/u);
   assert.match(view, /setBuyChainId\(cachedTopToken\.chainId\)/u);
-  assert.match(view, /resolveInitialSwapChainId\(initialChainId, initialSellToken\)/u);
+  assert.match(view, /resolveInitialSwapChainId\(initialChainId, initialSellToken, bunkerAccount\?\.chainId\)/u);
   assert.match(utils, /initialSellToken &&[\s\S]*?SWAP_SUPPORTED_CHAIN_IDS\.has\(initialSellToken\.chainId\)/u);
   assert.doesNotMatch(view, /if \(!buyToken\.buyTokenInfo \|\| !buyToken\.buyTokenAddress\) return/u);
   assert.match(view, /buildFlippedSellToken\(\{/u);

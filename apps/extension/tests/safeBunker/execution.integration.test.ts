@@ -127,6 +127,69 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
         calls: [{ to: address, value: amount.toString() as `${bigint}`, data: "0x", operation: 0 }], routes: [{ kind: "wallet", origin: "WalletChan", requestId: operationId }] });
       return operationId;
     };
+    await t.test("inline swap staging is durable and rejectable without automatic navigation", async () => {
+      const baseline = await stateForAccount(state.accountId);
+      const previousSend = chrome.runtime.sendMessage;
+      const messages: any[] = [];
+      chrome.runtime.sendMessage = (async (message: any) => { messages.push(message); }) as typeof previousSend;
+      const request = (id: string) => ({ id, accountId: state.accountId, chainId,
+        calls: [{ to: address, value: "0" as const, data: "0x" as const, operation: 0 as const }],
+        routes: [{ kind: "wallet" as const, origin: "WalletChan", requestId: id }] });
+      try {
+        const swapMeta = { sellTokenSymbol: "ETH", sellTokenLogo: null, buyTokenSymbol: "USDC", buyTokenLogo: null };
+        const inline = await queueBunkerOperation({ ...request("inline-swap"), swapMeta }, { notifyRenderer: false });
+        assert.equal(inline.state, "queued"); assert.equal(inline.signature, undefined);
+        assert.deepEqual((await stateForAccount(state.accountId)).operations.find(o => o.id === inline.id)!.swapMeta, swapMeta);
+        await assert.rejects(queueBunkerOperation({ ...request("inline-swap"), swapMeta: { ...swapMeta, buyTokenSymbol: "USDT" } }), /identity was reused/);
+        assert.equal((await stateForAccount(state.accountId)).operations.some(o => o.id === inline.id), true);
+        assert.equal(messages.some(m => m.type === "newSafeBunkerRequest"), false);
+        await queueBunkerOperation(request("normal-request"));
+        assert.equal(messages.some(m => m.type === "newSafeBunkerRequest" && m.requestId === "normal-request"), true);
+        await assert.rejects(queueBunkerOperation({ ...request("wrong-chain"), chainId: chainId === 1 ? 8453 : 1 }, { notifyRenderer: false }), /chain mismatch/);
+        const { rejectBunkerOperation } = await import("../../src/chrome/safeBunker/operations");
+        await rejectBunkerOperation(state.accountId, inline.id);
+        await rejectBunkerOperation(state.accountId, "normal-request");
+        assert.equal((await stateForAccount(state.accountId)).operations.find(o => o.id === inline.id)!.state, "rejected");
+      } finally {
+        chrome.runtime.sendMessage = previousSend;
+        const { writeBunkerState } = await import("../../src/chrome/safeBunker/stateRepository");
+        await writeBunkerState(baseline, captureBunkerAccess());
+      }
+    });
+
+    await t.test("grouping and separating preserve swap and transfer review metadata", async () => {
+      const baseline = await stateForAccount(state.accountId);
+      const { groupBunkerOperations, separateBunkerOperation } = await import("../../src/chrome/safeBunker/management");
+      const { writeBunkerState } = await import("../../src/chrome/safeBunker/stateRepository");
+      const { captureBunkerAccess } = await import("../../src/chrome/safeBunker/access");
+      const swapMeta = { sellTokenSymbol: "ETH", sellTokenLogo: null, buyTokenSymbol: "USDC", buyTokenLogo: null };
+      const swapContext = { slippageBps: 50,
+        sell: { address: "native", name: "Ether", symbol: "ETH", decimals: 18, amount: amount.toString(), priceUsd: 2000, logo: null },
+        buy: { address, name: "USD Coin", symbol: "USDC", decimals: 6, amount: "1900000", priceUsd: 1, logo: null } };
+      const transferMeta = { recipient: address, amount: "0.001", symbol: "ETH", tokenLogo: null };
+      try {
+        for (const key of ["send", "swap"]) await queueBunkerOperation({ id: key, accountId: state.accountId, chainId,
+          calls: [{ to: address, value: amount.toString() as `${bigint}`, data: "0x", operation: 0 }],
+          routes: [{ kind: "wallet", origin: "WalletChan", requestId: key }], ...(key === "send" ? { transferMeta } : { swapMeta, swapContext }) });
+        const reviewedSend = await reviewBunkerOperation(state.accountId, "send", "payer", client);
+        const { projectBunkerView } = await import("../../src/chrome/safeBunker/view");
+        const missing = { id: "removed-payer", address: payer.address.toLowerCase() as Hex };
+        const fallback = await projectBunkerView({ ...await stateForAccount(state.accountId), defaultPayer: missing,
+          operations: [{ ...reviewedSend, review: { ...reviewedSend.review!, payerId: missing.id } }] });
+        assert.equal(fallback.defaultPayer, null);
+        assert.equal(fallback.operations[0].payerId, undefined, "an unsigned stale review cannot override the Bunker fallback");
+        const grouped = await groupBunkerOperations(state.accountId, ["send", "swap"]);
+        const group = grouped.operations.find(op => op.members)!;
+        assert.deepEqual(group.members![0].transferMeta, transferMeta);
+        assert.deepEqual(group.members![1].swapContext, swapContext);
+        await assert.rejects(reviewBunkerOperation(state.accountId, group.id, "payer", client), /Separate grouped swaps/);
+        await separateBunkerOperation(state.accountId, group.id);
+        const restored = await stateForAccount(state.accountId);
+        assert.deepEqual(restored.operations.find(op => op.id === "send")!.transferMeta, transferMeta);
+        assert.deepEqual(restored.operations.find(op => op.id === "swap")!.swapMeta, swapMeta);
+        assert.deepEqual(restored.operations.find(op => op.id === "swap")!.swapContext, swapContext);
+      } finally { await writeBunkerState(baseline, captureBunkerAccess()); }
+    });
     await t.test("local payer pays gas; the Safe rotates atomically", async () => {
       const operationId = await create(1);
       const { getPendingBunkerRequests } = await import("../../src/chrome/safeBunker/pendingRequests");
@@ -671,6 +734,40 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
         assert.equal((await readBunkerLive(state, client)).nonce, liveBefore.nonce, "module execution does not increment Safe nonce");
         assert.ok(await client.getBalance({ address: state.plan.address }) < beforeBalance - amount, "Bunker itself paid native gas");
         assert.equal(state.defaultPayer!.id, state.accountId, "self can replace a remembered EOA default");
+        const maxBalance = await client.getBalance({ address: state.plan.address });
+        const maxId = "native-max";
+        const { formatEther } = await import("viem");
+        await queueBunkerOperation({ id: maxId, accountId: state.accountId, chainId,
+          calls: [{ to: address, value: maxBalance.toString() as `${bigint}`, data: "0x", operation: 0 }],
+          nativeMax: { limit: maxBalance.toString() },
+          transferMeta: { recipient: address, amount: formatEther(maxBalance), symbol: "ETH", tokenLogo: null },
+          routes: [{ kind: "wallet", origin: "Send ETH", requestId: maxId }] });
+        let maxReview = await reviewBunkerOperation(state.accountId, maxId, state.accountId, client);
+        const sent = BigInt(maxReview.calls[0].value);
+        assert.ok(sent > 0n && sent < maxBalance, "MAX leaves native prefund in the Safe");
+        assert.equal(maxReview.transferMeta!.amount, formatEther(sent));
+        assert.equal(maxReview.review!.feePayment!.sufficientBalance, true);
+        const eoaMax = await reviewBunkerOperation(state.accountId, maxId, "payer", client);
+        assert.equal(BigInt(eoaMax.calls[0].value), maxBalance, "EOA payer restores the full selected MAX cap");
+        maxReview = await reviewBunkerOperation(state.accountId, maxId, state.accountId, client);
+        assert.equal(BigInt(maxReview.calls[0].value), sent, "switching back reserves prefund again");
+        await confirmBunkerOperation(state.accountId, maxId, maxReview.review!.digest, false, client);
+        await mine(); await reconcileBunker(id, client); state = await stateForAccount(state.accountId);
+        assert.equal(state.operations.find(o => o.id === maxId)!.state, "confirmed", "MAX executes through released Safe4337Module and EntryPoint");
+        await wallet.sendTransaction({ to: state.plan.address, value: 10000000000000000n });
+        const calldataBalance = await client.getBalance({ address: state.plan.address });
+        await queueBunkerOperation({ id: "max-calldata", accountId: state.accountId, chainId,
+          calls: [{ to: address, value: calldataBalance.toString() as `${bigint}`, data: "0x12345678", operation: 0 }],
+          nativeMax: { limit: calldataBalance.toString() }, routes: [{ kind: "wallet", origin: "WalletChan", requestId: "max-calldata" }] });
+        const calldataReview = await reviewBunkerOperation(state.accountId, "max-calldata", state.accountId, client);
+        assert.equal(calldataReview.calls[0].data, "0x12345678");
+        assert.ok(BigInt(calldataReview.calls[0].value) <= calldataBalance);
+        assert.equal(calldataReview.review!.feePayment!.sufficientBalance, true);
+        await confirmBunkerOperation(state.accountId, "max-calldata", calldataReview.review!.digest, false, client);
+        await mine(); await reconcileBunker(id, client); state = await stateForAccount(state.accountId);
+        assert.equal(state.operations.find(op => op.id === "max-calldata")!.state, "confirmed");
+
+
       } finally { prototype.estimateUserOperationGas = original.estimate; prototype.getUserOperationGasPrice = original.prices; prototype.sendUserOperation = original.send; prototype.getUserOperationReceipt = original.receipt; }
     });
     await t.test("master removal clears operational data and repairs selection", async () => {

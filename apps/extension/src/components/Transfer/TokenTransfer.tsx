@@ -134,6 +134,7 @@ function TokenTransfer({
     accountType,
     resolvedAddress: recipientState.resolvedAddress,
     tokenAmount: preparation.tokenAmount,
+    isMaxSelected: preparation.isMaxSelected,
     chainName,
     isNativeToken: preparation.isNativeToken,
     trimmedHexData: preparation.trimmedHexData,

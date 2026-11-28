@@ -5,6 +5,7 @@ import { getBunkerHistoryRotation } from "./historyRotation";
 import { WALLET_SECRET_STORAGE_LOCK_KEY, withStorageLock } from "../storageLock";
 import { BUNKER_PENDING_KEY, readBunkerPendingIndex, projectBunkerPending, getPendingBunkerRequests, notifyBunkerPendingChanged, type PendingBunkerRequest } from "./pendingRequests";
 import { cancelUnauthorizedBunkerRequests } from "./cancellation";
+import { isBunkerPayerAvailable } from "./payerPolicy";
 import { getAccounts } from "../accountStorage";
 import { captureBunkerAccess } from "./access";
 import { bunkerEntry } from "./live";
@@ -16,17 +17,22 @@ export async function projectBunkerView(state: BunkerState): Promise<BunkerAccou
   const entry = await bunkerEntry(state.id);
   const network = await getStoredResolvedChainById(state.chainId);
   const deployment = state.plan.raw && state.plan.deploymentHash ? await readSignedBunkerDeployment(state) : null;
-  const payer = deployment ? (await getAccounts()).find(a => a.address.toLowerCase() === deployment.sender) : null;
+  const accounts = await getAccounts();
+  const payerAvailable = (payer: { id: string; address: string }) => isBunkerPayerAvailable(payer, { accountId: state.accountId, address: state.plan.address }, accounts);
+  const defaultPayer = state.defaultPayer && payerAvailable(state.defaultPayer) ? state.defaultPayer : null;
+  const reviewAvailable = (op: import("./types").BunkerOperation) => op.review && (op.signature || payerAvailable({ id: op.review.payerId, address: op.review.payerAddress }));
+  const payer = deployment ? accounts.find(a => a.address.toLowerCase() === deployment.sender) : null;
   return { id: state.accountId, draftId: state.id, name: entry.header.name, safeAddress: state.plan.address, chainId: state.chainId, chainName: network?.name ?? state.chainName, explorer: network?.explorer ?? "", nativeCurrencySymbol: network?.nativeCurrency.symbol ?? "",
-    ownerIndex: state.ownerIndex, deployed: state.activated, archived: state.archived, exposureUnknown: state.exposureUnknown, defaultPayer: state.defaultPayer,
+    ownerIndex: state.ownerIndex, deployed: state.activated, archived: state.archived, exposureUnknown: state.exposureUnknown, defaultPayer,
     ...(deployment && payer ? { deploymentPayerId: payer.id, deploymentGas: { gasLimit: deployment.tx.gas!.toString(), maxFeePerGas: (deployment.tx.maxFeePerGas ?? 0n).toString(), maxPriorityFeePerGas: (deployment.tx.maxPriorityFeePerGas ?? 0n).toString() } } : {}),
     seedGroupId: state.seedGroupId, deploymentHash: state.plan.deploymentHash, recovering: !!state.recovery,
     ...(state.recovery ? { recoveryProgress: `${state.recovery.deriveIndex} owner addresses checked` } : {}),
-    operations: state.operations.map((o) => ({ id: o.id, calls: o.calls, origins: o.routes.map((r) => r.origin), kind: o.kind,
+    operations: state.operations.map((o) => ({ ...(o.swapContext ? { swapContext: o.swapContext } : {}), ...(o.swapMeta ? { swapMeta: o.swapMeta } : {}),
+      ...(o.members?.some(m => m.swapMeta || m.swapContext) ? { requiresSwapSeparation: true as const } : {}), ...(o.nativeMax ? { nativeMax: true as const } : {}), id: o.id, calls: o.calls, origins: o.routes.map((r) => r.origin), kind: o.kind,
       rotation: getBunkerHistoryRotation(state.plan.address, o.review), state: o.state, createdAt: o.createdAt, txHash: o.receipt?.hash ?? o.outer?.hash, error: o.error,
       userOperationHash: o.userOperationHash,
-      ...(o.review?.feePayment ? { feePayment: { tokenId: o.review.feePayment.tokenId, maximumTokenCost: o.review.feePayment.maximumTokenCost, tokenBalance: o.review.feePayment.tokenBalance, sufficientBalance: o.review.feePayment.sufficientBalance, approvalAdded: o.review.feePayment.approvalAdded, approvalAmount: o.review.feePayment.approvalAmount, validUntil: o.review.feePayment.validUntil } } : {}),
-      ...(o.review ? { payerId: o.review.payerId, payerAddress: o.review.payerAddress, maxFee: o.review.maxFee, gas: o.review.gas, reviewDigest: o.review.digest, reviewExpiresAt: o.review.expiresAt } : {}) })) };
+      ...(reviewAvailable(o) && o.review?.feePayment ? { feePayment: { tokenId: o.review.feePayment.tokenId, maximumTokenCost: o.review.feePayment.maximumTokenCost, tokenBalance: o.review.feePayment.tokenBalance, sufficientBalance: o.review.feePayment.sufficientBalance, approvalAdded: o.review.feePayment.approvalAdded, approvalAmount: o.review.feePayment.approvalAmount, validUntil: o.review.feePayment.validUntil } } : {}),
+      ...(reviewAvailable(o) && o.review ? { payerId: o.review.payerId, payerAddress: o.review.payerAddress, maxFee: o.review.maxFee, gas: o.review.gas, reviewDigest: o.review.digest, reviewExpiresAt: o.review.expiresAt } : {}) })) };
 }
 export async function drainBunkerInbox(accountId: string) {
   captureBunkerAccess()();

@@ -1693,8 +1693,8 @@ function App() {
     setView("main");
   }, [holdingsTabTrigger]);
 
-  const { bunkerRequestAccount, bunkerRequestId, bunkerInitialView, bunkerInitialError, pendingBunkerRequests, openPendingBunker, openBunker, handleBunkerSubmitted } = useBunkerNavigation({
-    unlocked: isWalletUnlocked, accounts, setView, onSelectAccount: handleAccountSwitch,
+  const { bunkerRequestAccount, bunkerRequestId, bunkerInitialView, bunkerInitialError, pendingBunkerRequests, openPendingBunker, openBunker, handleBunkerSubmitted, bunkerSwapResume, handleBunkerSwapRefresh } = useBunkerNavigation({
+    unlocked: isWalletUnlocked, accounts, view, setView, onSelectAccount: handleAccountSwitch,
     onActivity: () => { setWalletHomeMode("public"); returnToActivity(); },
   });
   // Before rejection, move to Activity for replacements or an adjacent prompt.
@@ -2454,7 +2454,7 @@ function App() {
     );
   }
 
-  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} isPopup={!isInSidePanel && !isFullscreenTab} initialRequestId={bunkerRequestId} initialView={bunkerInitialView} initialError={bunkerInitialError} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
+  if (view === "safeBunker") { const account = bunkerRequestAccount ?? activeAccount; return account?.type === "safeBunker" ? <BunkerAppSurface account={account} fullscreen={isFullscreenTab} isPopup={!isInSidePanel && !isFullscreenTab} initialRequestId={bunkerRequestId} initialView={bunkerInitialView} initialError={bunkerInitialError} onBack={() => setView("main")} onSubmitted={() => handleBunkerSubmitted(account)} onRefreshSwap={(context) => handleBunkerSwapRefresh(account, context)} /> : <SafeFeatureUnavailable title="Bunker account unavailable" onBack={() => setView("main")} />; }
 
   // Safe approvals view
   if (view === "safeApprovals") {
@@ -2501,10 +2501,11 @@ function App() {
   if (view === "swap") {
     return (
       <AppFeatureFrame isFullscreenTab={isFullscreenTab}>
-            <SwapView
+            <SwapView key={bunkerSwapResume?.requestId ?? "swap"} resumeSwap={bunkerSwapResume && bunkerSwapResume.accountId === activeAccount?.id ? bunkerSwapResume : undefined}
               fromAddress={address}
               accountId={activeAccount?.id}
-              accountType={activeAccount?.type === "safeBunker" ? "safe" : activeAccount?.type || "bankr"}
+              accountType={activeAccount?.type || "bankr"}
+              bunkerAccount={activeAccount?.type === "safeBunker" ? activeAccount : undefined} isPopup={!isInSidePanel && !isFullscreenTab} onRefreshBunkerSwap={activeAccount?.type === "safeBunker" ? context => handleBunkerSwapRefresh(activeAccount, context) : undefined}
               selectableChainIds={activeSafeChainIds ?? undefined}
               chainId={activeSafeChainIds?.values().next().value ?? selectedChain?.chainId ?? 8453}
               chainName={chainName || "Base"}
@@ -2517,8 +2518,8 @@ function App() {
               onSwapInitiated={() => {
                 setSwapInitialBuyToken(undefined);
                 setSwapInitialSellToken(undefined);
-                setView("main");
-                setActivityTabTrigger((t) => t + 1);
+                setWalletHomeMode("public");
+                returnToActivity();
               }}
               onSafeProposalCreated={(proposalId) => {
                 setSwapInitialBuyToken(undefined);
@@ -2540,14 +2541,13 @@ function App() {
     return (
       <AppFeatureFrame isFullscreenTab={isFullscreenTab}>
             <StakingScreen
+              bunkerAccount={activeAccount?.type === "safeBunker" ? activeAccount : undefined} isPopup={!isInSidePanel && !isFullscreenTab}
               fromAddress={address}
               accountId={activeAccount?.id}
               accountType={activeAccount?.type || "bankr"}
               onBack={() => setView("more")}
               onTransactionInitiated={() => {
-                setView("main");
-                setActivityTabTrigger((value) => value + 1);
-                setHoldingsTabTrigger((value) => value + 1);
+                setWalletHomeMode("public"); returnToActivity();
               }}
             />
       </AppFeatureFrame>
@@ -3508,7 +3508,7 @@ function App() {
                   activeAccount?.type !== "safe" ? (
                     <HomeQuickActions
                       hasConnectedApps={walletConnectSessionCount > 0}
-                      onSend={() => { setTransferToken(resolveSendEntryToken(null, networksInfo)); setView("transfer"); }}
+                      onSend={() => { setTransferToken(resolveSendEntryToken(null, networksInfo, activeAccount?.type === "safeBunker" ? activeAccount.chainId : undefined)); setView("transfer"); }}
                       onSwap={() => { setSwapInitialBuyToken(undefined); setSwapInitialSellToken(undefined); setView("swap"); }}
                       onShield={privateHomeEnabled && activeAccount && isPrivacyPoolsMutationAccount(activeAccount) ? () => openPrivacyAction("shield") : undefined}
                       onMore={() => setView("more")}

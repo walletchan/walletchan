@@ -38,6 +38,8 @@ export async function getOnboardingInitializationStatus(
     "privacyVault",
     "accounts",
     "seedGroups",
+    "safeBunkerBindingsV2",
+    "safeBunkerJournalsV2",
   ]);
   const marker = parseOnboardingInitializationMarker(
     stored[ONBOARDING_INITIALIZATION_KEY],

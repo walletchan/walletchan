@@ -42,6 +42,7 @@ type Mode = "choose" | "nameGenerated" | "import" | "pick";
 
 interface SeedPhraseSetupProps {
   initialMode?: "choose" | "import";
+  phraseOnly?: boolean;
   onBack: () => void;
   onComplete: (account: Account) => void;
   onImportViewChange?: (isImportView: boolean) => void;
@@ -58,6 +59,7 @@ interface SeedPhraseSetupProps {
 
 function SeedPhraseSetup({
   initialMode = "choose",
+  phraseOnly = false,
   onBack,
   onComplete,
   onImportViewChange,
@@ -190,6 +192,12 @@ function SeedPhraseSetup({
     if (words.length !== 12) {
       setError("Seed phrase must be exactly 12 words");
       return;
+    }
+    if (phraseOnly && onCollect) {
+      const { normalizeMnemonicForPersistence } = await import("@/chrome/mnemonic/derivation");
+      const mnemonic = normalizeMnemonicForPersistence(trimmed);
+      if (!mnemonic) { setError("Enter a valid 12-word seed phrase"); return; }
+      setImportedMnemonic(""); onCollect(mnemonic, []); return;
     }
     setIsSubmitting(true);
     if (!(await ensureSeedAccess())) {
@@ -519,7 +527,7 @@ function SeedPhraseSetup({
   return (
     <SetupFrame
       isOnboarding={isOnboarding}
-      title="Import seed phrase"
+      title={phraseOnly ? "Import Safe Bunker" : "Import seed phrase"}
       onboardingHeadingOnly={isOnboarding && !!onImportViewChange}
       onBack={initialMode === "import" ? onBack : () => setMode("choose")}
       action={

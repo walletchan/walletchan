@@ -1,3 +1,5 @@
+import type { BunkerSwapContext } from "@/chrome/safeBunker/swapContext";
+import type { BunkerSwapResume } from "@/components/Swap/useBunkerSwapPresentation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Account, SafeBunkerAccount } from "@/chrome/types";
 import { bunkerCommand } from "@/components/SafeBunker/transport";
@@ -6,7 +8,9 @@ import type { BunkerAccountView } from "@/chrome/safeBunker/types";
 import { preloadBunkerRequest } from "@/app/bunkerRequestPreload";
 import type { AppView } from "@/components/ScreenTransition";
 
-export function useBunkerNavigation({ unlocked, accounts, setView, onSelectAccount, onActivity }: { unlocked: boolean; accounts: Account[]; setView: (view: AppView) => void; onSelectAccount: (account: Account) => Promise<void>; onActivity: () => void }) {
+export function useBunkerNavigation({ unlocked, accounts, view, setView, onSelectAccount, onActivity }: { unlocked: boolean; accounts: Account[]; view?: AppView; setView: (view: AppView) => void; onSelectAccount: (account: Account) => Promise<void>; onActivity: () => void }) {
+  const [bunkerSwapResume, setSwapResume] = useState<(BunkerSwapResume & { accountId: string }) | null>(null);
+  useEffect(() => { if (!unlocked || view !== undefined && view !== "swap") setSwapResume(null); }, [unlocked, view]);
   const [pendingBunkerRequests, setPendingBunkerRequests] = useState<PendingBunkerRequest[]>([]);
   const [account, setAccount] = useState<SafeBunkerAccount | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -80,5 +84,14 @@ export function useBunkerNavigation({ unlocked, accounts, setView, onSelectAccou
     // navigation can commit together. A newer request or lock cancels this route.
     void onSelectAccount(next).then(finish, finish);
   };
-  return { bunkerRequestAccount: account, bunkerRequestId: requestId, bunkerInitialView: initialView, bunkerInitialError: initialError, pendingBunkerRequests, openPendingBunker, openBunker: open, handleBunkerSubmitted };
+  const handleBunkerSwapRefresh = (next: SafeBunkerAccount, context: BunkerSwapContext) => {
+    const revision = ++opening.current; pending.current = null;
+    void onSelectAccount(next).then(() => {
+      const current = liveAccounts.current.find(a => a.id === next.id);
+      if (!liveUnlock.current || opening.current !== revision || current?.type !== "safeBunker" || current.bunkerId !== next.bunkerId ||
+        current.chainId !== next.chainId || current.seedGroupId !== next.seedGroupId || current.address.toLowerCase() !== next.address.toLowerCase()) return;
+      setSwapResume({ accountId: next.id, chainId: next.chainId, requestId: crypto.randomUUID(), context }); setView("swap");
+    }).catch(() => { if (liveUnlock.current && opening.current === revision) setInitialError("Could not select Bunker account"); });
+  };
+  return { bunkerSwapResume, handleBunkerSwapRefresh, bunkerRequestAccount: account, bunkerRequestId: requestId, bunkerInitialView: initialView, bunkerInitialError: initialError, pendingBunkerRequests, openPendingBunker, openBunker: open, handleBunkerSubmitted };
 }

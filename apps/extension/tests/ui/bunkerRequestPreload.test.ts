@@ -14,7 +14,7 @@ function load(path: string, require: (name: string) => unknown) {
   const source = readFileSync(new URL(`../../src/${path}`, import.meta.url), "utf8");
   vm.runInNewContext(ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
-  }).outputText, { exports, require, Error, setInterval: () => 0, clearInterval() {} });
+  }).outputText, { exports, require, Error, crypto, setInterval: () => 0, clearInterval() {} });
   return exports;
 }
 const account = { id: "bunker", type: "safeBunker", bunkerId: "journal", chainId: 84532,
@@ -157,4 +157,23 @@ test("a newer request wins over an older submission's asynchronous Activity navi
   h.jobs[0].resolve(view); await opening;
   assert.deepEqual(h.navigations, ["safeBunker"]);
   assert.equal(h.render().bunkerRequestId, "new-request");
+});
+
+
+test("swap refresh selects the pinned Bunker and forwards its original inputs to normal Swap", async () => {
+  const h = navigationHarness(); const context = { sell: { amount: "1" } };
+  h.render().handleBunkerSwapRefresh(account, context);
+  await Promise.resolve(); await Promise.resolve();
+  assert.deepEqual(h.navigations, ["swap"]);
+  const resume = h.render().bunkerSwapResume;
+  assert.equal(resume.accountId, account.id);
+  assert.equal(resume.chainId, account.chainId);
+  assert.equal(resume.context, context);
+});
+
+test("locking during swap refresh cannot open or stage a new swap", async () => {
+  const h = navigationHarness(); h.render().handleBunkerSwapRefresh(account, {}); h.render(false);
+  await Promise.resolve(); await Promise.resolve();
+  assert.deepEqual(h.navigations, []);
+  assert.equal(h.render(false).bunkerSwapResume, null);
 });

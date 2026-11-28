@@ -211,6 +211,7 @@ export function useTransferPreparation({
       sliderSound.onChangeEnd(snapBalanceSliderValue(value)),
     setMaxAmount,
     isMaxAmountReady,
+    isMaxSelected,
     toggleAmountMode,
     hasPrice,
     balanceNum,

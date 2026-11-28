@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import type { PortfolioToken } from "@/chrome/portfolio/api";
 
-export function useSwapAmount(sellToken: PortfolioToken | null) {
-  const [sellAmount, setSellAmount] = useState("");
+export function useSwapAmount(sellToken: PortfolioToken | null, initialAmount = "") {
+  const [sellAmount, setSellAmount] = useState(initialAmount);
   const [isUsdMode, setIsUsdMode] = useState(false);
   const [sliderValue, setSliderValue] = useState(0);
   const [isMaxMode, setIsMaxMode] = useState(false);

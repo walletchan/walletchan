@@ -1,3 +1,4 @@
+import type { BunkerSwapContext } from "@/chrome/safeBunker/swapContext";
 import { TransactionSentScreen } from "@/components/TransactionConfirmation/StateScreens";
 import { isBunkerExecutionInFlight } from "@/chrome/safeBunker/requestPolicy";
 import { useEffect, useRef, useState } from "react";
@@ -8,9 +9,9 @@ import { AppHeader, AppScreen, ScreenBody } from "@/components/ui";
 import InitialRequestLoadingScreen from "@/app/screens/InitialRequestLoadingScreen";
 import { bunkerCommand } from "./transport";
 import { isPendingBunkerRequest, selectBunkerRequest } from "./requestQueue";
-import { BunkerTransactionConfirmation } from "./BunkerTransactionConfirmation";
+import { BunkerTransactionConfirmation, type BunkerReviewPresentation } from "./BunkerTransactionConfirmation";
 
-export function BunkerAccountScreen({ account, initialRequestId, initialView, initialError = "", onBack, onSubmitted, isPopup = false, rejectOnBack = false }: { isPopup?: boolean; rejectOnBack?: boolean; account: SafeBunkerAccount; initialRequestId?: string | null; initialView?: BunkerAccountView | null; initialError?: string; onBack: () => void; onSubmitted: () => void }) {
+export function BunkerAccountScreen({ account, initialRequestId, initialView, initialError = "", onBack, onSubmitted, isPopup = false, rejectOnBack = false, presentation, onRefreshSwap }: { onRefreshSwap?: (context: BunkerSwapContext) => void; presentation?: BunkerReviewPresentation; isPopup?: boolean; rejectOnBack?: boolean; account: SafeBunkerAccount; initialRequestId?: string | null; initialView?: BunkerAccountView | null; initialError?: string; onBack: () => void; onSubmitted: () => void }) {
   const seedView = initialView?.id === account.id && initialView.draftId === account.bunkerId &&
     initialView.chainId === account.chainId && initialView.seedGroupId === account.seedGroupId &&
     initialView.safeAddress.toLowerCase() === account.address.toLowerCase() ? initialView : null;
@@ -82,7 +83,7 @@ export function BunkerAccountScreen({ account, initialRequestId, initialView, in
   const advance = (ids: string[]) => {
     for (const id of ids) rejectedIds.current.add(id);
     setView((previous) => previous ? { ...previous, operations: previous.operations.map((op) => rejectedIds.current.has(op.id) ? { ...op, state: "rejected" } : op) } : previous);
-    if (!pending.some((op) => !rejectedIds.current.has(op.id))) onBack();
+    if (presentation && initialRequestId && ids.includes(initialRequestId) || !pending.some((op) => !rejectedIds.current.has(op.id))) onBack();
     else { setAutomatic(true); setRequestId("__pending__"); }
   };
   const leaveLoading = () => {
@@ -94,11 +95,12 @@ export function BunkerAccountScreen({ account, initialRequestId, initialView, in
   };
   if (completion === "sent") return <TransactionSentScreen />;
   if (completion === "leaving" || released && !confirming) return <InitialRequestLoadingScreen title="Transaction request" onBack={onBack} />;
-  const loadingTitle = rejectOnBack ? "Rotate owner" : "Transaction request";
+  const loadingTitle = presentation?.title ?? (rejectOnBack ? "Rotate owner" : "Transaction request");
   if (initialRequestId && (!view || rejectOnBack && (busy || !!error))) return error ? <AppScreen><AppHeader title={loadingTitle} onBack={leaveLoading} isBackDisabled={busy} /><ScreenBody>
     <Text role="alert" color="status.error.emphasis">{error}</Text><Button variant="secondary" isDisabled={busy} onClick={() => void run(refresh)}>Retry</Button>
   </ScreenBody></AppScreen> : <InitialRequestLoadingScreen title={loadingTitle} onBack={leaveLoading} />;
   if (view && operation) return <BunkerTransactionConfirmation key={operation.id} account={account} view={view} operation={operation}
+    onRefreshSwap={onRefreshSwap} presentation={operation.id === initialRequestId ? presentation : undefined} rejectOnBack={rejectOnBack && operation.id === initialRequestId}
     queue={confirming ? [operation, ...pending.filter(op => op.id !== operation.id)] : operation.txHash ? [operation] : pending} onSelect={(id) => { setAutomatic(false); setRequestId(id); }} onRejected={advance}
     onBack={onBack} onSubmitted={finishSubmission} onConfirming={setConfirming} onReload={async () => { await refresh(); }} />;
   return <AppScreen><AppHeader title="Transaction request" onBack={onBack} />

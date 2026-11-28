@@ -19,7 +19,7 @@ function SourceSelection({ onBack, onActivated }: { onBack: () => void; onActiva
   if (group) return <BunkerNetworkSetup group={group} isNewSource={addedSeedGroupIds.includes(group.id)} discovery={discovery} onBack={() => { setGroup(null); discovery.refresh(); }} onAdded={onActivated} />;
   return <AppScreen><AppHeader title="Safe Bunker" onBack={onBack} /><ScreenBody pt={5}>
     <VStack align="stretch" spacing={5}>
-      <ScreenSection title="Saved seed phrases"><ListSurface>{discovery.groups.map(saved => <ListItem
+      <ScreenSection title="Select seed phrase"><ListSurface>{discovery.groups.map(saved => <ListItem
         key={saved.id}
         interactive
         minH="72px"

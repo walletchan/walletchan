@@ -638,3 +638,46 @@ Signature storage normalizes shared account metadata; public API entries hydrate
 address/type on read, and export schema v2 groups signatures by account ID. This
 feature is unreleased; existing local development rows have been normalized,
 and the temporary conversion module and UI route are removed.
+
+Bunker operation journals additionally accept optional `swapMeta` using the
+existing bounded four-field SwapMeta display shape (sell/buy symbol and logo).
+Absence remains normal for earlier journals. Only internal wallet transaction
+provenance may carry it; recovery/external requests cannot. No key/version or
+eager ciphertext migration is introduced. Existing Activity SwapMeta is reused.
+
+### Bunker Send display metadata and native MAX intent
+
+The existing encrypted `safeBunkerJournalsV2` operation shape additionally accepts
+optional `transferMeta` (the existing Activity recipient/amount/symbol/logo shape)
+and `nativeMax: { limit: string }`. The cap is a positive uint256 decimal and
+requires one native CALL; its calldata remains immutable. Both require internal wallet
+transaction provenance and cannot coexist with swap metadata or recovery.
+Earlier journals without either field remain valid. No new key, version bump,
+or eager migration is needed. Unsigned review may update the call value and
+matching display amount within the cap; it cannot rewrite a signed intent.
+Public summaries expose only the MAX flag, not a new authority field. History
+reuses the existing optional TransferMeta shape.
+
+### Resumable Bunker swaps and group metadata
+
+`safeBunkerJournalsV2` operations may additionally contain `swapContext` with
+strict sell/buy token address, name, symbol, decimals, positive uint256 base-unit
+amount, finite nonnegative display price, bounded logo, and slippage BPS. It is
+allowed only beside matching internal-wallet `swapMeta`. No consent, private key,
+credential or signed material is added. Public unlocked views project these
+review inputs. Group members accept optional `swapMeta`, `transferMeta` and
+`swapContext`, validated under the same provenance/shape rules and retained when
+separating. Old member records remain valid; no new key/version/eager migration
+is introduced. Old unsigned swaps lacking context must be recreated for review.
+Native MAX accepts calldata while preserving its bytes and original value cap.
+
+### Bunker onboarding completeness
+
+No new storage key or persisted shape is introduced. The existing onboarding
+initialization marker owns password/source setup until a Bunker account commits.
+Structural completeness now checks a Safe Bunker account's seedGroupId against
+seedGroups/mnemonicVault, and bunkerId/chain/source against safeBunkerBindingsV2
+and safeBunkerJournalsV2. Existing valid V2 Bunkers already satisfy these
+references, so no migration is required. Unmarked incomplete Bunker records stay
+protected as authoritative data; owned incomplete setup may use normal rollback.
+Already committed accounts survive cancellation or later network failures.

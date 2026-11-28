@@ -1,3 +1,6 @@
+import { decodeBunkerSwapContext } from "./swapContext";
+import { decodeBunkerTransferMetadata, assertBunkerNativeMax } from "./transferMetadata";
+import { decodeBunkerSwapMetadata } from "./swapMetadata";
 import { assertBunkerChainId } from "./chainIdentity";
 import { isAddress } from "viem";
 import { exactRecord, assertBunkerDraftId } from "./record";
@@ -39,10 +42,21 @@ export function decodeBunkerState(value: unknown): BunkerState {
   if (!Array.isArray(s.operations) || s.operations.length > 100) throw new Error("Bunker operation limit");
   const ids = new Set();
   for (const candidate of s.operations) {
-    const o = optionalKeys(candidate, ["id", "calls", "routes", "kind", "state", "createdAt"], ["review", "signature", "outer", "receipt", "error", "published", "resultPublished", "scanBlock", "members", "userOperationHash"]);
+    const o = optionalKeys(candidate, ["id", "calls", "routes", "kind", "state", "createdAt"], ["review", "signature", "outer", "receipt", "error", "published", "resultPublished", "scanBlock", "members", "userOperationHash", "swapMeta", "transferMeta", "nativeMax", "swapContext"]);
+    if (o.swapMeta !== undefined) {
+      decodeBunkerSwapMetadata(o.swapMeta);
+      if (o.kind !== "transaction" || !Array.isArray(o.routes) || o.routes.some((route: any) => route.kind !== "wallet")) throw new Error("Invalid Bunker swap provenance");
+    }
+    if (o.swapContext !== undefined) {
+      const context = decodeBunkerSwapContext(o.swapContext);
+      if (!o.swapMeta || context.sell.symbol !== o.swapMeta.sellTokenSymbol || context.buy.symbol !== o.swapMeta.buyTokenSymbol) throw new Error("Invalid Bunker swap context");
+    }
     boundedString(o.id); if (ids.has(o.id)) throw new Error("Duplicate Bunker operation"); ids.add(o.id);
     if (!["transaction", "recovery"].includes(o.kind) || !statuses.has(o.state) || !Number.isSafeInteger(o.createdAt) || o.createdAt < 0) throw new Error("Invalid Bunker operation");
     if (!Array.isArray(o.calls) || o.calls.length > 99 || (!o.calls.length && o.kind === "transaction")) throw new Error("Invalid Bunker calls");
+    if (o.transferMeta !== undefined) decodeBunkerTransferMetadata(o.transferMeta, o.calls);
+    if (o.nativeMax !== undefined) assertBunkerNativeMax(o.nativeMax, o.calls);
+    if ((o.transferMeta || o.nativeMax) && (o.kind !== "transaction" || o.swapMeta || !Array.isArray(o.routes) || o.routes.some((route: any) => route.kind !== "wallet"))) throw new Error("Invalid Bunker transfer provenance");
     let length = 0;
     for (const c of o.calls) { exactRecord(c, ["to", "value", "data", "operation"]); if (!isAddress(c.to) || c.operation !== 0) throw new Error("Invalid Bunker call"); uint(c.value); hex(c.data); length += c.data.length; }
     if (length > 250000) throw new Error("Bunker calldata limit");
@@ -57,7 +71,18 @@ export function decodeBunkerState(value: unknown): BunkerState {
     if (o.members !== undefined) {
       if (!Array.isArray(o.members) || o.members.length < 2 || o.members.length > 99) throw new Error("Invalid Bunker group");
       if (JSON.stringify(o.members.flatMap((m: any) => m.calls)) !== JSON.stringify(o.calls) || JSON.stringify(o.members.flatMap((m: any) => m.routes)) !== JSON.stringify(o.routes)) throw new Error("Bunker group membership mismatch");
-      for (const member of o.members) { exactRecord(member, ["id", "calls", "routes", "createdAt"]); boundedString(member.id); }
+      for (const member of o.members) {
+        optionalKeys(member, ["id", "calls", "routes", "createdAt"], ["swapMeta", "transferMeta", "swapContext"]); boundedString(member.id);
+        if (member.swapMeta !== undefined) decodeBunkerSwapMetadata(member.swapMeta);
+        if (member.transferMeta !== undefined) decodeBunkerTransferMetadata(member.transferMeta, member.calls);
+        if (member.swapMeta || member.transferMeta || member.swapContext) {
+          if (member.routes.some((r: any) => r.kind !== "wallet") || member.swapMeta && member.transferMeta) throw new Error("Invalid Bunker group metadata provenance");
+        }
+        if (member.swapContext !== undefined) {
+          const context = decodeBunkerSwapContext(member.swapContext);
+          if (!member.swapMeta || context.sell.symbol !== member.swapMeta.sellTokenSymbol || context.buy.symbol !== member.swapMeta.buyTokenSymbol) throw new Error("Invalid Bunker swap context");
+        }
+      }
     }
     if (o.scanBlock !== undefined) uint(o.scanBlock);
     if (o.error !== undefined) boundedString(o.error, 512);

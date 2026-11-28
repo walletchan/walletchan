@@ -1,4 +1,5 @@
-import { enqueueBunkerRequest } from "../safeBunker/inbox";
+import { queueBunkerOperation } from "../safeBunker/operations";
+import { buildBunkerTransferMetadata } from "../safeBunker/transferMetadata";
 import { normalizeBunkerIngressTransaction } from "../safeBunker/ingress";
 import { getActiveAccount } from "../accountStorage";
 import type { TransactionParams } from "../bankr/submission";
@@ -13,6 +14,7 @@ import { requireSafeFeature } from "../safe/featurePolicy";
 export async function handleInitiateTransfer(message: {
   tx: TransactionParams;
   chainName: string;
+  nativeMax?: boolean;
   tokenName?: string;
   tokenLogo?: string | null;
 }): Promise<{ success: boolean; txId?: string; error?: string }> {
@@ -31,10 +33,18 @@ export async function handleInitiateTransfer(message: {
     return { success: false, error: "No active account" };
   }
   if (activeAccount.type === "safeBunker") {
-    const id = crypto.randomUUID();
-    await enqueueBunkerRequest({ accountId: activeAccount.id, id, chainId: tx.chainId,
-      calls: normalizeBunkerIngressTransaction(activeAccount, tx), routes: [{ kind: "wallet", origin: "WalletChan", requestId: id }] });
-    return { success: true, txId: id };
+    try {
+      const id = crypto.randomUUID();
+      const calls = normalizeBunkerIngressTransaction(activeAccount, tx);
+      if (message.nativeMax !== undefined && typeof message.nativeMax !== "boolean") throw new Error("Invalid MAX choice");
+      const transferMeta = await buildBunkerTransferMetadata(tx.chainId, calls, tokenLogo);
+      await queueBunkerOperation({ accountId: activeAccount.id, id, chainId: tx.chainId, calls,
+        ...(message.nativeMax ? { nativeMax: { limit: calls[0].value } } : {}), transferMeta,
+        routes: [{ kind: "wallet", origin: transferMeta ? `Send ${transferMeta.symbol}` : "WalletChan", requestId: id }] });
+      return { success: true, txId: id };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Could not prepare Bunker transfer" };
+    }
   }
   if (activeAccount.type === "safe") {
     try {

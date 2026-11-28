@@ -128,3 +128,35 @@ on gas-estimation errors across single, batch, cross-dapp, swap/bridge, and Safe
 execution reviews. Loading reports invalid gas until estimation completes;
 read-only/submitting surfaces disable Retry. Existing fee-token quote Retry
 continues through the quote owner.
+
+In-wallet Bunker swaps stage unsigned intent during Review Swap and open one
+Confirm Swap surface combining the shared overview/call disclosures with Bunker
+payer/token/fee controls. There is no multisig proposal screen or second manual
+review step. The real Bunker simulation remains mounted, firm-quote impact
+acknowledgement gates confirmation, and Cancel/Back rejects the unsigned request.
+
+### Bunker internal Send and staking
+
+Bunker staking uses the shared Bunker request confirmation and completion path,
+including payer choice, fee token, exact simulation and owner rotation. Built-in
+staking is Base-only. Native Send MAX is finalized in review: reserve ETH prefund
+only for Bunker/native payment, retain the full cap for EOA or ERC-20 payment,
+and refresh the displayed calls and asset preview whenever review changes the
+amount. Signed requests are never repriced by changing their calls. Deployment
+and execution share native USD pricing and omit fiat when unavailable.
+
+Bunker transaction, swap and staking confirmations reuse the EOA revert banner
+above request details, `RevertWarning`/`RequestRetryNotice` for gas errors, and
+`SimulationFailureConfirmButton` for warning icons and explicit acknowledgement.
+The preview forwards the standard simulation callbacks; no separate completion
+gate or revert-only confirmation block is maintained. Valid gas preparation and
+exact Safe execution checks remain mandatory. Swap's warning stays outside the
+collapsed details without adding a Request details heading. MAX re-simulation
+retains its gas review but blocks Confirm while its adjusted preview is loading.
+
+Bunker swap review context survives popup close/lock and restores the existing
+Swap confirmation/price-impact components. Refresh rejects only the unsigned
+request before using the normal firm-quote flow; signed-race failures reload
+status. Grouped swaps require separation before individual review. Missing saved
+payers fall back to self for unsigned requests. Native MAX with custom calldata
+uses the same reservation, preview and final-signing rules as plain Send.

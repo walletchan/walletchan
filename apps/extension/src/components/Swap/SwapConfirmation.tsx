@@ -4,10 +4,9 @@ import {
   VStack,
   HStack,
   Text,
-  Button,
   Badge,
+  Button,
   IconButton,
-  Spinner,
   Image,
   Icon,
   Collapse,
@@ -33,10 +32,9 @@ import { useNetworks } from "@/contexts/NetworksContext";
 import { getNativeAssetMeta } from "@/lib/chains";
 // Share theme-aware call accents with batch confirmation.
 import { CALL_ACCENTS, CALL_ACCENT_FGS } from "@/components/BatchCallsList";
-import { AppHeader, StickyActionBar } from "@/components/ui";
+import { AppHeader } from "@/components/ui";
 import type { FeePaymentQuoteSummary } from "@/components/FeePaymentSelector";
-import { SwapPriceImpactNotice } from "./SwapPriceImpactNotice";
-import { SwapDecisionSummary } from "./SwapDecisionSummary";
+import { SwapConfirmationActions } from "./SwapConfirmationActions";
 import type { SwapConfirmationProps } from "./swapViewTypes";
 
 export type { PreparedSwapTxEntry } from "./swapViewTypes";
@@ -53,7 +51,6 @@ function formatValue(value: string, nativeSymbol: string): string {
   return `${eth.toFixed(6)} ${nativeSymbol}`;
 }
 
-// Vertical down arrow icon
 const ArrowDownIcon = (props: React.ComponentProps<typeof Icon>) => (
   <Icon viewBox="0 0 24 24" {...props}>
     <path fill="currentColor" d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
@@ -61,7 +58,7 @@ const ArrowDownIcon = (props: React.ComponentProps<typeof Icon>) => (
 );
 
 function SwapConfirmation({
-  requestId,
+  requestId, embedded = false, transactionDetails,
   transactions,
   sellToken,
   sellAmount,
@@ -102,8 +99,7 @@ function SwapConfirmation({
   const titleLabel = accountType === "safe" ? "Create swap proposal" : isBridge ? "Confirm Bridge" : "Confirm Swap";
   const overviewLabel = isBridge ? "Bridge Overview" : "Swap Overview";
 
-  // Shared data-URL cache used by ENS avatars + batch summary + portfolio.
-  // Paints sell/buy icons synchronously from chrome.storage on reopen.
+  // Share the cached avatars used across confirmation and portfolio.
   const cachedSellLogo = useCachedAvatarSrc(sellToken.logoUrl);
   const cachedBuyLogo = useCachedAvatarSrc(buyTokenLogoURI);
   const sellLogoSrc = cachedSellLogo || sellToken.logoUrl;
@@ -209,19 +205,19 @@ function SwapConfirmation({
   })();
 
   return (
-    <Box h="100%" display="flex" flexDirection="column" bg="surface.base">
-    <AppHeader
+    <Box h={embedded ? "auto" : "100%"} display="flex" flexDirection="column" bg="surface.base">
+    {!embedded && <AppHeader
       title={titleLabel}
       onBack={onCancel}
       isBackDisabled={isSubmitting}
-    />
+    />}
     <Box
-      px={3}
-      pt="clamp(24px, min(12vh, 24vw), 96px)"
+      px={embedded ? 0 : 3}
+      pt={embedded ? 0 : "clamp(24px, min(12vh, 24vw), 96px)"}
       pb={3}
       flex="1"
       minH={0}
-      overflowY="auto"
+      overflowY={embedded ? "visible" : "auto"}
       css={{
         "&::-webkit-scrollbar": { width: "4px" },
         "&::-webkit-scrollbar-track": { background: "transparent" },
@@ -513,9 +509,11 @@ function SwapConfirmation({
           <Collapse
             id="swap-transactions"
             in={transactionsExpanded}
+            unmountOnExit={false}
             animateOpacity={!prefersReducedMotion}
           >
           <VStack spacing={1.5} align="stretch">
+          {transactionDetails}
           {transactions.map((entry, i) => {
             const accent = CALL_ACCENTS[i % CALL_ACCENTS.length];
             const accentFg = CALL_ACCENT_FGS[i % CALL_ACCENT_FGS.length];
@@ -684,64 +682,16 @@ function SwapConfirmation({
       </VStack>
     </Box>
 
-    <StickyActionBar
-      notice={<SwapPriceImpactNotice {...impactReview} isSubmitting={isSubmitting} />}
-      summary={accountType === "safe" ? undefined : <SwapDecisionSummary
-        requestId={requestId} disabled={isSubmitting} onRefreshQuote={onRefreshQuote}
-        transactions={gasTransactions}
-        fromAddress={fromAddress}
-        accountId={accountId}
-        accountType={accountType}
-        chainId={chainId}
-        isBatched={isBatched}
-        batchedTx={gasBatchedTx?.tx}
-        eip7702Delegate={eip7702Delegate}
-        feePaymentToken={feePaymentToken}
-        feePaymentQuote={feePaymentQuote}
-        onFeePaymentTokenChange={setFeePaymentToken}
-        onFeePaymentQuoteChange={setFeePaymentQuote}
-        onGasEstimates={
-            !isBatched || eip7702Delegate || accountType === "privateKey" || accountType === "seedPhrase"
-              ? onGasEstimates
-              : undefined
-          }
-        onValidityChange={
-            !isBatched || eip7702Delegate || accountType === "privateKey" || accountType === "seedPhrase"
-              ? onValidityChange
-              : undefined
-          }
-      />}
-      primaryAction={isSubmitting ? (
-        <HStack
-              justify="center"
-              py={3}
-              bg="accent.highlight"
-              border="1px solid"
-              borderColor="border.default"
-              borderRadius="lg"
-            >
-              <Spinner size="sm" color="accentFg.highlight" />
-              <Text fontSize="sm" color="accentFg.highlight" fontWeight="600">
-                {accountType === "safe" ? "Creating proposal..." : isBridge ? "Bridging..." : "Submitting swap..."}
-              </Text>
-        </HStack>
-      ) : (
-        <Button
-          variant="brand"
-          onClick={() => onConfirm(feePaymentToken, feePaymentQuote?.quoteId ?? null)}
-          isDisabled={
-            isConfirmDisabled || impactReview.decision.blocked ||
-            (feePaymentToken === "native" && !isNativeGasValid) ||
-            (feePaymentToken !== "native" && !feePaymentQuote?.quoteId)
-          }
-        >
-          {titleLabel}
-        </Button>
-      )}
-      secondaryAction={isSubmitting ? undefined : (
-        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-      )}
-    />
+    {!embedded && accountType !== "safeBunker" && <SwapConfirmationActions
+      requestId={requestId} isSubmitting={isSubmitting} onRefreshQuote={onRefreshQuote}
+      gasTransactions={gasTransactions} fromAddress={fromAddress} accountId={accountId}
+      accountType={accountType} chainId={chainId} isBatched={isBatched}
+      gasBatchedTx={gasBatchedTx} eip7702Delegate={eip7702Delegate} feePaymentToken={feePaymentToken}
+      feePaymentQuote={feePaymentQuote} setFeePaymentToken={setFeePaymentToken} setFeePaymentQuote={setFeePaymentQuote}
+      onGasEstimates={onGasEstimates} onValidityChange={onValidityChange} impactReview={impactReview}
+      isBridge={isBridge} onConfirm={onConfirm} isConfirmDisabled={isConfirmDisabled}
+      isNativeGasValid={isNativeGasValid} onCancel={onCancel} titleLabel={titleLabel}
+    />}
   </Box>
   );
 }

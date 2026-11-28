@@ -3,7 +3,7 @@ import { Button, HStack, IconButton, Text, Tooltip } from "@chakra-ui/react";
 import { CheckIcon, CopyIcon, WarningIcon } from "@chakra-ui/icons";
 import { useTheme } from "@/theme";
 
-export function RevertWarning({ shortError, fullError, onRetry, isDisabled }: { shortError: string; fullError: string; onRetry: () => void; isDisabled: boolean }) {
+export function RevertWarning({ shortError, fullError, onRetry, isDisabled }: { shortError: string; fullError: string; onRetry?: () => void; isDisabled: boolean }) {
   const [copied, setCopied] = useState(false);
   const { tokens } = useTheme();
 
@@ -47,7 +47,7 @@ export function RevertWarning({ shortError, fullError, onRetry, isDisabled }: { 
           flexShrink={0}
         />
       </Tooltip>
-      <Button size="xs" variant="ghost" color="status.error.fg" flexShrink={0} isDisabled={isDisabled} onClick={onRetry}>Retry</Button>
+      {onRetry && <Button size="xs" variant="ghost" color="status.error.fg" flexShrink={0} isDisabled={isDisabled} onClick={onRetry}>Retry</Button>}
     </HStack>
   );
 }

@@ -1,10 +1,15 @@
+import { decodeBunkerSwapContext, type BunkerSwapContext } from "./swapContext";
+import { decodeBunkerTransferMetadata, assertBunkerNativeMax, bunkerNativeMaxAmount } from "./transferMetadata";
+import { ENTRY_POINT_V07 } from "../feePayment/constants";
+import { decodeBunkerSwapMetadata } from "./swapMetadata";
+import type { SwapMeta, TransferMeta } from "../history/types";
 import { isBunkerExecutionInFlight } from "./requestPolicy";
 import { preflightBunkerExecution } from "./preflight";
 import { bunkerExecutionProgress } from "./progress";
 import { bunkerPolicyMessage, bunkerStepMessage } from "./errors";
 import { deriveBunkerOwner } from "./derivation";
 import { bunkerStep } from "./errors";
-import { keccak256, stringToHex, type Hex, type PublicClient } from "viem";
+import { keccak256, stringToHex, parseAbi, formatUnits, type Hex, type PublicClient } from "viem";
 import { getAccountById } from "../accountStorage";
 import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLock";
 import { privateKeyToAccount } from "viem/accounts";
@@ -31,7 +36,14 @@ export async function stateForAccount(accountId: string) {
   if (!state || !state.activated || state.archived || state.accountId !== accountId || state.plan.address !== account.address.toLowerCase() || account.chainId !== state.chainId || account.seedGroupId !== state.seedGroupId) throw new Error("Bunker account identity changed");
   return state;
 }
-export async function queueBunkerOperation(input: { accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[]; id?: string; recovery?: boolean }) {
+export async function queueBunkerOperation(input: { accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[]; id?: string; recovery?: boolean; swapContext?: BunkerSwapContext; swapMeta?: SwapMeta; transferMeta?: TransferMeta; nativeMax?: { limit: string } }, options: { notifyRenderer?: boolean } = {}) {
+  const swapContext = input.swapContext === undefined ? undefined : decodeBunkerSwapContext(input.swapContext);
+  const swapMeta = input.swapMeta === undefined ? undefined : decodeBunkerSwapMetadata(input.swapMeta);
+  if (swapContext && (!swapMeta || swapContext.sell.symbol !== swapMeta.sellTokenSymbol || swapContext.buy.symbol !== swapMeta.buyTokenSymbol)) throw new Error("Invalid Bunker swap context");
+  if (swapMeta && (input.recovery || input.routes.some(route => route.kind !== "wallet"))) throw new Error("Invalid Bunker swap provenance");
+  const transferMeta = input.transferMeta === undefined ? undefined : decodeBunkerTransferMetadata(input.transferMeta, input.calls);
+  if (input.nativeMax !== undefined) assertBunkerNativeMax(input.nativeMax, input.calls);
+  if ((transferMeta || input.nativeMax) && (input.recovery || swapMeta || input.routes.some(route => route.kind !== "wallet"))) throw new Error("Invalid Bunker transfer provenance");
   const account = await getAccountById(input.accountId); if (!account || account.type !== "safeBunker") throw new Error("Bunker account not found");
   if (input.chainId !== account.chainId) throw new Error("Bunker chain mismatch");
   // Ingress queues public calls while locked; no seed or signing capability is needed.
@@ -41,7 +53,7 @@ export async function queueBunkerOperation(input: { accountId: string; chainId: 
     const id = input.id ?? crypto.randomUUID();
     const previous = state.operations.find((o) => o.id === id);
     if (previous) {
-      if (JSON.stringify(previous.calls) !== JSON.stringify(input.calls) || JSON.stringify(previous.routes) !== JSON.stringify(input.routes)) throw new Error("Bunker request identity was reused");
+      if (JSON.stringify(previous.calls) !== JSON.stringify(input.calls) || JSON.stringify(previous.routes) !== JSON.stringify(input.routes) || JSON.stringify(previous.swapContext) !== JSON.stringify(swapContext) || JSON.stringify(previous.swapMeta) !== JSON.stringify(swapMeta) || JSON.stringify(previous.transferMeta) !== JSON.stringify(transferMeta) || JSON.stringify(previous.nativeMax) !== JSON.stringify(input.nativeMax)) throw new Error("Bunker request identity was reused");
       return previous;
     }
     if (state.operations.length >= 90) {
@@ -52,11 +64,11 @@ export async function queueBunkerOperation(input: { accountId: string; chainId: 
     }
     if (state.operations.length >= 100) throw new Error("Bunker activity limit reached; archive settled activity first");
     if (input.recovery && input.calls.length) throw new Error("Recovery cannot spend funds");
-    const op: BunkerOperation = { id, calls: input.calls, routes: input.routes, kind: input.recovery ? "recovery" : "transaction", state: "queued", createdAt: Date.now() };
+    const op: BunkerOperation = { id, ...(swapContext ? { swapContext } : {}), ...(swapMeta ? { swapMeta } : {}), ...(transferMeta ? { transferMeta } : {}), ...(input.nativeMax ? { nativeMax: input.nativeMax } : {}), calls: input.calls, routes: input.routes, kind: input.recovery ? "recovery" : "transaction", state: "queued", createdAt: Date.now() };
     await authorizeBunkerOperation(state, op); current();
     state.operations.push(op); await writeBunkerState(state, current);
     // Recovery starts in settings, whose caller opens the exact review and preserves Back.
-    if (!input.recovery) chrome.runtime.sendMessage({ type: "newSafeBunkerRequest", accountId: input.accountId, requestId: id }).catch(() => {});
+    if (!input.recovery && options.notifyRenderer !== false) chrome.runtime.sendMessage({ type: "newSafeBunkerRequest", accountId: input.accountId, requestId: id }).catch(() => {});
     return op;
   }));
 }
@@ -79,6 +91,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     const state = await bunkerStep("state", () => stateForAccount(accountId)); current();
     const baseline = reviewSnapshot(state); const op = state.operations.find((o) => o.id === id);
     if (!op || ["confirmed", "reverted", "rejected", "invalidated"].includes(op.state)) throw new Error("Bunker operation is unavailable");
+    if (op.members?.some(member => member.swapMeta || member.swapContext)) throw new Error("Separate grouped swaps before execution");
     if (state.recovery) throw new Error("Complete recovery scan first");
     if (op.kind === "recovery") captureBunkerAccess()();
     if (state.exposureUnknown && op.kind === "transaction") throw new Error("Rotate the restored owner before spending");
@@ -91,14 +104,36 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
     const { live, owner, next, nextIndex } = await bunkerStep("authority", () => verifyBunkerOwner(state, current(), client, op.signature ? op.review?.nextIndex : undefined, current));
     state.nextIndex = nextIndex;
     if (!op.signature) op.scanBlock = live.verifiedAtBlock;
-    const built = await bunkerStep("calls", async () => buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, op.kind !== "transaction", state.chainId));
+    if (op.nativeMax && !op.signature) {
+      const balance = await client.getBalance({ address: state.plan.address });
+      if (balance <= 0n) throw new Error("Bunker has insufficient native balance");
+      const limit = BigInt(op.nativeMax.limit);
+      op.calls[0] = { ...op.calls[0], value: (balance < limit ? balance : limit).toString() as `${bigint}` };
+    }
+    let built = await bunkerStep("calls", async () => buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, op.kind !== "transaction", state.chainId));
     if (op.signature && op.review?.safeTxHash !== built.safeTxHash) throw new Error("Signed Safe transaction is stale. Reconcile or recover.");
     const selfPaid = payerId === accountId;
     let base: Omit<import("./types").BunkerReview, "digest">;
     if (selfPaid) {
       if (op.signature) throw new Error("Signed Safe transaction is stale. Reconcile or recover.");
       const { prepareBunkerFee } = await import("./feePayment");
-      const { fee, maxFee } = await bunkerStep("feePayment", () => prepareBunkerFee(state, built.calls.map(c => ({ to: c.to, value: BigInt(c.value), data: c.data })), feeToken, client));
+      const prepareFee = () => bunkerStep("feePayment", () => prepareBunkerFee(state, built.calls.map(c => ({ to: c.to, value: BigInt(c.value), data: c.data })), feeToken, client));
+      let prepared = await prepareFee();
+      if (op.nativeMax && feeToken === "native") {
+        const deposit = await client.readContract({ address: ENTRY_POINT_V07, abi: parseAbi(["function balanceOf(address account) view returns(uint256)"]), functionName: "balanceOf", args: [state.plan.address] });
+        let reserve = 0n;
+        for (let pass = 0; pass < 3; pass++) {
+          const nextAmount = bunkerNativeMaxAmount(BigInt(prepared.fee.tokenBalance), BigInt(op.nativeMax.limit), deposit, BigInt(prepared.fee.maximumTokenCost), reserve);
+          reserve = nextAmount.reserve;
+          if (nextAmount.amount <= 0n) throw new Error("Bunker has insufficient native balance");
+          if (BigInt(op.calls[0].value) <= nextAmount.amount && prepared.fee.sufficientBalance) break;
+          if (pass === 2) throw new Error("Review this Bunker operation again");
+          op.calls[0] = { ...op.calls[0], value: nextAmount.amount.toString() as `${bigint}` };
+          built = buildBunkerTransaction(state.plan.address, BigInt(live.nonce), owner, next, op.calls, false, state.chainId);
+          prepared = await prepareFee();
+        }
+      }
+      const { fee, maxFee } = prepared;
       const value = op.calls.reduce((sum, c) => sum + BigInt(c.value), 0n);
       if (await client.getBalance({ address: state.plan.address }) < value) throw new Error("Bunker has insufficient native balance");
       base = { expiresAt: fee.validUntil * 1000, payerId, payerAddress: state.plan.address,
@@ -127,6 +162,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
       ownerIndex: state.ownerIndex, nextIndex: state.nextIndex, nonce: Number(live.nonce), configEpoch: live.configEpoch,
       transaction: built.transaction, safeTxHash: built.safeTxHash, gas, maxFee };
     }
+    if (op.nativeMax && !op.signature && op.transferMeta) op.transferMeta = { ...op.transferMeta, amount: formatUnits(BigInt(op.calls[0].value), 18) };
     op.review = { ...base, digest: keccak256(stringToHex(JSON.stringify({ id, calls: op.calls, routes: op.routes, ...base }))) };
     if (!op.signature) op.state = "reviewed";
     return await withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
@@ -135,6 +171,7 @@ export async function reviewBunkerOperation(accountId: string, id: string, payer
       if (activeReviews.get(reviewKey) !== claim || reviewSnapshot(latest) !== baseline) throw new Error("Bunker review changed");
       const target = latest.operations.find((item) => item.id === id)!;
       latest.nextIndex = state.nextIndex; target.review = op.review; target.scanBlock = op.scanBlock;
+      if (target.nativeMax && !target.signature) { target.calls = op.calls; target.transferMeta = op.transferMeta; }
       if (!target.signature) target.state = op.state;
       routeGate(); current(); await bunkerStep("save", () => writeBunkerState(latest, current)); return target;
     }));

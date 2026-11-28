@@ -461,6 +461,50 @@ release cycle. Test reload and update, repeated migration, copy failure (legacy
 source preserved), subsequent local edits, and reset/onboarding removal of both
 areas. No credential or vault migration is involved.
 
+Bunker swap-history metadata is additive and optional. Verify journals without
+swapMeta still load, new metadata survives authenticated restart/compaction, and
+history repair is idempotent. Older swaps that never retained the pair cannot
+be reconstructed as swaps from arbitrary CALLs or receipt transfers alone.
+
+### Bunker Send/staking parity reload checks
+
+The optional encrypted Bunker `transferMeta` and `nativeMax` journal fields need
+no eager migration. Reload checks should include an old journal without them,
+new native/ERC-20 Send Activity rows, and a native MAX request with self-paid
+ETH, an existing EntryPoint deposit, an EOA payer, and an ERC-20 fee token. Verify
+the exact adjusted amount before confirming. Check Base staking approval/deposit,
+redeem and claim via the Bunker confirmation, plus non-Base blocking. Deployment
+maximum fees should show fiat when the native-price transport succeeds. Browser
+and real-device acceptance remain separate from automated no-device regressions.
+
+### Bunker review restoration acceptance
+
+Reload/lock a pending in-wallet swap and verify the normal swap overview and
+fresh price-impact acknowledgement and no refresh button on a healthy review.
+Use error Retry to refresh an expired route: the old unsigned
+request must be rejected before a new firm quote/review; a request signed in
+another window must stay on status/recovery. Group then separate Send/Swap
+requests and verify metadata/context survive; grouped swaps must require
+separation for review. Delete a remembered EOA payer and verify self fallback,
+including an unsigned stale review. Exercise native MAX with custom calldata
+using self/native, self/ERC-20 and EOA gas payment. Existing journals without the
+new optional context/member fields must still decode; unsigned legacy swaps
+without refresh inputs show recreation guidance.
+
+### Safe Bunker onboarding acceptance
+
+Check Import or connect → Import → Safe Bunker separately from normal Seed
+Phrase import. A valid original phrase should lead to password, automatic
+existing-Bunker discovery, chain selection and normal success/open-wallet.
+Verify no EOA or deployment transaction is created. Test no results, partial RPC
+failures, incorrect phrases, password validation, Retry, cancellation and lock
+before/during discovery. With multiple selected networks, a later failure must
+preserve already imported accounts and offer explicit completion. Close/reload
+before account commit to exercise owned initialization recovery; after commit,
+Bunker-only setup must remain configured with its phrase/binding/journal intact.
+Existing seed/private-key/Bankr/Safe/Ledger/Trezor/view-only onboarding must retain
+its previous behavior; hardware acceptance remains manual.
+
 ### Base default RPC compatibility
 
 Base uses the official `https://mainnet.base.org` public endpoint. Exact saved

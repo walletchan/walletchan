@@ -1,3 +1,5 @@
+import type { BunkerSwapContext } from "./swapContext";
+import type { SwapMeta, TransferMeta } from "../history/types";
 import type { Hex } from "viem";
 import type { SafeCall, SafeTransactionData } from "../safe/types";
 import type { GasOverrides } from "../transactions/localExecution";
@@ -26,6 +28,10 @@ export interface BunkerReview {
 }
 export type BunkerOperationStatus = "queued" | "reviewed" | "signed" | "ambiguous" | "pending" | "confirmed" | "reverted" | "rejected" | "invalidated";
 export interface BunkerOperation {
+  swapMeta?: SwapMeta;
+  swapContext?: BunkerSwapContext;
+  transferMeta?: TransferMeta;
+  nativeMax?: { limit: string };
   id: string; calls: SafeCall[]; routes: BunkerRoute[];
   kind: "transaction" | "recovery"; state: BunkerOperationStatus;
   createdAt: number; review?: BunkerReview; signature?: Hex;
@@ -36,7 +42,7 @@ export interface BunkerOperation {
   published?: boolean;
   resultPublished?: boolean;
   scanBlock?: string;
-  members?: { id: string; calls: SafeCall[]; routes: BunkerRoute[]; createdAt: number }[];
+  members?: Pick<BunkerOperation, "id" | "calls" | "routes" | "createdAt" | "swapMeta" | "transferMeta" | "swapContext">[];
 }
 export interface BunkerState {
   version: 2; chainId: number; chainName: string; seedGroupId: string; id: string; accountId: string; plan: BunkerPlan;
@@ -48,6 +54,10 @@ export interface BunkerState {
 }
 export interface BunkerRotation { oldOwner: string; newOwner: string; oldIndex: number; newIndex: number }
 export interface BunkerOperationSummary {
+  swapContext?: BunkerSwapContext;
+  swapMeta?: SwapMeta;
+  requiresSwapSeparation?: true;
+  nativeMax?: true;
   rotation?: BunkerRotation;
   id: string; calls: SafeCall[]; origins: string[]; kind: BunkerOperation["kind"];
   state: BunkerOperationStatus; createdAt: number; txHash?: Hex; error?: string;
