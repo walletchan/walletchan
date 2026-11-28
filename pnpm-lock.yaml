@@ -8,6 +8,9 @@ patchedDependencies:
   '@trezor/connect-common@10.0.1':
     hash: uchodsl7c2czjyjyiueduypt6u
     path: patches/@trezor__connect-common@10.0.1.patch
+  viem@2.45.1:
+    hash: y4ttxqizqggzrph5asp3lnyg3q
+    path: patches/viem@2.45.1.patch
 
 importers:
 
@@ -200,7 +203,7 @@ importers:
         version: 0.7.5
       viem:
         specifier: ^2.21.0
-        version: 2.45.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+        version: 2.45.1(patch_hash=y4ttxqizqggzrph5asp3lnyg3q)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.12.1
@@ -19365,7 +19368,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  viem@2.45.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76):
+  viem@2.45.1(patch_hash=y4ttxqizqggzrph5asp3lnyg3q)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0

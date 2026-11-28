@@ -10,6 +10,7 @@ import {
   type TransactionSerializable,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { TypedDataEncoder } from "ethers";
 import type { TrezorAccount } from "../../src/chrome/types";
 import {
   buildTrezorTransactionPayload,
@@ -104,6 +105,41 @@ test("Trezor signing normalizes omitted domain schemas and verifies the original
     assert.equal(calls, 2);
     assert.deepEqual(data, original);
   }
+});
+
+test("Trezor namespaced signing uses canonical hashes and rejects the old encoder digest", async (t) => {
+  const originalChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");
+  const originalSign = trezorConnectAdapter.signTrezorTypedData;
+  Object.defineProperty(globalThis, "chrome", {
+    configurable: true, value: { runtime: { sendMessage: async () => undefined } },
+  });
+  t.after(() => {
+    trezorConnectAdapter.signTrezorTypedData = originalSign;
+    if (originalChrome) Object.defineProperty(globalThis, "chrome", originalChrome);
+    else Reflect.deleteProperty(globalThis, "chrome");
+  });
+  const types = {
+    "App:Envelope": [{ name: "children", type: "Child[]" }],
+    Child: [{ name: "value", type: "uint256" }],
+  };
+  const message = { children: [] };
+  const data = { domain: {}, types: { EIP712Domain: [], ...types }, primaryType: "App:Envelope", message };
+  const digest = TypedDataEncoder.hash({}, types, message) as `0x${string}`;
+  trezorConnectAdapter.signTrezorTypedData = async (_device, _path, payload, domainHash, messageHash) => {
+    assert.deepEqual(payload, data);
+    assert.equal(domainHash, TypedDataEncoder.hashDomain({}));
+    assert.equal(messageHash, TypedDataEncoder.hashStruct(data.primaryType, types, message));
+    return { address: signer.address, signature: await signer.sign({ hash: digest }) };
+  };
+  await signTrezorTypedDataForAccount({ opId: "namespaced", account, typedData: data, chainId: 1 });
+  trezorConnectAdapter.signTrezorTypedData = async () => ({
+    address: signer.address,
+    signature: await signer.sign({ hash: "0x4caa97f3843ee77c5afe048949feb7210bd9a48a729fe5e4a2737e322341cdb8" }),
+  });
+  await assert.rejects(
+    signTrezorTypedDataForAccount({ opId: "namespaced-old-digest", account, typedData: data, chainId: 1 }),
+    /different account/,
+  );
 });
 
 function sdkResult(serializedTx: `0x${string}`) {

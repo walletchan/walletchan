@@ -7,9 +7,8 @@
 - `accountDomainPolicy.ts` rejects external account-domain signatures using
   caller-supplied protected addresses; it performs no storage or RPC reads.
 - `schemaValidation.ts` owns prototype-safe identifiers, type references,
-  circular references, schema depth, iterative object depth checks, and the
-  generic signing-encoder compatibility gate. Namespaced roots may have primitive
-  fields, but struct references involving them and prefix aliases are rejected.
+  circular references, schema depth, and iterative object depth checks.
+  Namespaced structs use the ordinary validation rules, including nested references.
 - `sanitization.ts` projects domain/message values onto declared schema fields
   before display and signing.
 - `types.ts` owns the shared validation result contract.
@@ -19,3 +18,7 @@
 All modules are pure and must remain independent from Chrome, sessions,
 accounts, credentials, signing, transport, and storage. The root
 `eip712Validator.ts` file is only a stable policy-free re-export facade.
+
+The viem dependency patch in `patches/viem@2.45.1.patch` preserves exact names
+and resolves only own type definitions when collecting hashing dependencies.
+The validator does not duplicate or compensate for encoder behavior.

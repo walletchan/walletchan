@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
 import { TypedDataEncoder } from "ethers";
-import { hashTypedData } from "viem";
+import { hashDomain, hashTypedData } from "viem";
+import { encodeType } from "../../src/lib/clearSigning/matchDescriptor";
 import {
   INTERNAL_ACCOUNT_TYPED_DATA_ERROR,
   RAW_ERC7710_DELEGATION_SIGNATURE_ERROR,
@@ -15,6 +17,7 @@ function payload(primaryType: string, types: Record<string, Fields>, message: ob
 
 function canonicalHash(data: ReturnType<typeof payload>) {
   const types = Object.fromEntries(Object.entries(data.types).filter(([name]) => name !== "EIP712Domain"));
+  assert.equal(encodeType(data.primaryType, types), TypedDataEncoder.from(types).encodeType(data.primaryType));
   return TypedDataEncoder.hash(data.domain, types, data.message);
 }
 
@@ -39,29 +42,31 @@ test("distinct child schemas with empty arrays cannot exploit omitted signing de
       const viemHash = hashTypedData(data as never);
       const ethersHash = canonicalHash(data);
       hashes.push({ viemHash, ethersHash });
-      if (primaryType.includes(":")) {
-        // The actual installed encoder omits Child from the root type hash.
-        assert.notEqual(viemHash, ethersHash);
-        rejects(data, /namespaced struct reference/);
-      } else {
-        const result = validateEIP712TypedData("eth_signTypedData_v4", data);
-        assert.equal(result.valid, true, result.error);
-        assert.equal(viemHash, ethersHash);
-      }
+      const result = validateEIP712TypedData("eth_signTypedData_v4", data);
+      assert.equal(result.valid, true, result.error);
+      assert.equal(viemHash, ethersHash);
     }
     assert.notEqual(hashes[0].ethersHash, hashes[1].ethersHash);
-    assert.equal(hashes[0].viemHash === hashes[1].viemHash, primaryType.includes(":"));
+    assert.notEqual(hashes[0].viemHash, hashes[1].viemHash);
   }
 });
 
-test("references into and out of namespaced structs reject, including domain and arrays", () => {
-  for (const [root, child] of [["App:Root", "Child"], ["Root", "App:Child"], ["App:Root", "App:Child"], ["EIP712Domain", "App:Child"]]) {
+test("nested namespaced structs and their arrays retain canonical digests", () => {
+  for (const [root, child] of [["App:Root", "Child"], ["Root", "App:Child"], ["App:Root", "App:Child"]]) {
     for (const suffix of ["", "[]"]) {
+      const value = { value: 7 };
       const data = payload(root, {
         [root]: [{ name: "child", type: `${child}${suffix}` }],
         [child]: [{ name: "value", type: "uint256" }],
-      });
-      rejects(data, /namespaced struct reference/);
+      }, { child: suffix ? [value] : value });
+      for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"]) {
+        for (const input of [data, JSON.stringify(data)]) {
+          const result = validateEIP712TypedData(method, input);
+          assert.equal(result.valid, true, result.error);
+          assert.deepEqual(JSON.parse(result.sanitized!), data);
+          assert.equal(hashTypedData(JSON.parse(result.sanitized!)), canonicalHash(data));
+        }
+      }
     }
   }
 });
@@ -70,27 +75,43 @@ test("declared-prefix aliases cannot inject unrelated signing dependencies", () 
   const base = payload("App:Root", { "App:Root": [{ name: "value", type: "uint256" }] }, { value: 1 });
   for (const fields of [[], [{ name: "unrelated", type: "uint256" }]]) {
     const data = { ...base, types: { ...base.types, App: fields } };
-    assert.notEqual(hashTypedData(data as never), hashTypedData(base as never));
-    rejects(data, /ambiguous signing prefix/);
+    assert.equal(hashTypedData(data as never), hashTypedData(base as never));
+    assert.equal(hashTypedData(data as never), canonicalHash(base));
+    assert.equal(validateEIP712TypedData("eth_signTypedData_v4", data).valid, true);
   }
 });
 
-test("declared types named like primitives cannot disguise a namespaced struct reference", () => {
-  for (const type of ["uint256", "string", "address", "bytes32"]) {
-    rejects(payload("App:Root", {
-      "App:Root": [{ name: "children", type: `${type}[]` }],
-      [type]: [{ name: "value", type: "bool" }],
-    }, { children: [] }), /namespaced struct reference/);
+test("namespaced domain dependencies use the full schema", () => {
+  for (const suffix of ["", "[]"]) {
+    const types = {
+      EIP712Domain: [{ name: "context", type: `App:Context${suffix}` }],
+      "App:Context": [{ name: "value", type: "uint256" }],
+    };
+    const context = { value: 3 };
+    const domain = { context: suffix ? [context] : context };
+    assert.equal(hashDomain({ domain, types } as never), TypedDataEncoder.hashStruct("EIP712Domain", types, domain));
   }
 });
 
-test("inherited-prefix lookups reject even with a null-prototype types object", () => {
+test("CommonJS and ESM encoders both retain nested namespaced dependencies", () => {
+  const cjs = createRequire(import.meta.url)("viem") as typeof import("viem");
+  const data = payload("App:Root", {
+    "App:Root": [{ name: "child", type: "App:Child[]" }],
+    "App:Child": [{ name: "value", type: "uint256" }],
+  }, { child: [] });
+  assert.equal(hashTypedData(data as never), canonicalHash(data));
+  assert.equal(cjs.hashTypedData(data as never), canonicalHash(data));
+});
+
+test("inherited prefixes are never used as type dependencies", () => {
   for (const prefix of Object.getOwnPropertyNames(Object.prototype)) {
     for (const name of [`${prefix}:Root`, `${prefix}:More:Root`]) {
       const data = payload(name, { [name]: [{ name: "value", type: "uint256" }] }, { value: 1 });
-      rejects(data, /ambiguous signing prefix/);
-      data.types = Object.assign(Object.create(null), data.types);
-      rejects(data, /ambiguous signing prefix/);
+      for (const types of [data.types, Object.assign(Object.create(null), data.types)]) {
+        const result = validateEIP712TypedData("eth_signTypedData_v4", { ...data, types });
+        assert.equal(result.valid, true, result.error);
+        assert.equal(hashTypedData(JSON.parse(result.sanitized!)), canonicalHash(data));
+      }
     }
   }
 });

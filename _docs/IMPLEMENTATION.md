@@ -3812,30 +3812,29 @@ split under `signatures/eip712/` across `validator.ts` (bounded orchestration),
 graph/type checks), and `sanitization.ts` (schema-only projection). Request
 intake owns only the integration and durable rejection result.
 
-Struct type names accept colon-separated identifier segments without dapp or
-origin exceptions. The last schema check, `validateEip712SigningCompatibility`,
-requires a declared own primary type and rejects namespaced struct references
-(both incoming and outgoing, including arrays/domain fields) and namespace
-prefixes that resolve to another declared type or an Object.prototype property.
-Current signing encoders scan dependency names with `/^\w*/`, so these shapes
-can otherwise omit dependencies, incorporate unrelated prefix definitions, or
-throw on inherited properties. No signing names or hashes are rewritten.
+Struct type names accept colon-separated identifier segments, including nested
+struct references and their arrays, without dapp or origin exceptions. The
+ordinary schema checks require a declared own primary type. Identifier restrictions,
+own type references, graph/depth bounds, delegation and account-domain checks
+apply equally to ordinary and namespaced requests. No compatibility denylist,
+secondary hashing implementation or signing-payload rewriting is used.
 
-Flat namespaced schemas with primitive fields (including primitive arrays)
-remain supported generically. Ordinary non-namespaced nested schemas retain
-their existing support. Identifier restrictions, type references, graph/depth
-bounds, delegation and account-domain checks remain separate. The compatibility
-gate is shared by injected/WalletConnect intake and confirmation/release for
-old pending records. Removing it requires encoder agreement on these regression
-cases across signing transports; accepting arbitrary names or adding a second
-hashing implementation here is not a substitute.
+`patches/viem@2.45.1.patch` fixes dependency resolution in the pinned extension
+encoder: strip only array suffixes, preserve full struct names and resolve own
+schema properties. It backports upstream's parser correction in TypeScript,
+ESM and CommonJS, with own-property hardening. Local signing, displayed viem
+digests, Trezor hashes and hardware/remote signature recovery all consume the
+same corrected encoder. Ledger's SDK uses canonical full-name schema encoding.
+Remote/hardware responses still must recover to the pinned account against the
+correct digest; an incompatible signer fails closed. See `patches/README.md`.
 
 The SDK-shaped Hyperliquid fixture verifies V3/V4 object/JSON requests and unchanged
 viem/ethers digests; all five signer types are covered through confirmation/release
 with mocked signer I/O and both master and agent factors. Generic regressions
-reproduce two distinct child schemas hashing identically with empty arrays in
-the installed encoder and reject both before review. Live site and hardware
-acceptance require separate QA.
+require different child schemas to hash differently even with empty arrays, and
+agree with ethers plus the clear-signing type encoding. Prefix aliases cannot
+change the digest; a remote signature over the previous incorrect digest is
+rejected. Live site and hardware acceptance require separate QA.
 
 **Files**: `eip712Validator.ts` (stable facade),
 `signatures/eip712/` (validation policy),

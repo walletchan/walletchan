@@ -1,0 +1,48 @@
+diff --git a/_cjs/utils/signature/hashTypedData.js b/_cjs/utils/signature/hashTypedData.js
+index c3365737403919fd63dd79e3d4255310c6204bc6..cc549f89aa4f9336570eec3d27012a590ef09984 100644
+--- a/_cjs/utils/signature/hashTypedData.js
++++ b/_cjs/utils/signature/hashTypedData.js
+@@ -82,9 +82,8 @@ function encodeType({ primaryType, types, }) {
+     return result;
+ }
+ function findTypeDependencies({ primaryType: primaryType_, types, }, results = new Set()) {
+-    const match = primaryType_.match(/^\w*/u);
+-    const primaryType = match?.[0];
+-    if (results.has(primaryType) || types[primaryType] === undefined) {
++    const primaryType = primaryType_.replace(/(\[[0-9]*\])+$/, '');
++    if (results.has(primaryType) || !Object.prototype.hasOwnProperty.call(types, primaryType)) {
+         return results;
+     }
+     results.add(primaryType);
+diff --git a/_esm/utils/signature/hashTypedData.js b/_esm/utils/signature/hashTypedData.js
+index de45b507b84209151065cb67e5e8ff46e97db797..28567a861c136947bb2d07a34faee333a15212aa 100644
+--- a/_esm/utils/signature/hashTypedData.js
++++ b/_esm/utils/signature/hashTypedData.js
+@@ -79,9 +79,8 @@ export function encodeType({ primaryType, types, }) {
+     return result;
+ }
+ function findTypeDependencies({ primaryType: primaryType_, types, }, results = new Set()) {
+-    const match = primaryType_.match(/^\w*/u);
+-    const primaryType = match?.[0];
+-    if (results.has(primaryType) || types[primaryType] === undefined) {
++    const primaryType = primaryType_.replace(/(\[[0-9]*\])+$/, '');
++    if (results.has(primaryType) || !Object.prototype.hasOwnProperty.call(types, primaryType)) {
+         return results;
+     }
+     results.add(primaryType);
+diff --git a/utils/signature/hashTypedData.ts b/utils/signature/hashTypedData.ts
+index 52a8a8d94d2292f7fed5016be89176f7df0dd52b..393ec4c9b38b94107f23946c8c44870efd5531c3 100644
+--- a/utils/signature/hashTypedData.ts
++++ b/utils/signature/hashTypedData.ts
+@@ -209,9 +209,8 @@ function findTypeDependencies(
+   },
+   results: Set<string> = new Set(),
+ ): Set<string> {
+-  const match = primaryType_.match(/^\w*/u)
+-  const primaryType = match?.[0]!
+-  if (results.has(primaryType) || types[primaryType] === undefined) {
++  const primaryType = primaryType_.replace(/(\[[0-9]*\])+$/, '')
++  if (results.has(primaryType) || !Object.prototype.hasOwnProperty.call(types, primaryType)) {
+     return results
+   }
+ 

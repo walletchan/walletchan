@@ -1381,16 +1381,17 @@ are excluded. Oversized strings are not parsed again for diagnostics. Raw
 ERC-7710 rejection retains its exact guidance.
 
 Struct names allow colon-separated identifier segments generically, without
-dapp/origin exceptions or name rewriting. The signing compatibility gate requires
-an own primary-type definition, rejects struct references into/out of namespaced
-types (including arrays and domain fields), and rejects prefixes that collide
-with declared types or Object.prototype properties. Flat namespaced schemas
-with primitive fields remain supported. Current encoder dependency scanning
-uses `/^\w*/`, which can otherwise omit nested dependencies and give distinct
-child schemas the same digest when their arrays are empty. Prefix aliases can
-also incorporate unrelated schema definitions or throw on inherited properties.
-The gate applies before review and again through the existing confirmation/release
-policy, including previously persisted requests, for every direct signer type.
+dapp/origin exceptions or name rewriting, including nested references and arrays.
+The primary type must have an own schema definition. The pinned viem dependency
+patch strips only array suffixes during dependency lookup and resolves own schema
+properties. This prevents truncated names from omitting child definitions,
+incorporating unrelated prefix types, or traversing inherited properties. It
+patches TypeScript, ESM and CommonJS together. Signature display/hashing, local
+signing and hardware/remote recovery use this corrected dependency. Regression
+tests require distinct child schemas to hash differently even with empty arrays,
+and agree with ethers and clear-signing type encoding. Remote/hardware signatures
+over an incompatible digest cannot pass pinned-account recovery. No namespaced
+compatibility restriction or duplicate hashing implementation is added to validation.
 Field-name restrictions, own-property resolution, graph/depth bounds, raw
 delegation rejection and external account-domain protection remain enforced.
 

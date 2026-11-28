@@ -9,7 +9,6 @@ import {
   validateEip712NestingDepth,
   validateEip712ObjectDepth,
   validateEip712TypeDefinitions,
-  validateEip712SigningCompatibility,
 } from "./schemaValidation";
 import { sanitizeEip712TypedData } from "./sanitization";
 import type { EIP712ValidationResult } from "./types";
@@ -91,6 +90,9 @@ export function validateEIP712TypedData(
   // Graph traversal and delegation inspection assume well-formed field objects.
   const typeDefinitions = validateEip712TypeDefinitions(data.types);
   if (!typeDefinitions.valid) return typeDefinitions;
+  if (!Object.prototype.hasOwnProperty.call(data.types, data.primaryType)) {
+    return { valid: false, error: "Missing type definition for 'primaryType'" };
+  }
   if (isRawErc7710DelegationSignatureRequest(method, data)) {
     return { valid: false, error: RAW_ERC7710_DELEGATION_SIGNATURE_ERROR };
   }
@@ -102,7 +104,6 @@ export function validateEIP712TypedData(
     () => validateEip712ObjectDepth(data, MAX_NESTING_DEPTH),
     () => detectEip712CircularReferences(data.types),
     () => validateEip712NestingDepth(data.types, MAX_NESTING_DEPTH),
-    () => validateEip712SigningCompatibility(data.types, data.primaryType),
   ]) {
     const result = validate();
     if (!result.valid) return result;
