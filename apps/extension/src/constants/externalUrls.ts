@@ -229,7 +229,7 @@ export const BUILT_IN_CHAIN_URLS = {
   130: { rpc: "https://mainnet.unichain.org", explorer: "https://uniscan.xyz" },
   480: { rpc: "https://worldchain-mainnet.g.alchemy.com/public", explorer: "https://worldscan.org" },
   324: { rpc: "https://mainnet.era.zksync.io", explorer: "https://explorer.zksync.io" },
-  11155111: { rpc: "https://sepolia.drpc.org", explorer: SEPOLIA_ETHERSCAN_URL },
+  11155111: { rpc: SEPOLIA_FALLBACK_RPC_URL, explorer: SEPOLIA_ETHERSCAN_URL },
   560048: { rpc: "https://rpc.hoodi.ethpandaops.io", explorer: "https://hoodi.etherscan.io" },
   11124: { rpc: "https://api.testnet.abs.xyz", explorer: "https://sepolia.abscan.org" },
   421614: { rpc: "https://arbitrum-sepolia.drpc.org", explorer: "https://sepolia.arbiscan.io" },
