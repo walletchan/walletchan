@@ -7,7 +7,9 @@
 - `accountDomainPolicy.ts` rejects external account-domain signatures using
   caller-supplied protected addresses; it performs no storage or RPC reads.
 - `schemaValidation.ts` owns prototype-safe identifiers, type references,
-  circular references, schema depth, and iterative object depth checks.
+  circular references, schema depth, iterative object depth checks, and the
+  generic signing-encoder compatibility gate. Namespaced roots may have primitive
+  fields, but struct references involving them and prefix aliases are rejected.
 - `sanitization.ts` projects domain/message values onto declared schema fields
   before display and signing.
 - `types.ts` owns the shared validation result contract.

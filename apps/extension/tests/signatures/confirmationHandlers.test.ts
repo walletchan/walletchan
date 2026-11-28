@@ -341,6 +341,35 @@ test("confirmation preserves all wallet authorities and final release races", as
       }
     });
 
+    await t.test("persisted incompatible schemas fail before signing through all five handlers", async () => {
+      for (const primaryType of ["App:Envelope", "constructor:Envelope"]) {
+        const data = {
+          domain: {}, primaryType, message: { children: [] },
+          types: {
+            EIP712Domain: [],
+            [primaryType]: [{ name: "children", type: "Child[]" }],
+            Child: [{ name: "value", type: "uint256" }],
+          },
+        };
+        for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
+          for (const method of ["eth_signTypedData_v3", "eth_signTypedData_v4"] as const) {
+            reset();
+            await queue(type, "incompatible", { signature: { method, params: [address, JSON.stringify(data)], chainId: 1 } });
+            hooks.local = async () => { assert.fail("local signer must not run"); };
+            hooks.bankr = async () => { assert.fail("remote signer must not run"); };
+            const result = type === "ledger" || type === "trezor"
+              ? await ledgerHandlers[type === "trezor" ? "handleConfirmTrezorSignatureRequest" : "handleConfirmLedgerSignatureRequest"]("incompatible", "agent-password", undefined, true)
+              : type === "bankr"
+                ? await handlers.handleConfirmSignatureRequestBankr("incompatible", "agent-password", true)
+                : await handlers.handleConfirmSignatureRequest("incompatible", "agent-password", undefined, true);
+            assert.equal(result.success, false, JSON.stringify(result));
+            assert.match(result.error, /namespaced struct reference|ambiguous signing prefix/);
+            assert.equal(await pendingStorage.getPendingSignatureRequestById("incompatible"), null);
+          }
+        }
+      }
+    });
+
     await t.test("old pending deprecated methods cannot bypass the external signature policy", async () => {
       for (const type of ["privateKey", "seedPhrase", "ledger", "trezor", "bankr"] as const) {
         for (const method of ["eth_signTypedData", "eth_sign"] as const) {

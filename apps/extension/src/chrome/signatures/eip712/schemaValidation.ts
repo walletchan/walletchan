@@ -92,7 +92,7 @@ export function validateEip712TypeDefinitions(
   types: Record<string, any>,
 ): EIP712ValidationResult {
   const validIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
-  // Deployed typed-data protocols use namespaced struct names (e.g. Hyperliquid).
+  // Deployed typed-data protocols also use namespaced struct names.
   // Preserve the exact name for hashing; field identifiers remain unchanged.
   const validTypeName = /^[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)*$/;
   for (const [typeName, fields] of Object.entries(types)) {
@@ -139,6 +139,46 @@ export function validateEip712TypeDefinitions(
         return {
           valid: false,
           error: `Type '${typeName}' field '${field.name}' has undefined type '${baseType}'`,
+        };
+      }
+    }
+  }
+  return { valid: true };
+}
+
+/** Fail before review when signing encoders cannot resolve the same schema. */
+export function validateEip712SigningCompatibility(
+  types: Record<string, { name: string; type: string }[]>,
+  primaryType: string,
+): EIP712ValidationResult {
+  if (!Object.prototype.hasOwnProperty.call(types, primaryType)) {
+    return { valid: false, error: "Missing type definition for 'primaryType'" };
+  }
+  // Current signing encoders scan dependencies with /^\w*/, truncating names
+  // at ':'. Flat namespaced roots still hash correctly, provided that prefix
+  // cannot resolve to a different declared type or an inherited property.
+  for (const [typeName, fields] of Object.entries(types)) {
+    if (typeName.includes(":")) {
+      const prefix = typeName.split(":", 1)[0];
+      if (
+        Object.prototype.hasOwnProperty.call(types, prefix) ||
+        prefix in Object.prototype
+      ) {
+        return {
+          valid: false,
+          error: `Type '${typeName}' has an ambiguous signing prefix`,
+        };
+      }
+    }
+    for (const field of fields) {
+      const baseType = field.type.replace(/\[\]$/, "");
+      if (
+        Object.prototype.hasOwnProperty.call(types, baseType) &&
+        (typeName.includes(":") || baseType.includes(":"))
+      ) {
+        return {
+          valid: false,
+          error: `Type '${typeName}' field '${field.name}' uses a namespaced struct reference unsupported by signing encoders`,
         };
       }
     }

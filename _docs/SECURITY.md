@@ -1380,9 +1380,18 @@ Message values, arbitrary extra payload fields, wallet state and credentials
 are excluded. Oversized strings are not parsed again for diagnostics. Raw
 ERC-7710 rejection retains its exact guidance.
 
-Struct names allow colon-separated identifier segments for deployed schemas
-such as Hyperliquid's. They are never rewritten before hashing. Field-name
-restrictions, own-property reference resolution, graph/depth bounds, raw
+Struct names allow colon-separated identifier segments generically, without
+dapp/origin exceptions or name rewriting. The signing compatibility gate requires
+an own primary-type definition, rejects struct references into/out of namespaced
+types (including arrays and domain fields), and rejects prefixes that collide
+with declared types or Object.prototype properties. Flat namespaced schemas
+with primitive fields remain supported. Current encoder dependency scanning
+uses `/^\w*/`, which can otherwise omit nested dependencies and give distinct
+child schemas the same digest when their arrays are empty. Prefix aliases can
+also incorporate unrelated schema definitions or throw on inherited properties.
+The gate applies before review and again through the existing confirmation/release
+policy, including previously persisted requests, for every direct signer type.
+Field-name restrictions, own-property resolution, graph/depth bounds, raw
 delegation rejection and external account-domain protection remain enforced.
 
 ---

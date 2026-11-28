@@ -9,6 +9,7 @@ import {
   validateEip712NestingDepth,
   validateEip712ObjectDepth,
   validateEip712TypeDefinitions,
+  validateEip712SigningCompatibility,
 } from "./schemaValidation";
 import { sanitizeEip712TypedData } from "./sanitization";
 import type { EIP712ValidationResult } from "./types";
@@ -101,6 +102,7 @@ export function validateEIP712TypedData(
     () => validateEip712ObjectDepth(data, MAX_NESTING_DEPTH),
     () => detectEip712CircularReferences(data.types),
     () => validateEip712NestingDepth(data.types, MAX_NESTING_DEPTH),
+    () => validateEip712SigningCompatibility(data.types, data.primaryType),
   ]) {
     const result = validate();
     if (!result.valid) return result;

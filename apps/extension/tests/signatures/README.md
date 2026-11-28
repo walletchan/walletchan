@@ -6,6 +6,13 @@ implementation mirrors `chrome/signatures/eip712/`; architecture coverage
 freezes ownership/export identity while policy coverage freezes raw-delegation
 and method-routing behavior.
 
+`eip712SigningCompatibility.test.ts` reproduces the installed encoder's empty-array
+schema ambiguity and checks generic rejection of namespaced struct references,
+declared/inherited prefix aliases, and undeclared primary types. Flat namespaced
+schemas retain matching viem/ethers digests, including the deployed-schema fixture
+in `hyperliquid.test.ts`. Confirmation regressions cover unsafe persisted requests
+through all five signing account types before credentials or signer I/O.
+
 `accountDomainPolicy.test.ts` exercises MetaMask execution-signature phishing,
 case-insensitive V3/V4 account-domain rejection, and internal UserOperation
 compatibility. `confirmationHandlers.test.ts` uses the real confirmation policy
