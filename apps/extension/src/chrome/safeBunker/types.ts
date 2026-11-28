@@ -45,6 +45,7 @@ export interface BunkerOperation {
   members?: Pick<BunkerOperation, "id" | "calls" | "routes" | "createdAt" | "swapMeta" | "transferMeta" | "swapContext">[];
 }
 export interface BunkerState {
+  reconcileAfter?: string;
   version: 2; chainId: number; chainName: string; seedGroupId: string; id: string; accountId: string; plan: BunkerPlan;
   activated: boolean; archived: boolean; ownerIndex: number; nextIndex: number;
   exposureUnknown: boolean; usedOwners: Hex[];

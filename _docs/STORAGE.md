@@ -514,6 +514,26 @@ cleanup changes no stored shape and requires no migration.
 | safeBunkerRevertWarningsV1 | Optional array of at most 100 Bunker account IDs with a confirmed revert under their current owner; notification hints only. | safeBunker/revertWarning.ts, stateRepository.ts |
 | safeBunkerPendingV1 | Array of `{ id, accountId, createdAt }`, merged with inbox by request ID; notification hints only. | safeBunker/pendingRequests.ts |
 
+The V2 encrypted state additionally accepts optional `reconcileAfter`, a bounded
+operation ID used only for fair five-operation reconciliation scheduling. Missing
+means start with submitted operations; removed cursor IDs restart the scan.
+It is checkpointed before each RPC attempt, omitted from public views and review
+snapshot comparisons, and never grants authority. Old V2 journals load without
+rewriting; there is no new key or eager migration.
+
+Unsigned `safeBunkerInboxV1` entries additionally accept optional
+`rejection: "user" | "invalid"`. Only the worker writes it, under the existing
+Bunker/secret-operation/inbox locks, before result delivery. Failed delivery leaves
+the marker for authenticated retry and cannot recreate an approval; connection
+revocation preserves it. Successful publication removes the entry. Public pending
+hints omit marked entries, and handoff rechecks current unmarked membership.
+The reader retains the former 128 KiB CALL envelope bound to drain older accepted
+entries. New writes and encrypted journals share the stricter canonical aggregate
+250,000-hex-character limit, including each `0x` prefix. Permanent CALL validation
+failures are terminalized; capacity, network and auth failures are retained.
+No existing key is renamed or deleted. Rollback must retain readers for these
+additive fields; older strict alpha readers cannot interpret newly written data.
+
 The strict binding header contains id `bunker-source:<chainId>:<lowercaseFirstOwner>`,
 seedGroupId, name, chainId, derivationVersion: 2, firstOwner and createdAt.
 Missing binding/journal stores mean empty; malformed/future versions fail closed

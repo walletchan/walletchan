@@ -70,6 +70,13 @@ requires a recovery rotation. Normal live reads remain fail-closed.
 headroom. It retains live signatures, unpublished results, current-owner expiry
 evidence, the latest receipt and revert warning. Storage shapes are unchanged.
 
+`reconciliationPage` owns fair, bounded receipt scheduling. Its optional encrypted
+cursor is checkpointed before each RPC attempt and excluded from review/view
+authority. `callValidation` owns the common unsigned/journal CALL limits. Inbox
+rejections are marked durably before normal result publication, retried during
+authenticated cancellation/draining, and excluded from pending hints. Handoff
+checks live membership under the same Bunker lock as rejection and signing.
+
 `swapMetadata.ts` validates optional display-only pair/logo snapshots on internal
 swap intake and journal decode. `history.ts` projects them into normal Activity
 swapMeta and idempotently repairs public rows without altering signed intent.

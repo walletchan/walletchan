@@ -2,7 +2,7 @@ import { decodeBunkerSwapContext } from "./swapContext";
 import { decodeBunkerTransferMetadata, assertBunkerNativeMax } from "./transferMetadata";
 import { decodeBunkerSwapMetadata } from "./swapMetadata";
 import { assertBunkerChainId } from "./chainIdentity";
-import { isAddress } from "viem";
+import { assertBunkerCalls } from "./callValidation";
 import { exactRecord, assertBunkerDraftId } from "./record";
 import type { BunkerState } from "./types";
 
@@ -27,7 +27,8 @@ function optionalKeys(value: unknown, required: string[], optional: string[]) {
   return value as Record<string, any>;
 }
 export function decodeBunkerState(value: unknown): BunkerState {
-  const s = optionalKeys(value, ["version", "chainId", "chainName", "seedGroupId", "id", "accountId", "plan", "activated", "archived", "ownerIndex", "nextIndex", "exposureUnknown", "usedOwners", "defaultPayer", "operations", "recovery"], []);
+  const s = optionalKeys(value, ["version", "chainId", "chainName", "seedGroupId", "id", "accountId", "plan", "activated", "archived", "ownerIndex", "nextIndex", "exposureUnknown", "usedOwners", "defaultPayer", "operations", "recovery"], ["reconcileAfter"]);
+  if (s.reconcileAfter !== undefined) boundedString(s.reconcileAfter);
   if (s.version !== 2 || typeof s.activated !== "boolean" || typeof s.archived !== "boolean" || typeof s.exposureUnknown !== "boolean") throw new Error("Unsupported Bunker state");
   assertBunkerChainId(s.chainId); boundedString(s.seedGroupId, 128); boundedString(s.chainName, 128);
   assertBunkerDraftId(s.id); boundedString(s.accountId); index(s.ownerIndex); index(s.nextIndex);
@@ -53,13 +54,10 @@ export function decodeBunkerState(value: unknown): BunkerState {
     }
     boundedString(o.id); if (ids.has(o.id)) throw new Error("Duplicate Bunker operation"); ids.add(o.id);
     if (!["transaction", "recovery"].includes(o.kind) || !statuses.has(o.state) || !Number.isSafeInteger(o.createdAt) || o.createdAt < 0) throw new Error("Invalid Bunker operation");
-    if (!Array.isArray(o.calls) || o.calls.length > 99 || (!o.calls.length && o.kind === "transaction")) throw new Error("Invalid Bunker calls");
+    assertBunkerCalls(o.calls, o.kind === "recovery");
     if (o.transferMeta !== undefined) decodeBunkerTransferMetadata(o.transferMeta, o.calls);
     if (o.nativeMax !== undefined) assertBunkerNativeMax(o.nativeMax, o.calls);
     if ((o.transferMeta || o.nativeMax) && (o.kind !== "transaction" || o.swapMeta || !Array.isArray(o.routes) || o.routes.some((route: any) => route.kind !== "wallet"))) throw new Error("Invalid Bunker transfer provenance");
-    let length = 0;
-    for (const c of o.calls) { exactRecord(c, ["to", "value", "data", "operation"]); if (!isAddress(c.to) || c.operation !== 0) throw new Error("Invalid Bunker call"); uint(c.value); hex(c.data); length += c.data.length; }
-    if (length > 250000) throw new Error("Bunker calldata limit");
     if (!Array.isArray(o.routes) || !o.routes.length || o.routes.length > 99) throw new Error("Invalid Bunker routes");
     for (const r of o.routes) {
       optionalKeys(r, ["kind", "origin", "requestId"], ["tabId", "frameId", "topic", "remoteId"]);

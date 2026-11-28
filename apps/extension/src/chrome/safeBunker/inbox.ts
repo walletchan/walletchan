@@ -7,16 +7,20 @@ import { boundedString } from "./stateCodec";
 import { encodeMultiSendTransactions } from "../safe/multiSend";
 import type { SafeCall } from "../safe/types";
 import type { BunkerRoute } from "./types";
+import type { BunkerState } from "./types";
+import type { BunkerAccess } from "./access";
+import { assertBunkerCalls } from "./callValidation";
 
 const KEY = "safeBunkerInboxV1";
-export interface BunkerInboxEntry { id: string; accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[] }
+export interface BunkerInboxEntry { id: string; accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[]; rejection?: "user" | "invalid" }
 export async function readBunkerInbox(): Promise<BunkerInboxEntry[]> {
   const value = (await chrome.storage.local.get(KEY))[KEY];
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 100) throw new Error("Invalid Bunker pending inbox");
   const ids = new Set();
   for (const r of value) {
-    if (!r || Object.keys(r).some((k) => !["id", "accountId", "chainId", "calls", "routes"].includes(k))) throw new Error("Invalid Bunker inbox entry");
+    if (!r || Object.keys(r).some((k) => !["id", "accountId", "chainId", "calls", "routes", "rejection"].includes(k)) ||
+      r.rejection !== undefined && !["user", "invalid"].includes(r.rejection)) throw new Error("Invalid Bunker inbox entry");
     boundedString(r.id); boundedString(r.accountId);
     if (ids.has(r.id) || !Array.isArray(r.calls) || r.calls.length > 99 || !Array.isArray(r.routes) || r.routes.length !== 1) throw new Error("Invalid Bunker inbox identity");
     assertBunkerChainId(r.chainId); ids.add(r.id); encodeMultiSendTransactions(r.calls);
@@ -30,6 +34,8 @@ export async function readBunkerInbox(): Promise<BunkerInboxEntry[]> {
 }
 export function enqueueBunkerRequest(input: BunkerInboxEntry) { return runBunkerEffect(() => enqueue(input)); }
 async function enqueue(input: BunkerInboxEntry) {
+  assertBunkerCalls(input.calls);
+  if (input.rejection !== undefined) throw new Error("Invalid Bunker inbox entry");
   const account = await getAccountById(input.accountId);
   if (account?.type !== "safeBunker" || account.chainId !== input.chainId) throw new Error("Bunker chain/account mismatch");
   return withStorageLock(`local:${KEY}`, async () => {
@@ -46,6 +52,24 @@ async function enqueue(input: BunkerInboxEntry) {
     notifyBunkerPendingChanged();
     chrome.runtime.sendMessage({ type: "newSafeBunkerRequest", accountId: account.id, requestId: input.id }).catch(() => {});
     return { id: input.id };
+  });
+}
+
+/** Caller holds the account's Bunker and secret-operation locks. Mark before
+ * delivery so storage/transport failure or lock cannot resurrect a rejection. */
+export async function rejectBunkerInboxEntry(state: BunkerState, id: string, current: BunkerAccess, invalid = false): Promise<boolean> {
+  return withStorageLock(`local:${KEY}`, async () => {
+    const entries = await readBunkerInbox();
+    const entry = entries.find(e => e.id === id && e.accountId === state.accountId && e.chainId === state.chainId);
+    if (!entry) return false;
+    current(); entry.rejection ??= invalid ? "invalid" : "user";
+    await chrome.storage.local.set({ [KEY]: entries }); notifyBunkerPendingChanged();
+    current();
+    const { publishBunkerRoutes } = await import("./publication");
+    await publishBunkerRoutes(state, { ...entry, kind: "transaction", state: entry.rejection === "invalid" ? "invalidated" : "rejected",
+      error: "Invalid Bunker calls", createdAt: Date.now() }, "rejected");
+    current(); await chrome.storage.local.set({ [KEY]: entries.filter(e => e.id !== id) });
+    notifyBunkerPendingChanged(); return true;
   });
 }
 export async function acknowledgeBunkerInbox(id: string) {
@@ -65,9 +89,10 @@ export async function cancelBunkerInboxRequests(scope: { origin?: string; topic?
       if (!scope.origin || route.topic || route.kind === "wallet" || typeof route.tabId !== "number") return false;
       try { return new URL(route.origin).origin === scope.origin; } catch { return false; }
     });
-    const cancelled = entries.filter(matches);
+    const cancelled = entries.filter(entry => !entry.rejection && matches(entry));
     if (!cancelled.length) return;
-    await chrome.storage.local.set({ [KEY]: entries.filter((entry) => !matches(entry)) });
+    const ids = new Set(cancelled.map(entry => entry.id));
+    await chrome.storage.local.set({ [KEY]: entries.filter(entry => !ids.has(entry.id)) });
     notifyBunkerPendingChanged();
     for (const entry of cancelled) for (const route of entry.routes) {
       await writeResultToStorage(`${route.kind === "batch" ? "batchTxAck" : "txResult"}:${route.requestId}`, {

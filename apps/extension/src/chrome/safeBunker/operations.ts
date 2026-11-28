@@ -28,6 +28,8 @@ import type { SafeCall } from "../safe/types";
 import type { GasOverrides } from "../transactions/localExecution";
 import type { BunkerOperation, BunkerRoute } from "./types";
 import { compactBunkerJournal } from "./journalCapacity";
+import { assertBunkerCalls } from "./callValidation";
+import { readBunkerInbox, rejectBunkerInboxEntry } from "./inbox";
 
 export const outstanding = (o: BunkerOperation) => !!o.signature && !["confirmed", "reverted", "invalidated"].includes(o.state);
 export async function stateForAccount(accountId: string) {
@@ -37,7 +39,8 @@ export async function stateForAccount(accountId: string) {
   if (!state || !state.activated || state.archived || state.accountId !== accountId || state.plan.address !== account.address.toLowerCase() || account.chainId !== state.chainId || account.seedGroupId !== state.seedGroupId) throw new Error("Bunker account identity changed");
   return state;
 }
-export async function queueBunkerOperation(input: { accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[]; id?: string; recovery?: boolean; swapContext?: BunkerSwapContext; swapMeta?: SwapMeta; transferMeta?: TransferMeta; nativeMax?: { limit: string } }, options: { notifyRenderer?: boolean } = {}) {
+export async function queueBunkerOperation(input: { accountId: string; chainId: number; calls: SafeCall[]; routes: BunkerRoute[]; id?: string; recovery?: boolean; swapContext?: BunkerSwapContext; swapMeta?: SwapMeta; transferMeta?: TransferMeta; nativeMax?: { limit: string } }, options: { notifyRenderer?: boolean; fromInbox?: boolean } = {}) {
+  assertBunkerCalls(input.calls, input.recovery === true);
   const swapContext = input.swapContext === undefined ? undefined : decodeBunkerSwapContext(input.swapContext);
   const swapMeta = input.swapMeta === undefined ? undefined : decodeBunkerSwapMetadata(input.swapMeta);
   if (swapContext && (!swapMeta || swapContext.sell.symbol !== swapMeta.sellTokenSymbol || swapContext.buy.symbol !== swapMeta.buyTokenSymbol)) throw new Error("Invalid Bunker swap context");
@@ -51,6 +54,11 @@ export async function queueBunkerOperation(input: { accountId: string; chainId: 
   return withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     const current = captureBunkerAccess(); current();
     const state = await stateForAccount(input.accountId);
+    if (options.fromInbox) {
+      const entry = (await readBunkerInbox()).find(e => e.id === input.id && e.accountId === input.accountId && e.chainId === input.chainId);
+      if (!entry || entry.rejection || JSON.stringify(entry.calls) !== JSON.stringify(input.calls) || JSON.stringify(entry.routes) !== JSON.stringify(input.routes))
+        throw new Error("Bunker inbox request is no longer pending");
+    }
     const id = input.id ?? crypto.randomUUID();
     const previous = state.operations.find((o) => o.id === id);
     if (previous) {
@@ -77,7 +85,7 @@ export async function queueBunkerTransaction(accountId: string, tx: { chainId: n
     calls: [{ to: tx.to as Hex, value: BigInt(normalized.value).toString() as `${bigint}`, data: (tx.data ?? "0x") as Hex, operation: 0 }], routes: [route] });
 }
 const activeReviews = new Map<string, symbol>();
-const reviewSnapshot = (state: Awaited<ReturnType<typeof stateForAccount>>) => JSON.stringify({ ...state,
+const reviewSnapshot = (state: Awaited<ReturnType<typeof stateForAccount>>) => JSON.stringify({ ...state, reconcileAfter: undefined,
   operations: state.operations.map((op) => ({ ...op, published: undefined, resultPublished: undefined })) });
 export async function reviewBunkerOperation(accountId: string, id: string, payerId: string, client: PublicClient, overrides?: GasOverrides, feeToken: unknown = "native") {
   const current = captureBunkerAccess(); current();
@@ -247,14 +255,18 @@ export async function confirmBunkerOperation(accountId: string, id: string, dige
     }
   });
 }
-export async function rejectBunkerOperation(accountId: string, id: string, onCommitted?: () => void) {
+export async function rejectBunkerOperation(accountId: string, id: string, onCommitted?: () => void, invalidInbox = false) {
   const current = captureBunkerAccess(); current(); const account = await getAccountById(accountId);
   if (account?.type !== "safeBunker") throw new Error("Bunker not found");
-  await withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
+  const result = await withStorageLock(`bunker:${account.bunkerId}`, () => withStorageLock(WALLET_SECRET_OPERATION_LOCK_KEY, async () => {
     const state = await stateForAccount(accountId); const op = state.operations.find((o) => o.id === id);
+    if (invalidInbox && op) return "raced";
+    if (!op && await rejectBunkerInboxEntry(state, id, current, invalidInbox)) return "inbox";
     if (!op || op.signature || !["queued", "reviewed"].includes(op.state)) throw new Error("Signed Bunker operations require a recovery rotation");
     op.state = "rejected"; await writeBunkerState(state, current);
+    return "journal";
   }));
+  if (result === "raced") return;
   current(); onCommitted?.();
-  await publishBunkerRejection(account.bunkerId, id, current);
+  if (result === "journal") await publishBunkerRejection(account.bunkerId, id, current);
 }

@@ -895,6 +895,91 @@ for (const chain of [sepolia, baseSepolia]) test(`standard Safe deployment, exte
         await writeBunkerState(original, captureBunkerAccess());
       }
     });
+    await t.test("submitted recovery settles beyond five signed attempts and the scan cursor survives RPC failure", async () => {
+      const { writeBunkerState } = await import("../../src/chrome/safeBunker/stateRepository");
+      const original = await stateForAccount(state.accountId);
+      const branch = await client.request({ method: "evm_snapshot" as any });
+      try {
+        const unavailable = { ...client, call: async () => { throw new Error("Synthetic preflight failure"); } } as typeof client;
+        const ids: string[] = [];
+        for (let n = 0; n < 6; n++) {
+          const queued = await createBunkerRecoveryOperation(state.accountId, client);
+          assert.ok("id" in queued); if (!("id" in queued)) return;
+          ids.push(queued.id);
+          const reviewed = await reviewBunkerOperation(state.accountId, queued.id, "payer", client);
+          if (n < 5) await assert.rejects(confirmBunkerOperation(state.accountId, queued.id, reviewed.review!.digest, false, unavailable));
+          else await confirmBunkerOperation(state.accountId, queued.id, reviewed.review!.digest, false, client);
+        }
+        await mine();
+        const broken = { ...client, getTransactionReceipt: async () => { throw new Error("Synthetic receipt outage"); },
+          getLogs: async () => { throw new Error("Synthetic log outage"); } } as typeof client;
+        await assert.rejects(reconcileBunker(id, broken), /Synthetic log outage/);
+        const restarted = await stateForAccount(state.accountId);
+        assert.ok(restarted.reconcileAfter, "scan advances durably before fallible RPC work");
+        for (let attempt = 0; attempt < 3 && (await stateForAccount(state.accountId)).operations.find(op => op.id === ids[5])!.state !== "confirmed"; attempt++)
+          await reconcileBunker(id, client);
+        const settled = await stateForAccount(state.accountId);
+        const last = settled.operations.find(op => op.id === ids[5])!;
+        assert.equal(last.state, "confirmed"); assert.equal(settled.ownerIndex, last.review!.nextIndex);
+        for (const old of ids.slice(0, 5)) assert.equal(settled.operations.find(op => op.id === old)!.state, "invalidated");
+        await awaitExecutorReceipt(last.id);
+      } finally {
+        await client.request({ method: "evm_revert" as any, params: [branch] as any });
+        await writeBunkerState(original, captureBunkerAccess());
+      }
+    });
+    await t.test("inbox rejects oversized intake and terminalizes old invalid entries without stranding prompts", async () => {
+      const { enqueueBunkerRequest, readBunkerInbox, cancelBunkerInboxRequests } = await import("../../src/chrome/safeBunker/inbox");
+      const { drainBunkerInbox } = await import("../../src/chrome/safeBunker/view");
+      const { rejectBunkerOperation } = await import("../../src/chrome/safeBunker/operations");
+      const { getPendingBunkerRequests } = await import("../../src/chrome/safeBunker/pendingRequests");
+      const originalInbox = structuredClone(local.safeBunkerInboxV1);
+      const original = await stateForAccount(state.accountId);
+      const entry = (requestId: string, large = false) => ({ id: requestId, accountId: state.accountId, chainId,
+        calls: [{ to: address, value: "0" as const, data: large ? `0x${"ab".repeat(125000)}` as Hex : "0x" as Hex, operation: 0 as const }],
+        routes: [{ kind: "wallet" as const, origin: "WalletChan", requestId }] });
+      try {
+        await assert.rejects(enqueueBunkerRequest(entry("new-oversized", true)), /Bunker calldata limit/);
+        assert.deepEqual(local.safeBunkerInboxV1, originalInbox, "invalid intake is never acknowledged or persisted");
+        local.safeBunkerInboxV1 = [entry("old-oversized", true)];
+        await drainBunkerInbox(state.accountId);
+        assert.deepEqual(await readBunkerInbox(), []);
+        assert.ok(!(await getPendingBunkerRequests()).some(row => row.id === "old-oversized"));
+        assert.ok(!(await stateForAccount(state.accountId)).operations.some(op => op.id === "old-oversized"));
+
+        const pending = { ...entry("inbox-reject"), routes: [{ kind: "injected" as const, origin: "https://fixture.example", tabId: 1, requestId: "inbox-reject" }] };
+        await enqueueBunkerRequest(pending);
+        unlock("agent");
+        await assert.rejects(rejectBunkerOperation(state.accountId, pending.id), /Authentication changed/);
+        assert.equal((await readBunkerInbox())[0].rejection, undefined); unlock();
+        const setter = chrome.storage.local.set;
+        chrome.storage.local.set = (async (values: any) => {
+          if (values[`txResult:${pending.id}`]) throw new Error("Synthetic result write failure");
+          return setter(values);
+        }) as typeof setter;
+        try { await assert.rejects(rejectBunkerOperation(state.accountId, pending.id), /Synthetic result write failure/); }
+        finally { chrome.storage.local.set = setter; }
+        assert.equal((await readBunkerInbox())[0].rejection, "user");
+        await assert.rejects(queueBunkerOperation(pending, { fromInbox: true }), /no longer pending/);
+        assert.ok(!(await getPendingBunkerRequests()).some(row => row.id === pending.id), "a durable rejection is no longer approvable");
+        await cancelBunkerInboxRequests({ origin: "https://fixture.example" });
+        assert.equal((await readBunkerInbox())[0].rejection, "user", "revocation cannot erase undelivered rejection evidence");
+        await drainBunkerInbox(state.accountId);
+        assert.deepEqual(await readBunkerInbox(), []);
+        assert.equal(local[`txResult:${pending.id}`].result.code, 4001);
+        await assert.rejects(queueBunkerOperation(pending, { fromInbox: true }), /no longer pending/, "a stale handoff cannot recreate a removed rejection");
+        assert.ok(!(await stateForAccount(state.accountId)).operations.some(op => op.id === pending.id), "retry cannot recreate the rejected intent");
+
+        const signed = original.operations.find(op => op.signature)!;
+        local.safeBunkerInboxV1 = [entry(signed.id)];
+        await assert.rejects(rejectBunkerOperation(state.accountId, signed.id), /Signed Bunker operations/);
+        assert.equal((await stateForAccount(state.accountId)).operations.find(op => op.id === signed.id)!.signature, signed.signature);
+        assert.equal((await readBunkerInbox())[0].rejection, undefined);
+      } finally {
+        unlock();
+        if (originalInbox === undefined) delete local.safeBunkerInboxV1; else local.safeBunkerInboxV1 = originalInbox;
+      }
+    });
     await t.test("master removal clears operational data and repairs selection", async () => {
       const { removeBunkerAccount } = await import("../../src/chrome/safeBunker/management");
       const restoredId = id;

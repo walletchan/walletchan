@@ -22,6 +22,7 @@ import { authorizeBunkerOperation } from "./authorization";
 import { flushBunkerRejections, publishBunkerRoutes } from "./publication";
 import { outstanding, stateForAccount } from "./operations";
 import { verifyBunkerDeployment } from "./deployment";
+import { bunkerReconciliationPage } from "./reconciliationPage";
 
 const EVENTS = parseAbi(["event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)", "event AddedOwner(address indexed owner)", "event RemovedOwner(address indexed owner)"]);
 export async function reconcileBunker(id: string, client: PublicClient) {
@@ -48,7 +49,15 @@ export async function reconcileBunker(id: string, client: PublicClient) {
       }
     }
     const userOperationReceipts = new Map<string, NonNullable<Awaited<ReturnType<typeof bunkerUserOperationReceipt>>>>();
-    for (const op of [...state.operations.filter(outstanding), ...state.operations.filter(o => o.state === "reverted" && !o.userOperationHash && o.review?.ownerIndex === state.ownerIndex).reverse()].slice(0, 5)) {
+    const page = bunkerReconciliationPage(state.operations, state.ownerIndex, state.reconcileAfter);
+    for (const op of page) {
+      if (!outstanding(op) && op.state !== "reverted") continue;
+      // Save only scheduling metadata before each attempt. If an RPC throws,
+      // peers still progress, while partially verified settlements are retried.
+      const checkpoint = await readBunkerState(id, current());
+      if (!checkpoint) throw new Error("Bunker is unavailable");
+      checkpoint.reconcileAfter = op.id; await writeBunkerState(checkpoint, current);
+      state.reconcileAfter = op.id;
       let hash: Hex | undefined = op.outer?.hash;
       // Earlier builds discarded the outer hash after a revert. Recover the public
       // Activity hint, then verify the canonical receipt before upgrading its state.

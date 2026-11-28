@@ -8067,6 +8067,24 @@ which is never rewritten. Zero-value calldata calls remain ordinary requests.
 
 ### Safe Bunker recovery and journal capacity
 
+`reconciliationPage.ts` selects at most five operations in round-robin order,
+initially prioritizing submitted hashes. Each attempt checkpoints the optional
+encrypted `reconcileAfter` ID before RPC work, independently of unverified
+settlement changes, so provider errors and service-worker restarts cannot strand
+later recoveries. This scheduling metadata is excluded from review snapshots and
+public views; canonical receipt/owner checks still own settlement.
+
+`callValidation.ts` shares canonical CALL/count/aggregate-calldata validation
+between unsigned inbox intake, journal intake and the journal decoder. Oversized
+new requests fail before acknowledgment. Older accepted inbox entries can still
+be read and invalid CALLs receive terminal rejection through normal publication.
+Inbox-only rejection uses the existing confirmation command and commits optional
+`rejection: "user" | "invalid"` before result delivery. Pending hints omit these
+records; authenticated reconciliation/draining retries delivery before removal.
+The locked handoff rechecks live inbox membership so a stale drain cannot recreate
+a rejected request. Auth/RPC/capacity failures remain retryable; signed journal
+operations retain the existing rejection prohibition.
+
 Safe Bunker recovery and journal capacity are owned by `recoveryAnchor.ts` and
 `journalCapacity.ts`. Ordinary reads still reject an orphaned verification
 anchor. Explicit master recovery alone may verify the full pinned configuration

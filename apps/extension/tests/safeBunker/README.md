@@ -93,3 +93,12 @@ results. The execution integration exercises actual reorg recovery of a saved
 anchor, agent/stale-master/chain/hash failures without writes, preserved signature
 and successor evidence, explicit recovery rotation and post-compaction execution
 and settlement on both disposable chains. No browser is launched.
+
+`callValidation.test.ts` checks shared exact aggregate limits, malformed CALLs,
+canonical quantities and optional-cursor compatibility. `reconciliationPage.test.ts`
+checks submitted priority, bounded round-robin progress, changing queues and
+first-RPC failures across persisted restarts. The execution integration signs five
+unsubmitted recoveries then submits a sixth, persists progress through RPC failure
+and settles its canonical rotation. Inbox regressions cover pre-ack rejection,
+old oversized entries, durable rejection delivery/retry, revoked origins, stale
+handoff and agent/signed-operation protection using the existing handler.

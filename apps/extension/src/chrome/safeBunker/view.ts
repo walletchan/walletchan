@@ -10,7 +10,8 @@ import { getAccounts } from "../accountStorage";
 import { captureBunkerAccess } from "./access";
 import { bunkerEntry } from "./live";
 import { loadStoredBunkerStates, readBunkerState } from "./stateRepository";
-import { queueBunkerOperation } from "./operations";
+import { queueBunkerOperation, rejectBunkerOperation } from "./operations";
+import { BunkerCallValidationError } from "./callValidation";
 import { acknowledgeBunkerInbox, readBunkerInbox } from "./inbox";
 import type { BunkerAccountView, BunkerState } from "./types";
 export async function projectBunkerView(state: BunkerState): Promise<BunkerAccountView> {
@@ -40,8 +41,11 @@ export async function drainBunkerInbox(accountId: string) {
   if (account?.type === "safeBunker") await cancelUnauthorizedBunkerRequests(account.bunkerId);
   const entries = (await readBunkerInbox()).filter((e) => e.accountId === accountId);
   for (const entry of entries) {
-    try { await queueBunkerOperation(entry); await acknowledgeBunkerInbox(entry.id); }
-    catch { /* Preserve unsigned request for deliberate retry or rejection. */ }
+    try { await queueBunkerOperation(entry, { fromInbox: true }); await acknowledgeBunkerInbox(entry.id); }
+    catch (error) {
+      if (error instanceof BunkerCallValidationError) await rejectBunkerOperation(accountId, entry.id, undefined, true);
+      // Auth, RPC and capacity failures remain retryable and explicitly rejectable.
+    }
   }
 }
 export async function findBunkerRequestAccount(requestId: string) {

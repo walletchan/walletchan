@@ -24,7 +24,7 @@ export async function getPendingBunkerRequests(): Promise<PendingBunkerRequest[]
   const [index, inbox, accounts] = await Promise.all([readBunkerPendingIndex(), readBunkerInbox(), getAccounts()]);
   const eligible = new Set(accounts.filter((a) => a.type === "safeBunker").map((a) => a.id));
   const merged = new Map(index.map((r) => [r.id, r]));
-  for (const entry of inbox) if (!merged.has(entry.id)) merged.set(entry.id, { id: entry.id, accountId: entry.accountId, createdAt: 0 });
+  for (const entry of inbox) if (!entry.rejection && !merged.has(entry.id)) merged.set(entry.id, { id: entry.id, accountId: entry.accountId, createdAt: 0 });
   return [...merged.values()].filter((r) => eligible.has(r.accountId)).sort((a, b) => a.createdAt - b.createdAt);
 }
 export function notifyBunkerPendingChanged() {

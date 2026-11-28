@@ -20,6 +20,8 @@ test("pending notifications deduplicate inbox handoff, survive locked reads and 
     assert.deepEqual(await getPendingBunkerRequests(), [request]);
     delete data.safeBunkerPendingV1;
     assert.deepEqual(await getPendingBunkerRequests(), [{ ...request, createdAt: 0 }]);
+    (data.safeBunkerInboxV1 as any[])[0].rejection = "user";
+    assert.deepEqual(await getPendingBunkerRequests(), [], "durable inbox rejection stays hidden even while locked");
     data.safeBunkerInboxV1 = [];
     assert.deepEqual(await getPendingBunkerRequests(), []);
     data.safeBunkerPendingV1 = [{ ...request, calldata: "must-not-be-accepted" }];

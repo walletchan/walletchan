@@ -432,6 +432,12 @@ This documentation cleanup does not migrate storage or publish a release.
 - Verify module-required v3 deployment, rediscovery, import and restart/recovery;
   module-free Bunkers have no supported compatibility or upgrade path.
 - Run Safe Bunker, shared fee-payment, proxy and account/auth/hardware regressions.
+- Verify five earlier signed attempts cannot starve a later recovery, including
+  RPC errors and restart of the persisted reconciliation cursor. Exercise shared
+  calldata boundaries and legacy inbox rejection with failed result delivery,
+  stale handoff and agent rejection. Old journals/inboxes without the new optional
+  cursor/rejection fields remain readable without eager migration. Rollback must
+  preserve support for those additive fields; no released wallet key is replaced.
 - Verify orphaned import/expiry anchors recover only through master-authorized
   confirmed proof replacement and explicit rotation; preserve signature evidence
   and reject a moving/mismatched proof without writes. Exercise byte-limited

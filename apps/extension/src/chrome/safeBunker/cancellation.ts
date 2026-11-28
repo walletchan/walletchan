@@ -2,7 +2,7 @@ import { getCachedVaultKey } from "../sessionCache";
 import { WALLET_SECRET_OPERATION_LOCK_KEY, withStorageLock } from "../storageLock";
 import { authorizeBunkerOperation } from "./authorization";
 import { captureBunkerAccess } from "./access";
-import { readBunkerInbox, acknowledgeBunkerInbox } from "./inbox";
+import { readBunkerInbox, acknowledgeBunkerInbox, rejectBunkerInboxEntry } from "./inbox";
 import { readBunkerState, writeBunkerState } from "./stateRepository";
 import { publishBunkerRoutes } from "./publication";
 
@@ -17,6 +17,7 @@ export async function cancelUnauthorizedBunkerRequests(id: string) {
       catch { current(); op.state = "rejected"; delete op.review; await writeBunkerState(state, current); await publishBunkerRoutes(state, op, "rejected"); }
     }
     for (const entry of (await readBunkerInbox()).filter((e) => e.accountId === state.accountId)) {
+      if (entry.rejection) { await rejectBunkerInboxEntry(state, entry.id, current, entry.rejection === "invalid"); continue; }
       try { await authorizeBunkerOperation(state, { ...entry, kind: "transaction", state: "queued", createdAt: Date.now() }); }
       catch { current(); await acknowledgeBunkerInbox(entry.id); await publishBunkerRoutes(state, { ...entry, kind: "transaction", state: "rejected", createdAt: Date.now() }, "rejected"); }
     }

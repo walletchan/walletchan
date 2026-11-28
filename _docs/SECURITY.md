@@ -3189,6 +3189,20 @@ checks same-extension background sender and no tab. Hints are not forwarded to d
 
 ### History, recovery and removal
 
+Reconciliation checkpoints only its bounded scheduling cursor before each RPC
+attempt, so a failing earlier signature cannot starve later submitted recoveries.
+It does not checkpoint partially verified settlements. Account, chain, signature,
+canonical receipt/owner events and confirmation requirements remain unchanged.
+
+Unsigned Bunker CALL validation is shared with the journal decoder; provider
+intake cannot acknowledge calldata which its durable approval schema rejects.
+Legacy invalid inbox requests are rejected without signing. Inbox-only user or
+validation rejection commits a non-authoritative marker before result delivery,
+and retries preserve that marker through lock, failure and origin revocation.
+Handoff revalidates membership under the Bunker lock; an already journaled signed
+operation cannot be rejected through the inbox fallback. Agent sessions cannot
+invoke this mutation. No signatures or secrets enter inbox markers or cursors.
+
 Only canonical ExecutionSuccess/hash, owner-change evidence and matching live
 owner/nonce advance indices. Reverts preserve exposure; recent canonical anchors
 detect reorgs. Recovery reads current owner and performs bounded local matching
